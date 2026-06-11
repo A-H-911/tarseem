@@ -27,6 +27,9 @@ __all__ = ["ElkLayout", "elk_available"]
 # spec direction -> ELK flow direction
 _DIRECTION = {"TB": "DOWN", "BT": "UP", "LR": "RIGHT", "RL": "LEFT"}
 
+# edge.preferredDirection -> the node side the edge exits from (probe-proven fixed-side port)
+_PREFERRED_SIDE = {"UP": "NORTH", "DOWN": "SOUTH", "LEFT": "WEST", "RIGHT": "EAST"}
+
 _BASE_OPTIONS = {
     "elk.algorithm": "layered",
     "elk.layered.spacing.nodeNodeBetweenLayers": "60",
@@ -34,6 +37,17 @@ _BASE_OPTIONS = {
     "elk.layered.spacing.edgeNodeBetweenLayers": "30",
     "elk.edgeRouting": "ORTHOGONAL",
     "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+}
+
+# respectManualPositions: switch every layered phase to its INTERACTIVE variant so ELK
+# derives layering/ordering/placement from the seeded node coordinates instead of from
+# scratch. This preserves the manual *arrangement* (relative order on both axes); ELK still
+# normalizes spacing, so it is a strong ordering hint, not exact-pixel pinning (probe-proven).
+_INTERACTIVE_OPTIONS = {
+    "elk.layered.layering.strategy": "INTERACTIVE",
+    "elk.layered.crossingMinimization.strategy": "INTERACTIVE",
+    "elk.layered.nodePlacement.strategy": "INTERACTIVE",
+    "elk.layered.cycleBreaking.strategy": "INTERACTIVE",
 }
 
 _EDGE_LABEL_SIZE = 12.0
@@ -101,15 +115,37 @@ class ElkLayout:
 
     # -- translation (ELK JSON confined here) ---------------------------------
     def _to_elk(self, graph: LogicalGraph) -> dict:
+        respect = graph.respect_manual_positions
+        # Per-edge preferred exit side -> a dedicated fixed-side source port on that node.
+        # Collect ports per node so the node can declare FIXED_SIDE port constraints.
+        ports_by_node: dict[str, list[dict]] = {}
+        edge_source_port: dict[str, str] = {}
+        for e in graph.edges:
+            side = _PREFERRED_SIDE.get((e.preferred_direction or "").upper())
+            if side is not None:
+                port_id = f"{e.id}__src@{side}"
+                ports_by_node.setdefault(e.source, []).append(
+                    {"id": port_id, "width": 4.0, "height": 4.0,
+                     "layoutOptions": {"elk.port.side": side}}
+                )
+                edge_source_port[e.id] = port_id
+
         children = []
         for n in graph.nodes:
             w = n.width if n.width is not None else 84.0
             h = n.height if n.height is not None else 44.0
-            children.append({"id": n.id, "width": float(w), "height": float(h)})
+            child: dict = {"id": n.id, "width": float(w), "height": float(h)}
+            if respect and n.position is not None:
+                child["x"], child["y"] = float(n.position[0]), float(n.position[1])
+            if n.id in ports_by_node:
+                child["ports"] = ports_by_node[n.id]
+                child["layoutOptions"] = {"elk.portConstraints": "FIXED_SIDE"}
+            children.append(child)
 
         edges = []
         for e in graph.edges:
-            elk_edge: dict = {"id": e.id, "sources": [e.source], "targets": [e.target]}
+            source = edge_source_port.get(e.id, e.source)
+            elk_edge: dict = {"id": e.id, "sources": [source], "targets": [e.target]}
             if e.label and e.label.text:
                 lw = self._measurer.width(e.label.text, _EDGE_LABEL_SIZE) + 12.0
                 elk_edge["labels"] = [
@@ -124,6 +160,8 @@ class ElkLayout:
 
         direction = _DIRECTION.get(graph.direction, "DOWN")
         options = {**_BASE_OPTIONS, "elk.direction": direction}
+        if respect:
+            options = {**options, **_INTERACTIVE_OPTIONS}
         return {"id": "root", "layoutOptions": options, "children": children, "edges": edges}
 
     def _from_elk(self, graph: LogicalGraph, laid: dict) -> PositionedDiagram:

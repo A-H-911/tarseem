@@ -154,3 +154,47 @@ def test_manual_waypoints_survive_a_render_round_trip():
     first = next(e for e in Engine().render(spec).diagram.edges if e.id == "e1")
     second = next(e for e in Engine().render(spec).diagram.edges if e.id == "e1")
     assert first.points == second.points  # deterministic re-render reproduces the route
+
+
+@requires_node
+def test_respect_manual_positions_preserves_seeded_arrangement():
+    """Interactive placement keeps the manual relative ordering on both axes (probe-proven:
+    spacing is normalized, ordering is honoured)."""
+    from tarseem.engine import Engine
+
+    spec = {
+        "specVersion": "0.1",
+        "diagramType": "flowchart",
+        "direction": "TB",
+        "layout": {"respectManualPositions": True},
+        "nodes": [
+            {"id": "top", "label": {"text": "Top"}, "position": {"x": 200, "y": 10}},
+            {"id": "left", "label": {"text": "Left"}, "position": {"x": 20, "y": 200}},
+            {"id": "right", "label": {"text": "Right"}, "position": {"x": 400, "y": 200}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "top", "target": "left"},
+            {"id": "e2", "source": "top", "target": "right"},
+        ],
+    }
+    by_id = {n.id: n for n in Engine().render(spec).diagram.nodes}
+    assert by_id["top"].y < by_id["left"].y  # seeded-top stays above
+    assert by_id["top"].y < by_id["right"].y
+    assert by_id["left"].x < by_id["right"].x  # seeded-left stays left of seeded-right
+
+
+@requires_node
+def test_preferred_direction_forces_source_exit_side():
+    """preferredDirection=LEFT makes the edge leave the source's west side (start x near the
+    node's left edge, left of the node centre)."""
+    from tarseem.engine import Engine
+
+    spec = _spec(
+        direction="TB",
+        edges=[{"id": "e1", "source": "a", "target": "b", "preferredDirection": "LEFT"}],
+    )
+    d = Engine().render(spec).diagram
+    a = next(n for n in d.nodes if n.id == "a")
+    e = next(e for e in d.edges if e.id == "e1")
+    start_x = e.points[0][0]
+    assert start_x <= a.x + 1.0  # exits at/left of the node's left edge, not the bottom
