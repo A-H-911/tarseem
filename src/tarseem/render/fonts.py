@@ -23,8 +23,11 @@ FONT_FAMILY = "TarseemCairo"
 
 @functools.lru_cache(maxsize=64)
 def subset_woff2_datauri(chars: frozenset[str]) -> str:
-    """Base64 WOFF2 of the bundled font subset covering ``chars`` (whitespace dropped)."""
-    codepoints = [ord(c) for c in chars if not c.isspace()]
+    """Base64 WOFF2 of the bundled font subset covering ``chars`` (whitespace dropped).
+
+    Codepoints are SORTED before subsetting so the output bytes are independent of set
+    iteration order (PYTHONHASHSEED) — required for cross-run determinism (A3)."""
+    codepoints = sorted(ord(c) for c in chars if not c.isspace())
     ttf = TTFont(str(default_font_path()))
     ss = subset.Subsetter()
     ss.populate(unicodes=codepoints or [ord("?")])

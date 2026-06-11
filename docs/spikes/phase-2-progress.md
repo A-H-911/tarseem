@@ -9,8 +9,8 @@ Review stops: after **A1–A5 green**, and at **Phase 2 exit (A1–A5 + A11 + A1
 | A5 | Basic styling (theme + overrides + presets) | ✅ green | `tests/test_a5_styling.py` (9) | cascade unit tests | deep-merge cascade theme→overrides→group→lane→styleRefs→inline; golden render lands with A2 |
 | A2 | Flowchart / architecture-C4 / dependency via ELK | ✅ green | `tests/test_a2_render.py` (12) | `phase-2-goldens/{flowchart,architecture,dependency}.{svg,png}` | full pipeline compile→measure(uharfbuzz)→ELK→SVG→PNG; ELK JSON confined to adapter; edge labels at routed-polyline midpoint |
 | A12 | Swimlane LTR (ref-1 + ref-3) | ✅ green | `tests/test_a12_swimlane.py` (12) | `phase-2-goldens/swimlane-{bug-triage,pipeline}.{svg,png}` | lane-grid layouter (pure Python, no ELK); title bar + pills + hue tints + badges + UML markers + back-edge/dashed routing; reuses A2 shape/font primitives |
-| A3 | SVG + PNG deterministic | ⏳ next | — | — | repeat-render byte-diff |
-| A4 | Clean Python API + CLI | ⬜ | — | — | `Engine().render(spec).export([...])` |
+| A3 | SVG + PNG deterministic | ✅ green | `tests/test_a3_determinism.py` (5) | cross-hash-seed digest match | fixed font-subset nondeterminism (sorted codepoints vs PYTHONHASHSEED); SVG byte-identical across runs + PNG bytes stable |
+| A4 | Clean Python API + CLI | ⏳ next | — | — | `Engine().render(spec).export([...])` |
 | A11 | `engine doctor` | ⬜ | — | — | Node/elkjs/Playwright/fonts checks |
 
 ## A2 — evidence
