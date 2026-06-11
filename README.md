@@ -1,27 +1,21 @@
-# Tarseem (ترسيم)
+# Tarseem
 
-**Schema-driven Python diagram engine** — validated JSON specs → architecture-grade diagrams: SVG/PNG/PDF, editable draw.io & PowerPoint (PPTX), with ELK auto-layout, enterprise swimlanes, and Arabic/RTL-first rendering.
+Schema-driven Python diagram engine: validated JSON specs to architecture-grade diagrams,
+with first-class Arabic/RTL and editable exports (draw.io, PPTX).
 
-> ترسيم: "diagramming / charting". One JSON spec in — publishable, editable, and regenerable diagrams out.
+Status: **Phase 1 scaffold** - no engine logic yet; packages are placeholders implemented in
+later phases per `docs/plan/11-phased-plan.md`.
 
-## Status
+- Design contract (read-only): `docs/plan/`
+- Architecture decisions: `docs/adr/` (ADR-001..005)
+- Phase 0 validation: `docs/spikes/phase-0-summary.md`
 
-🚧 **Pre-implementation.** The full research & design mission is complete and approved; implementation follows the phased plan starting with Phase 0 spikes.
+## Development
 
-- 📐 Approved design & plan: [`docs/plan/`](docs/plan/README.md) (start at the index)
-- 🤖 Built with Claude Code — kickoff prompt: [`docs/prompts/initial-prompt.md`](docs/prompts/initial-prompt.md), working memory: [`CLAUDE.md`](CLAUDE.md)
-- 🗺️ Roadmap: [`docs/plan/11-phased-plan.md`](docs/plan/11-phased-plan.md) · Acceptance: [`docs/plan/12-acceptance-criteria.md`](docs/plan/12-acceptance-criteria.md)
-
-## Why
-
-No existing tool combines: JSON-native specs (agent-friendly), horizontal/vertical swimlanes, correct Arabic shaping + RTL layout mirroring, controlled orthogonal routing with ports, and *editable* exports (draw.io, native PPTX shapes) — verified across 16 candidate engines in [`docs/plan/03-engine-comparison.md`](docs/plan/03-engine-comparison.md). Tarseem composes the best of them behind one Python API:
-
-**ELK** (layout) · **own SVG renderer** (control) · **Playwright/Chromium** (raster/PDF + Arabic correctness + E2E) · **own draw.io & PPTX writers** (editability).
-
-## Planned MVP
-
-4 diagram families (flowchart, architecture/C4, dependency, swimlane) → SVG/PNG + browser gallery + visual-regression tests, clean Python API + CLI. Then: Arabic/RTL validation, routing depth, PDF + editable/source exports, plugin & agent surface.
+- Python >= 3.10. Layout runs in a Node subprocess (vendored elkjs); rendering via Playwright/Chromium.
+- Setup: `python -m venv .venv` then `pip install -e ".[dev]"` (Phase 2+: `playwright install chromium`).
+- Test: `pytest` - Lint: `ruff check .` - Types: `mypy`.
 
 ## License
 
-Apache-2.0
+Apache-2.0 (see `LICENSE`).
