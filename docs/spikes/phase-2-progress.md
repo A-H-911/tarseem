@@ -10,8 +10,11 @@ Review stops: after **A1–A5 green**, and at **Phase 2 exit (A1–A5 + A11 + A1
 | A2 | Flowchart / architecture-C4 / dependency via ELK | ✅ green | `tests/test_a2_render.py` (12) | `phase-2-goldens/{flowchart,architecture,dependency}.{svg,png}` | full pipeline compile→measure(uharfbuzz)→ELK→SVG→PNG; ELK JSON confined to adapter; edge labels at routed-polyline midpoint |
 | A12 | Swimlane LTR (ref-1 + ref-3) | ✅ green | `tests/test_a12_swimlane.py` (12) | `phase-2-goldens/swimlane-{bug-triage,pipeline}.{svg,png}` | lane-grid layouter (pure Python, no ELK); title bar + pills + hue tints + badges + UML markers + back-edge/dashed routing; reuses A2 shape/font primitives |
 | A3 | SVG + PNG deterministic | ✅ green | `tests/test_a3_determinism.py` (5) | cross-hash-seed digest match | fixed font-subset nondeterminism (sorted codepoints vs PYTHONHASHSEED); SVG byte-identical across runs + PNG bytes stable |
-| A4 | Clean Python API + CLI | ⏳ next | — | — | `Engine().render(spec).export([...])` |
-| A11 | `engine doctor` | ⬜ | — | — | Node/elkjs/Playwright/fonts checks |
+| A4 | Clean Python API + CLI | ✅ green | `tests/test_a4_api.py` (11) | `Engine().render(spec).export(["svg","png"])` + `tarseem` CLI | facade dispatches swimlane→lanegrid, graph→ELK; provenance (spec-hash + versions) embedded (invariant 7) |
+| A11 | `engine doctor` | ⏳ next (after stop) | — | — | Node/elkjs/Playwright/fonts checks |
+
+**First review stop reached — A1–A5 all green** (A1 ✅ A2 ✅ A3 ✅ A4 ✅ A5 ✅), plus A12-LTR ✅.
+Remaining for Phase-2 exit: **A11** (`engine doctor`).
 
 ## A2 — evidence
 Three families render via ELK through one positioned IR (one IR, many writers):
