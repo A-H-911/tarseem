@@ -45,8 +45,8 @@ jobs:
       - name: Engine doctor (A11 - Node/elkjs/Chromium/fonts)
         run: tarseem doctor
 
-      - name: Test (pytest - schema/unit/contract/render/E2E/visual)
-        run: pytest
+      - name: Test (pytest - schema/unit/contract/render/E2E/visual) + coverage gate
+        run: pytest --cov=tarseem --cov-report=term-missing --cov-fail-under=80
 
       - name: Build the gallery (A6/A9)
         run: tarseem gallery --examples examples -o build/gallery --no-png
