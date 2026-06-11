@@ -108,7 +108,11 @@ class LaneGridLayout:
 
         nodes, geom = self._place_nodes(graph, nums, lane_index, col_x, col_width, node_w, band_y)
         edges = self._route_edges(graph.edges, geom)
-        phase_bands = self._phase_bands(graph, nums, col_x, col_width)
+        content_left = _M + _LABEL_W  # actor/label separator
+        content_right = total_w - _M  # lane band right border
+        phase_bands = self._phase_bands(
+            graph, nums, col_x, col_width, content_left, content_right
+        )
         if markers:
             marker_objs, marker_edges = self._markers(graph, nums, geom, total_w)
             edges = edges + marker_edges
@@ -146,24 +150,28 @@ class LaneGridLayout:
             )
         return bands
 
-    def _phase_bands(self, graph, nums, col_x, col_width) -> list[PhaseBand]:
-        """One header band per phase, tiling the column space contiguously: each band spans
-        its member columns extended by half a column gap on each side, so adjacent phases
-        meet exactly — no gap, no overlap (the column gap is shared 50/50 at the boundary).
-        Assumes phases occupy contiguous column ranges (the documented MVP shape)."""
+    def _phase_bands(
+        self, graph, nums, col_x, col_width, content_left, content_right
+    ) -> list[PhaseBand]:
+        """One header band per phase, tiling the column space contiguously: internal phase
+        boundaries fall at the column-gap midpoint (so adjacent phases meet exactly), while
+        the OUTER edges are clamped to the content area — the first phase starts at the
+        actor/label separator and the last phase ends at the lane border, so the bands and
+        their separators never poke past the swimlane sides. Assumes phases occupy
+        contiguous column ranges (the documented MVP shape)."""
         cols_by_phase: dict[str, list[int]] = {}
         for n in graph.nodes:
             if n.phase:
                 cols_by_phase.setdefault(n.phase, []).append(nums[n.id])
+        ordered = [ph for ph in graph.phases if ph.id in cols_by_phase]
+        ordered.sort(key=lambda ph: min(cols_by_phase[ph.id]))
         half = _COL_GAP / 2
         bands: list[PhaseBand] = []
-        for ph in sorted(graph.phases, key=lambda p: p.order):
-            cols = cols_by_phase.get(ph.id)
-            if not cols:
-                continue
+        for i, ph in enumerate(ordered):
+            cols = cols_by_phase[ph.id]
             first, last = min(cols), max(cols)
-            left = col_x[first] - half
-            right = col_x[last] + col_width[last] + half
+            left = content_left if i == 0 else col_x[first] - half
+            right = content_right if i == len(ordered) - 1 else col_x[last] + col_width[last] + half
             bands.append(
                 PhaseBand(
                     id=ph.id, label=ph.label,

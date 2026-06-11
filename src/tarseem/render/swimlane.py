@@ -76,14 +76,15 @@ def _title_bar(diagram: PositionedDiagram, m: float, title_h: float) -> list[str
     ]
 
 
-def _phase_band(band, lanes_bottom: float) -> list[str]:
+def _phase_band(band, lanes_top: float, lanes_bottom: float) -> list[str]:
     """Phase header pill + a dotted separator at the band's LEFT edge dropping through the
-    lanes (FR-6.3). Drawing at the left edge puts a separator at the start of the first phase
-    and at every phase boundary (since bands tile contiguously, one band's left edge is the
-    previous band's right edge)."""
+    lanes (FR-6.3). The separator spans only the lane area [lanes_top, lanes_bottom] so it
+    never pokes above the swimlane top border or below the bottom. Drawing at the left edge
+    puts a separator at the start of the first phase and at every phase boundary (bands tile
+    contiguously, so one band's left edge is the previous band's right edge)."""
     cx = band.x + band.width / 2
     return [
-        f'<line x1="{_num(band.x)}" y1="{_num(band.y)}" x2="{_num(band.x)}" '
+        f'<line x1="{_num(band.x)}" y1="{_num(lanes_top)}" x2="{_num(band.x)}" '
         f'y2="{_num(lanes_bottom)}" stroke="{_SEPARATOR}" stroke-width="1.5" '
         f'stroke-dasharray="3 4"/>',
         f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
@@ -204,12 +205,12 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
             f'stroke="{_SEPARATOR}" stroke-width="2"/>'
         )
         for phase in diagram.phases:  # phase header bands + left-edge separators (FR-6.3)
-            parts.extend(_phase_band(phase, bottom))
+            parts.extend(_phase_band(phase, top, bottom))
         if diagram.phases:  # closing separator at the right edge of the last phase
             last = max(diagram.phases, key=lambda p: p.x + p.width)
             edge = last.x + last.width
             parts.append(
-                f'<line x1="{_num(edge)}" y1="{_num(last.y)}" x2="{_num(edge)}" '
+                f'<line x1="{_num(edge)}" y1="{_num(top)}" x2="{_num(edge)}" '
                 f'y2="{_num(bottom)}" stroke="{_SEPARATOR}" stroke-width="1.5" '
                 f'stroke-dasharray="3 4"/>'
             )

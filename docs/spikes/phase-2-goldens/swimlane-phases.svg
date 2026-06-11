@@ -14,13 +14,13 @@ text{font-family:'TarseemCairo';}
 <rect x="28" y="256" width="144" height="56" rx="8" fill="#D97706"/>
 <text x="100" y="284" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">Operations</text>
 <line x1="180" y1="104" x2="180" y2="344" stroke="#B0BEC5" stroke-width="2"/>
-<line x1="176" y1="70" x2="176" y2="344" stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="3 4"/>
-<rect x="176" y="70" width="412" height="34" rx="5" fill="#37474F" opacity="0.92"/>
-<text x="382" y="87" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">Intake</text>
-<line x1="588" y1="70" x2="588" y2="344" stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="3 4"/>
-<rect x="588" y="70" width="618" height="34" rx="5" fill="#37474F" opacity="0.92"/>
-<text x="897" y="87" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">Fulfilment</text>
-<line x1="1206" y1="70" x2="1206" y2="344" stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="3 4"/>
+<line x1="180" y1="104" x2="180" y2="344" stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="3 4"/>
+<rect x="180" y="70" width="408" height="34" rx="5" fill="#37474F" opacity="0.92"/>
+<text x="384" y="87" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">Intake</text>
+<line x1="588" y1="104" x2="588" y2="344" stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="3 4"/>
+<rect x="588" y="70" width="614" height="34" rx="5" fill="#37474F" opacity="0.92"/>
+<text x="895" y="87" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">Fulfilment</text>
+<line x1="1202" y1="104" x2="1202" y2="344" stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="3 4"/>
 <polyline points="279,199 279,284 410,284" fill="none" stroke="#333333" stroke-width="1"/>
 <polygon points="410,284 401,278.6 401,289.4" fill="#333333"/>
 <rect x="280.4" y="275" width="43.2" height="18" fill="#FFFFFF" opacity="0.9"/>
