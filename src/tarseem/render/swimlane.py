@@ -25,8 +25,10 @@ _TITLE_FILL = "#269973"
 _SEPARATOR = "#B0BEC5"
 _EDGE_DEFAULT = "#2E8B57"
 _MARKER_BLACK = "#000000"
+_BADGE_INSET_X = 10.0
 _BADGE_INSET_Y = 15.0
 _CYLINDER_RY = 9.0  # matches the renderer's cylinder cap depth
+_PARALLELOGRAM_SLANT = 20.0  # matches the renderer's parallelogram skew
 
 
 def _badge_baseline(shape: str, y: float) -> float:
@@ -35,6 +37,14 @@ def _badge_baseline(shape: str, y: float) -> float:
     if shape == "cylinder":
         return y + _BADGE_INSET_Y + 2 * _CYLINDER_RY
     return y + _BADGE_INSET_Y
+
+
+def _badge_x(shape: str, x: float) -> float:
+    """Badge left edge. Shifted right past the slanted top-left corner of a
+    parallelogram so the number sits inside the body, not in the cut-off corner."""
+    if shape == "parallelogram":
+        return x + _PARALLELOGRAM_SLANT + 4.0
+    return x + _BADGE_INSET_X
 
 
 def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
@@ -127,9 +137,10 @@ def _node_svg(n: PositionedNode) -> list[str]:
     out = [_shape_svg(n)]
     accent = str((n.style.get("border") or {}).get("color", "#333333"))
     if n.badge:
-        badge_y = _badge_baseline(n.shape, n.y)
+        bx = _badge_x(n.shape, n.x)
+        by = _badge_baseline(n.shape, n.y)
         out.append(
-            f'<text x="{_num(n.x + 10)}" y="{_num(badge_y)}" font-size="12" font-weight="700" '
+            f'<text x="{_num(bx)}" y="{_num(by)}" font-size="12" font-weight="700" '
             f'fill="{accent}" text-anchor="start">{_esc(n.badge)}</text>'
         )
     out.append(

@@ -193,6 +193,14 @@ def test_cylinder_badge_clears_the_top_cap():
     assert _badge_baseline("roundrect", 100.0) == _badge_baseline("diamond", 100.0)
 
 
+def test_parallelogram_badge_clears_the_slanted_corner():
+    from tarseem.render.swimlane import _badge_x
+
+    # parallelogram top-left is cut by the skew; badge must shift right into the body
+    assert _badge_x("parallelogram", 100.0) > _badge_x("roundrect", 100.0)
+    assert _badge_x("roundrect", 100.0) == _badge_x("document", 100.0)
+
+
 def test_rendered_svg_is_wellformed_xml():
     """Strict SVG viewers reject duplicate attributes; the output must parse as XML."""
     from defusedxml.ElementTree import fromstring  # safe parser (project invariant)
