@@ -196,7 +196,7 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
         parts.extend(_lane_band(band, w))
 
     if diagram.lanes:
-        sep_x = m + _LABEL_W + 2
+        sep_x = m + _LABEL_W  # actor/label separator; symmetric content padding starts here
         top = diagram.lanes[0].y
         bottom = diagram.lanes[-1].y + diagram.lanes[-1].height
         parts.append(

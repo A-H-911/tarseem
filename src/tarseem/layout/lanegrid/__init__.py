@@ -33,11 +33,14 @@ _LABEL_W = 160.0
 _LANE_H = 120.0
 _STEP_W = 150.0
 _STEP_H = 70.0
-_COL_GAP = 40.0
-_LABEL_GAP = 30.0
+_COL_GAP = 56.0  # horizontal gap between adjacent step columns
+# Symmetric horizontal padding on BOTH content sides: between the actor/label separator and
+# the first shape, and between the last shape and the lane's right border. A single fixed
+# value keeps the left and right margins equal across every swimlane (they used to differ —
+# a small label gap on the left, a large trailing margin on the right).
+_SIDE_PAD = 24.0
 _MARKER = 36.0
 _END_W = 80.0
-_TRAIL = 80.0
 _PHASE_H = 34.0  # phase header band height (FR-6.3); 0 when no phases declared
 _MARKER_BLACK = "#000000"
 
@@ -88,14 +91,14 @@ class LaneGridLayout:
             col = nums[n.id]
             col_width[col] = max(col_width.get(col, _STEP_W), w)
 
-        start_x = _M + _LABEL_W + _LABEL_GAP + end_w
+        start_x = _M + _LABEL_W + _SIDE_PAD + end_w
         col_x: dict[int, float] = {}
         cursor = start_x
         for c in range(1, n_cols + 1):
             col_x[c] = cursor
             cursor += col_width.get(c, _STEP_W) + _COL_GAP
         inner_right = cursor - _COL_GAP
-        total_w = inner_right + end_w + _TRAIL + _M
+        total_w = inner_right + end_w + _SIDE_PAD + _M
         phase_h = _PHASE_H if graph.phases else 0.0
         lanes_top = _M + _TITLE_H + phase_h
         total_h = lanes_top + len(lanes) * _LANE_H + _M
@@ -220,9 +223,9 @@ class LaneGridLayout:
         last = max(nums, key=lambda k: nums[k])
         fp, lp = geom[first], geom[last]
         r = _MARKER / 2
-        sx = _M + _LABEL_W + _LABEL_GAP + (_END_W - _MARKER) / 2
+        sx = _M + _LABEL_W + _SIDE_PAD + (_END_W - _MARKER) / 2
         sy = fp["y"] + (_STEP_H - _MARKER) / 2
-        ex = total_w - _M - _TRAIL - _END_W + (_END_W - _MARKER) / 2
+        ex = total_w - _M - _SIDE_PAD - _END_W + (_END_W - _MARKER) / 2
         ey = lp["y"] + (_STEP_H - _MARKER) / 2
         start = Marker(kind="start", cx=sx + r, cy=sy + r, r=r)
         end = Marker(kind="end", cx=ex + r, cy=ey + r, r=r)
