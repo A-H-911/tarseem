@@ -77,18 +77,20 @@ def _title_bar(diagram: PositionedDiagram, m: float, title_h: float) -> list[str
 
 
 def _phase_band(band, lanes_bottom: float) -> list[str]:
-    """Phase header pill + a dotted separator dropping through the lanes (FR-6.3)."""
+    """Phase header pill + a dotted separator at the band's LEFT edge dropping through the
+    lanes (FR-6.3). Drawing at the left edge puts a separator at the start of the first phase
+    and at every phase boundary (since bands tile contiguously, one band's left edge is the
+    previous band's right edge)."""
     cx = band.x + band.width / 2
-    sep_x = band.x + band.width
     return [
+        f'<line x1="{_num(band.x)}" y1="{_num(band.y)}" x2="{_num(band.x)}" '
+        f'y2="{_num(lanes_bottom)}" stroke="{_SEPARATOR}" stroke-width="1.5" '
+        f'stroke-dasharray="3 4"/>',
         f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
         f'height="{_num(band.height)}" rx="5" fill="#37474F" opacity="0.92"/>',
         f'<text x="{_num(cx)}" y="{_num(band.y + band.height / 2)}" font-size="13" '
         f'font-weight="700" fill="#FFFFFF" {_label_attrs(band.label)}>'
         f"{_esc(band.label.text)}</text>",
-        f'<line x1="{_num(sep_x)}" y1="{_num(band.y)}" x2="{_num(sep_x)}" '
-        f'y2="{_num(lanes_bottom)}" stroke="{_SEPARATOR}" stroke-width="1.5" '
-        f'stroke-dasharray="3 4"/>',
     ]
 
 
@@ -168,9 +170,15 @@ def _node_svg(n: PositionedNode) -> list[str]:
 
 def render_swimlane_svg(diagram: PositionedDiagram) -> str:
     w, h = diagram.width, diagram.height
-    # geometry recovered from the band chrome (layouter owns the absolute coords)
+    # geometry recovered from the band chrome (layouter owns the absolute coords). The title
+    # bar stops at the phase header when phases exist (else at the first lane) — otherwise it
+    # would swallow the phase-header band and the titles would overlap.
     m = diagram.lanes[0].x if diagram.lanes else 20.0
-    title_h = (diagram.lanes[0].y - m) if diagram.lanes else 50.0
+    if diagram.lanes:
+        title_bottom = diagram.phases[0].y if diagram.phases else diagram.lanes[0].y
+        title_h = title_bottom - m
+    else:
+        title_h = 50.0
     b64 = subset_woff2_datauri(_collect_chars(diagram))
 
     parts: list[str] = [

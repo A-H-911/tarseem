@@ -39,7 +39,6 @@ _MARKER = 36.0
 _END_W = 80.0
 _TRAIL = 80.0
 _PHASE_H = 34.0  # phase header band height (FR-6.3); 0 when no phases declared
-_PHASE_PAD = 6.0  # horizontal padding around a phase's member columns
 _MARKER_BLACK = "#000000"
 
 
@@ -106,7 +105,7 @@ class LaneGridLayout:
 
         nodes, geom = self._place_nodes(graph, nums, lane_index, col_x, col_width, node_w, band_y)
         edges = self._route_edges(graph.edges, geom)
-        phase_bands = self._phase_bands(graph, geom)
+        phase_bands = self._phase_bands(graph, nums, col_x, col_width)
         if markers:
             marker_objs, marker_edges = self._markers(graph, nums, geom, total_w)
             edges = edges + marker_edges
@@ -144,16 +143,24 @@ class LaneGridLayout:
             )
         return bands
 
-    def _phase_bands(self, graph, geom) -> list[PhaseBand]:
-        """One header band per phase, spanning the x-extent of its member nodes' columns.
-        Best-effort: phases whose columns interleave still get a band over their span."""
+    def _phase_bands(self, graph, nums, col_x, col_width) -> list[PhaseBand]:
+        """One header band per phase, tiling the column space contiguously: each band spans
+        its member columns extended by half a column gap on each side, so adjacent phases
+        meet exactly — no gap, no overlap (the column gap is shared 50/50 at the boundary).
+        Assumes phases occupy contiguous column ranges (the documented MVP shape)."""
+        cols_by_phase: dict[str, list[int]] = {}
+        for n in graph.nodes:
+            if n.phase:
+                cols_by_phase.setdefault(n.phase, []).append(nums[n.id])
+        half = _COL_GAP / 2
         bands: list[PhaseBand] = []
         for ph in sorted(graph.phases, key=lambda p: p.order):
-            members = [geom[n.id] for n in graph.nodes if n.phase == ph.id and n.id in geom]
-            if not members:
+            cols = cols_by_phase.get(ph.id)
+            if not cols:
                 continue
-            left = min(g["x"] for g in members) - _PHASE_PAD
-            right = max(g["x"] + g["w"] for g in members) + _PHASE_PAD
+            first, last = min(cols), max(cols)
+            left = col_x[first] - half
+            right = col_x[last] + col_width[last] + half
             bands.append(
                 PhaseBand(
                     id=ph.id, label=ph.label,
