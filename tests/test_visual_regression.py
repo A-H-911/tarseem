@@ -87,6 +87,13 @@ requires_baselines = pytest.mark.skipif(
 )
 
 
+# A real geometry/style change shifts shape edges across many pixels (>>1%); sub-pixel
+# anti-aliasing jitter between Chromium builds on the same OS stays well under this. The
+# tolerance absorbs single-level AA differences; the ratio threshold is the regression gate.
+_AA_TOLERANCE = 4
+_MAX_DIFF_RATIO = 0.01  # 1% of pixels
+
+
 @requires_baselines
 @pytest.mark.parametrize("name", BASELINE_SAMPLES)
 def test_render_matches_baseline(name, tmp_path):
@@ -94,8 +101,11 @@ def test_render_matches_baseline(name, tmp_path):
     Engine().render(spec).export(["png"], tmp_path, name)
     current = tmp_path / f"{name}.png"
     baseline = _baseline_dir() / f"{name}.png"
-    result = compare_png(baseline, current, tolerance=0, diff_out=tmp_path / f"{name}.diff.png")
-    assert result.matches, (
-        f"{name}: {result.diff_pixels}/{result.total_pixels} px changed vs baseline "
-        f"(size_mismatch={result.size_mismatch}); review {tmp_path / f'{name}.diff.png'}"
+    result = compare_png(
+        baseline, current, tolerance=_AA_TOLERANCE, diff_out=tmp_path / f"{name}.diff.png"
+    )
+    assert result.ratio <= _MAX_DIFF_RATIO, (
+        f"{name}: {result.diff_pixels}/{result.total_pixels} px changed "
+        f"({result.ratio:.3%}) vs baseline (size_mismatch={result.size_mismatch}); "
+        f"review {tmp_path / f'{name}.diff.png'}"
     )

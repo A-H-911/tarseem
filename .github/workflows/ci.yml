@@ -7,12 +7,15 @@ on:
 
 jobs:
   build-test:
-    # MVP A8: green on >=1 OS. The 3-OS matrix (windows/macos), gallery artifact,
-    # and visual-regression gates are added in Phase 3.
-    runs-on: ubuntu-latest
+    # MVP A8: full suite green across Windows, macOS, and Linux x Python 3.10/3.12.
+    # The visual-regression baselines are OS-specific (tests/baselines/<platform>/); the
+    # comparison runs only where a baseline exists (currently win32) and skips elsewhere.
+    name: ${{ matrix.os }} / py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@v4
@@ -30,18 +33,31 @@ jobs:
       - name: Install package + dev tooling
         run: python -m pip install -e ".[dev]"
 
+      - name: Install Playwright Chromium (rendering + E2E)
+        run: python -m playwright install --with-deps chromium
+
       - name: Lint (ruff)
         run: ruff check .
 
       - name: Type check (mypy)
         run: mypy
 
-      - name: Test (pytest)
+      - name: Engine doctor (A11 - Node/elkjs/Chromium/fonts)
+        run: tarseem doctor
+
+      - name: Test (pytest - schema/unit/contract/render/E2E/visual)
         run: pytest
+
+      - name: Build the gallery (A6/A9)
+        run: tarseem gallery --examples examples -o build/gallery --no-png
 
       - name: Build sdist + wheel
         run: python -m build
 
-      # Phase 2 adds: `playwright install chromium`, `tarseem doctor`, render-golden + e2e suites,
-      #               and coverage >= 80% gating.
-      # Phase 3 adds: 3-OS matrix, gallery artifact upload, and screenshot regression gates.
+      - name: Upload gallery artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: build/gallery
+          if-no-files-found: ignore
