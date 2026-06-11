@@ -99,6 +99,26 @@ _PHASE = {
     "additionalProperties": False,
 }
 
+# Swimlane layout hints (lane-grid families). Defaults equal the built-in constants.
+_LAYOUT = {
+    "type": "object",
+    "properties": {
+        "markers": {"type": "boolean"},  # UML start/end markers
+        "sidePadding": {"type": "number", "minimum": 0},  # symmetric left/right content pad
+        "columnGap": {"type": "number", "minimum": 0},  # horizontal gap between step columns
+        "phaseSeparator": {
+            "type": "object",
+            "properties": {
+                "style": {"enum": ["dashed", "solid"]},
+                "color": {"type": "string"},
+                "width": {"type": "number", "minimum": 0},
+            },
+            "additionalProperties": False,
+        },
+    },
+    "additionalProperties": True,  # forward-compat for later routing/layout hints
+}
+
 _GROUP = {
     "type": "object",
     "required": ["id"],
@@ -135,7 +155,7 @@ CORE_SCHEMA: dict = {
         "groups": {"type": "array", "items": _GROUP},
         "edges": {"type": "array", "items": _EDGE},
         "annotations": {"type": "array"},
-        "layout": {"type": "object"},
+        "layout": _LAYOUT,
         "export": {"type": "object"},
     },
     "patternProperties": {"^x-": {}},

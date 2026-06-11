@@ -65,6 +65,32 @@ terminal) from numbering; `layout.markers: true` adds UML start/end markers.
 Declare top-level `phases` and set each node's `phase` to group flow columns under a header
 band (with a separator dropping through the lanes). See `examples/swimlane-phases.json`.
 
+### Layout options
+
+Swimlane spacing and the phase-separator look are tunable per diagram under `layout` (all
+optional; defaults equal the built-in constants, so omitting them changes nothing):
+
+| Option | Type | Default | Effect |
+|---|---|---|---|
+| `sidePadding` | number | 24 | symmetric gap between the actor separator and the first shape, and between the last shape and the lane border |
+| `columnGap` | number | 56 | horizontal gap between step columns |
+| `phaseSeparator.style` | `"dashed"` \| `"solid"` | `"dashed"` | phase separator line style |
+| `phaseSeparator.color` | string | `#B0BEC5` | phase separator colour |
+| `phaseSeparator.width` | number | 1.5 | phase separator stroke width |
+| `markers` | boolean | false | UML start/end markers |
+
+```json
+{
+  "layout": {
+    "sidePadding": 32,
+    "columnGap": 72,
+    "phaseSeparator": { "style": "solid", "color": "#90A4AE", "width": 2 }
+  }
+}
+```
+
+See `examples/swimlane-tuned.json`.
+
 ## Sequence
 
 Participants are lifelines (ordered columns), messages are time-ordered rows, activation bars

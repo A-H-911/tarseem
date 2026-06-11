@@ -82,6 +82,11 @@ class LaneGridLayout:
         markers = graph.markers
         end_w = _END_W if markers else 0.0
 
+        # geometry knobs: spec `layout` hints override the built-in defaults (per-diagram)
+        opts = graph.layout_options
+        side_pad = float(opts.get("sidePadding", _SIDE_PAD))
+        col_gap = float(opts.get("columnGap", _COL_GAP))
+
         # per-column width = widest node (>= step), so long labels never clip
         col_width: dict[int, float] = {}
         node_w: dict[str, float] = {}
@@ -91,14 +96,14 @@ class LaneGridLayout:
             col = nums[n.id]
             col_width[col] = max(col_width.get(col, _STEP_W), w)
 
-        start_x = _M + _LABEL_W + _SIDE_PAD + end_w
+        start_x = _M + _LABEL_W + side_pad + end_w
         col_x: dict[int, float] = {}
         cursor = start_x
         for c in range(1, n_cols + 1):
             col_x[c] = cursor
-            cursor += col_width.get(c, _STEP_W) + _COL_GAP
-        inner_right = cursor - _COL_GAP
-        total_w = inner_right + end_w + _SIDE_PAD + _M
+            cursor += col_width.get(c, _STEP_W) + col_gap
+        inner_right = cursor - col_gap
+        total_w = inner_right + end_w + side_pad + _M
         phase_h = _PHASE_H if graph.phases else 0.0
         lanes_top = _M + _TITLE_H + phase_h
         total_h = lanes_top + len(lanes) * _LANE_H + _M
@@ -111,10 +116,10 @@ class LaneGridLayout:
         content_left = _M + _LABEL_W  # actor/label separator
         content_right = total_w - _M  # lane band right border
         phase_bands = self._phase_bands(
-            graph, nums, col_x, col_width, content_left, content_right
+            graph, nums, col_x, col_width, content_left, content_right, col_gap
         )
         if markers:
-            marker_objs, marker_edges = self._markers(graph, nums, geom, total_w)
+            marker_objs, marker_edges = self._markers(graph, nums, geom, total_w, side_pad)
             edges = edges + marker_edges
         else:
             marker_objs = ()
@@ -130,6 +135,7 @@ class LaneGridLayout:
             lanes=tuple(bands),
             phases=tuple(phase_bands),
             markers=tuple(marker_objs),
+            phase_separator=dict(opts.get("phaseSeparator") or {}),
             theme=graph.theme,
         )
 
@@ -151,7 +157,7 @@ class LaneGridLayout:
         return bands
 
     def _phase_bands(
-        self, graph, nums, col_x, col_width, content_left, content_right
+        self, graph, nums, col_x, col_width, content_left, content_right, col_gap
     ) -> list[PhaseBand]:
         """One header band per phase, tiling the column space contiguously: internal phase
         boundaries fall at the column-gap midpoint (so adjacent phases meet exactly), while
@@ -165,7 +171,7 @@ class LaneGridLayout:
                 cols_by_phase.setdefault(n.phase, []).append(nums[n.id])
         ordered = [ph for ph in graph.phases if ph.id in cols_by_phase]
         ordered.sort(key=lambda ph: min(cols_by_phase[ph.id]))
-        half = _COL_GAP / 2
+        half = col_gap / 2
         bands: list[PhaseBand] = []
         for i, ph in enumerate(ordered):
             cols = cols_by_phase[ph.id]
@@ -226,14 +232,14 @@ class LaneGridLayout:
             )
         return out
 
-    def _markers(self, graph, nums, geom, total_w):
+    def _markers(self, graph, nums, geom, total_w, side_pad):
         first = min(nums, key=lambda k: nums[k])
         last = max(nums, key=lambda k: nums[k])
         fp, lp = geom[first], geom[last]
         r = _MARKER / 2
-        sx = _M + _LABEL_W + _SIDE_PAD + (_END_W - _MARKER) / 2
+        sx = _M + _LABEL_W + side_pad + (_END_W - _MARKER) / 2
         sy = fp["y"] + (_STEP_H - _MARKER) / 2
-        ex = total_w - _M - _SIDE_PAD - _END_W + (_END_W - _MARKER) / 2
+        ex = total_w - _M - side_pad - _END_W + (_END_W - _MARKER) / 2
         ey = lp["y"] + (_STEP_H - _MARKER) / 2
         start = Marker(kind="start", cx=sx + r, cy=sy + r, r=r)
         end = Marker(kind="end", cx=ex + r, cy=ey + r, r=r)

@@ -89,7 +89,8 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         phases.append(LogicalPhase(id=raw["id"], label=label, order=float(raw.get("order", i))))
 
     title = (spec.get("meta") or {}).get("title")
-    markers = bool((spec.get("layout") or {}).get("markers", False))
+    layout_options = dict(spec.get("layout") or {})
+    markers = bool(layout_options.get("markers", False))
 
     return LogicalGraph(
         diagram_type=diagram_type,
@@ -100,5 +101,6 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         phases=tuple(phases),
         title=title,
         markers=markers,
+        layout_options=layout_options,
         theme=theme,
     )

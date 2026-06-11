@@ -86,6 +86,7 @@ class LogicalGraph:
     phases: tuple[LogicalPhase, ...] = ()  # swimlane phase columns (FR-6.3)
     title: str | None = None
     markers: bool = False  # UML start/end markers (swimlane)
+    layout_options: dict = field(default_factory=dict)  # spec `layout` hints (sidePadding…)
     theme: dict = field(default_factory=dict)
 
 
@@ -167,4 +168,5 @@ class PositionedDiagram:
     phases: tuple[PhaseBand, ...] = ()  # swimlane phase header bands (FR-6.3)
     markers: tuple[Marker, ...] = ()  # swimlane UML markers
     activations: tuple[Activation, ...] = ()  # sequence activation bars
+    phase_separator: dict = field(default_factory=dict)  # resolved phase-separator style
     theme: dict = field(default_factory=dict)
