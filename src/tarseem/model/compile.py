@@ -6,8 +6,8 @@ mutates the input spec.
 """
 from __future__ import annotations
 
-from tarseem.model.ir import Label, LogicalEdge, LogicalGraph, LogicalNode
-from tarseem.themes import get_theme
+from tarseem.model.ir import Label, LogicalEdge, LogicalGraph, LogicalLane, LogicalNode
+from tarseem.themes import LANE_PALETTE, get_theme
 from tarseem.themes.cascade import resolve_edge_style, resolve_node_style
 
 __all__ = ["compile_spec"]
@@ -47,26 +47,43 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
                 label=label,
                 shape=raw.get("shape", default_shape),
                 kind=raw.get("kind"),
+                lane=raw.get("lane"),
+                show_badge=bool(raw.get("badge", True)),
                 style=resolve_node_style(spec, raw, theme),
             )
         )
 
     edges: list[LogicalEdge] = []
     for raw in spec.get("edges", []) or []:
+        style = resolve_edge_style(spec, raw, theme)
+        if raw.get("dashed"):
+            style = {**style, "style": "dashed"}
         edges.append(
             LogicalEdge(
                 id=raw.get("id", f"{raw['source']}->{raw['target']}"),
                 source=raw["source"],
                 target=raw["target"],
                 label=_label(raw.get("label")),
-                style=resolve_edge_style(spec, raw, theme),
+                style=style,
             )
         )
+
+    lanes: list[LogicalLane] = []
+    for i, raw in enumerate(spec.get("lanes", []) or []):
+        hue = LANE_PALETTE[i % len(LANE_PALETTE)]
+        label = _label(raw.get("label")) or Label(text=str(raw.get("id", "")))
+        lanes.append(LogicalLane(id=raw["id"], label=label, hue=hue))
+
+    title = (spec.get("meta") or {}).get("title")
+    markers = bool((spec.get("layout") or {}).get("markers", False))
 
     return LogicalGraph(
         diagram_type=diagram_type,
         direction=spec.get("direction", "TB"),
         nodes=tuple(nodes),
         edges=tuple(edges),
+        lanes=tuple(lanes),
+        title=title,
+        markers=markers,
         theme=theme,
     )

@@ -1,0 +1,110 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "LR",
+  "meta": {
+    "title": "Pipeline"
+  },
+  "layout": {
+    "markers": true
+  },
+  "lanes": [
+    {
+      "id": "user",
+      "label": {
+        "text": "User"
+      }
+    },
+    {
+      "id": "sys",
+      "label": {
+        "text": "System"
+      }
+    },
+    {
+      "id": "stor",
+      "label": {
+        "text": "Storage"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "upload",
+      "lane": "user",
+      "shape": "parallelogram",
+      "label": {
+        "text": "Upload"
+      }
+    },
+    {
+      "id": "validate",
+      "lane": "sys",
+      "shape": "diamond",
+      "label": {
+        "text": "Validate?"
+      }
+    },
+    {
+      "id": "process",
+      "lane": "sys",
+      "shape": "roundrect",
+      "label": {
+        "text": "Process"
+      }
+    },
+    {
+      "id": "save",
+      "lane": "stor",
+      "shape": "cylinder",
+      "label": {
+        "text": "Save"
+      }
+    },
+    {
+      "id": "receipt",
+      "lane": "user",
+      "shape": "document",
+      "label": {
+        "text": "Receipt"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "upload",
+      "target": "validate"
+    },
+    {
+      "id": "e2",
+      "source": "validate",
+      "target": "process",
+      "label": {
+        "text": "ok"
+      }
+    },
+    {
+      "id": "e3",
+      "source": "validate",
+      "target": "upload",
+      "label": {
+        "text": "bad"
+      }
+    },
+    {
+      "id": "e4",
+      "source": "process",
+      "target": "save",
+      "label": {
+        "text": "async"
+      },
+      "dashed": true
+    },
+    {
+      "id": "e5",
+      "source": "save",
+      "target": "receipt"
+    }
+  ]
+}

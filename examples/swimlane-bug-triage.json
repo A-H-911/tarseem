@@ -1,0 +1,135 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "LR",
+  "meta": {
+    "title": "Bug Triage"
+  },
+  "lanes": [
+    {
+      "id": "rep",
+      "label": {
+        "text": "Reporter"
+      }
+    },
+    {
+      "id": "tri",
+      "label": {
+        "text": "Triage Engineer"
+      }
+    },
+    {
+      "id": "dev",
+      "label": {
+        "text": "Developer"
+      }
+    },
+    {
+      "id": "qa",
+      "label": {
+        "text": "QA"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "report",
+      "lane": "rep",
+      "shape": "stadium",
+      "badge": false,
+      "label": {
+        "text": "Bug report"
+      }
+    },
+    {
+      "id": "classify",
+      "lane": "tri",
+      "shape": "roundrect",
+      "label": {
+        "text": "Classify"
+      }
+    },
+    {
+      "id": "realbug",
+      "lane": "tri",
+      "shape": "diamond",
+      "label": {
+        "text": "Real bug?"
+      }
+    },
+    {
+      "id": "fix",
+      "lane": "dev",
+      "shape": "roundrect",
+      "label": {
+        "text": "Fix"
+      }
+    },
+    {
+      "id": "verify",
+      "lane": "qa",
+      "shape": "diamond",
+      "label": {
+        "text": "Verify"
+      }
+    },
+    {
+      "id": "close",
+      "lane": "tri",
+      "shape": "stadium",
+      "badge": false,
+      "label": {
+        "text": "Close"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "report",
+      "target": "classify"
+    },
+    {
+      "id": "e2",
+      "source": "classify",
+      "target": "realbug"
+    },
+    {
+      "id": "e3",
+      "source": "realbug",
+      "target": "close",
+      "label": {
+        "text": "no"
+      }
+    },
+    {
+      "id": "e4",
+      "source": "realbug",
+      "target": "fix",
+      "label": {
+        "text": "yes"
+      }
+    },
+    {
+      "id": "e5",
+      "source": "fix",
+      "target": "verify"
+    },
+    {
+      "id": "e6",
+      "source": "verify",
+      "target": "fix",
+      "label": {
+        "text": "fails"
+      }
+    },
+    {
+      "id": "e7",
+      "source": "verify",
+      "target": "close",
+      "label": {
+        "text": "passes"
+      }
+    }
+  ]
+}

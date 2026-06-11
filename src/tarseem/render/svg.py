@@ -120,6 +120,12 @@ def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
 
 
 def render_svg(diagram: PositionedDiagram) -> str:
+    # swimlanes carry band chrome and absolute coords -> dedicated writer
+    if diagram.lanes:
+        from tarseem.render.swimlane import render_swimlane_svg
+
+        return render_swimlane_svg(diagram)
+
     dx, dy = _MARGIN, _MARGIN
     width = diagram.width + 2 * _MARGIN
     height = diagram.height + 2 * _MARGIN

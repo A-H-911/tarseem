@@ -10,9 +10,12 @@ from dataclasses import dataclass, field, replace
 
 __all__ = [
     "Label",
+    "LogicalLane",
     "LogicalNode",
     "LogicalEdge",
     "LogicalGraph",
+    "LaneBand",
+    "Marker",
     "PositionedNode",
     "PositionedEdge",
     "PositionedDiagram",
@@ -36,6 +39,8 @@ class LogicalNode:
     label: Label
     shape: str = "rect"
     kind: str | None = None
+    lane: str | None = None  # swimlane membership
+    show_badge: bool = True  # False = auto-number badge exempt (start/terminal pills)
     style: dict = field(default_factory=dict)
     # sizes are None until the measurement stage fills them (measure-before-layout)
     width: float | None = None
@@ -52,11 +57,21 @@ class LogicalEdge:
 
 
 @dataclass(frozen=True)
+class LogicalLane:
+    id: str
+    label: Label
+    hue: dict = field(default_factory=dict)  # palette entry: row/box/label tints
+
+
+@dataclass(frozen=True)
 class LogicalGraph:
     diagram_type: str
     direction: str = "TB"  # TB | BT | LR | RL
     nodes: tuple[LogicalNode, ...] = ()
     edges: tuple[LogicalEdge, ...] = ()
+    lanes: tuple[LogicalLane, ...] = ()  # swimlane families only
+    title: str | None = None
+    markers: bool = False  # UML start/end markers (swimlane)
     theme: dict = field(default_factory=dict)
 
 
@@ -70,6 +85,26 @@ class PositionedNode:
     label: Label
     shape: str
     style: dict = field(default_factory=dict)
+    badge: str | None = None  # auto-number badge text (e.g. "2."); None = exempt
+
+
+@dataclass(frozen=True)
+class LaneBand:
+    id: str
+    label: Label
+    x: float
+    y: float
+    width: float
+    height: float
+    hue: dict  # palette entry: row/box/label tints
+
+
+@dataclass(frozen=True)
+class Marker:
+    kind: str  # "start" | "end"
+    cx: float
+    cy: float
+    r: float
 
 
 @dataclass(frozen=True)
@@ -89,4 +124,7 @@ class PositionedDiagram:
     edges: tuple[PositionedEdge, ...]
     diagram_type: str
     direction: str = "TB"
+    title: str | None = None
+    lanes: tuple[LaneBand, ...] = ()  # swimlane band chrome
+    markers: tuple[Marker, ...] = ()  # swimlane UML markers
     theme: dict = field(default_factory=dict)
