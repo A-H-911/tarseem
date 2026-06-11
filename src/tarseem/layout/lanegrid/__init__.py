@@ -43,6 +43,7 @@ _MARKER = 36.0
 _END_W = 80.0
 _PHASE_H = 34.0  # phase header band height (FR-6.3); 0 when no phases declared
 _MARKER_BLACK = "#000000"
+_ROUTE_CORRIDOR = 16.0  # clearance below/above all nodes for back-edge detour channels
 
 
 def _topo_numbers(nodes: tuple[LogicalNode, ...], edges: tuple[LogicalEdge, ...]) -> dict[str, int]:
@@ -247,13 +248,20 @@ class LaneGridLayout:
         return nodes, geom
 
     def _route_edges(self, edges: tuple, geom: dict) -> list[PositionedEdge]:
-        boxes = [(g["x"], g["y"], g["x"] + g["w"], g["y"] + g["h"]) for g in geom.values()]
+        boxes_by_id = {
+            nid: (g["x"], g["y"], g["x"] + g["w"], g["y"] + g["h"]) for nid, g in geom.items()
+        }
+        boxes = list(boxes_by_id.values())
+        # node-free corridors just below/above every node, used to detour around obstacles
+        bot_y = max((b[3] for b in boxes), default=0.0) + _ROUTE_CORRIDOR
+        top_y = min((b[1] for b in boxes), default=0.0) - _ROUTE_CORRIDOR
         out: list[PositionedEdge] = []
         for e in edges:
             a, b = geom.get(e.source), geom.get(e.target)
             if a is None or b is None:
                 continue
-            pts = _route(a, b)
+            obstacles = [box for nid, box in boxes_by_id.items() if nid not in (e.source, e.target)]
+            pts = _route(a, b, obstacles, top_y, bot_y)
             label_xy = (
                 _label_clear_xy(pts, e.label.text, boxes) if e.label and e.label.text else None
             )
@@ -329,18 +337,68 @@ def _side_x(g: dict, side: str, y: float) -> float:
     return left if side == "l" else right
 
 
-def _route(a: dict, b: dict) -> list[tuple[float, float]]:
-    """Orthogonal polyline exploiting one-step-per-column; attaches to real shape sides."""
+def _seg_clear(p: tuple, q: tuple, boxes: list) -> bool:
+    """True if the axis-aligned segment ``p``-``q`` passes through no box interior."""
+    eps = 0.5
+    if abs(p[1] - q[1]) < 1e-6:  # horizontal
+        y = p[1]
+        lo, hi = sorted((p[0], q[0]))
+        return not any(
+            (y0 + eps < y < y1 - eps) and (x0 < hi - eps) and (x1 > lo + eps)
+            for x0, y0, x1, y1 in boxes
+        )
+    x = p[0]  # vertical
+    lo, hi = sorted((p[1], q[1]))
+    return not any(
+        (x0 + eps < x < x1 - eps) and (y0 < hi - eps) and (y1 > lo + eps)
+        for x0, y0, x1, y1 in boxes
+    )
+
+
+def _route_clear(points: list, boxes: list) -> bool:
+    return all(_seg_clear(points[i], points[i + 1], boxes) for i in range(len(points) - 1))
+
+
+def _route(
+    a: dict, b: dict, obstacles: list | None = None,
+    top_y: float | None = None, bot_y: float | None = None,
+) -> list[tuple[float, float]]:
+    """Orthogonal polyline exploiting one-step-per-column; attaches to real shape sides.
+
+    The direct route is used whenever it is clear (so the common forward edge is unchanged).
+    When it would cross an *intervening* node — a back-edge or long edge passing over a node
+    in the target's lane — it detours through a node-free corridor below (then above) all
+    nodes, leaving and re-entering the endpoints vertically (south-to-south / north-to-north)
+    so the line never crosses a box."""
     A, B = _anchors(a), _anchors(b)
     if a["lane_i"] == b["lane_i"]:  # same lane -> straight horizontal at center y
         cy = A["cy"]
         if B["cx"] > A["cx"]:
-            return [(_side_x(a, "r", cy), cy), (_side_x(b, "l", cy), cy)]
-        return [(_side_x(a, "l", cy), cy), (_side_x(b, "r", cy), cy)]
-    exit_y = A["t"] if B["cy"] < A["cy"] else A["b"]  # top/bottom edges are flat -> bbox ok
-    side = "l" if B["cx"] >= A["cx"] else "r"
-    enter_x = _side_x(b, side, B["cy"])
-    return [(A["cx"], exit_y), (A["cx"], B["cy"]), (enter_x, B["cy"])]
+            direct = [(_side_x(a, "r", cy), cy), (_side_x(b, "l", cy), cy)]
+        else:
+            direct = [(_side_x(a, "l", cy), cy), (_side_x(b, "r", cy), cy)]
+    else:
+        exit_y = A["t"] if B["cy"] < A["cy"] else A["b"]  # top/bottom edges are flat -> bbox ok
+        side = "l" if B["cx"] >= A["cx"] else "r"
+        enter_x = _side_x(b, side, B["cy"])
+        direct = [(A["cx"], exit_y), (A["cx"], B["cy"]), (enter_x, B["cy"])]
+
+    if not obstacles or _route_clear(direct, obstacles):
+        return direct
+    # detour via a node-free corridor: exit/enter both shapes vertically (south, then north)
+    for corridor_y, a_exit, b_enter in (
+        (bot_y, A["b"], B["b"]),
+        (top_y, A["t"], B["t"]),
+    ):
+        if corridor_y is None:
+            continue
+        detour = [
+            (A["cx"], a_exit), (A["cx"], corridor_y),
+            (B["cx"], corridor_y), (B["cx"], b_enter),
+        ]
+        if _route_clear(detour, obstacles):
+            return detour
+    return direct
 
 
 def _polyline_midpoint(points: list[tuple[float, float]]) -> tuple[float, float]:
