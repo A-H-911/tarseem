@@ -1,0 +1,16 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "flowchart",
+  "direction": "LR",
+  "nodes": [
+    { "id": "start", "shape": "stadium", "label": { "text": "Start" } },
+    { "id": "check", "shape": "diamond", "label": { "text": "OK?" } },
+    { "id": "yes", "shape": "roundrect", "label": { "text": "Yes path" } },
+    { "id": "no", "shape": "roundrect", "label": { "text": "No path" } }
+  ],
+  "edges": [
+    { "id": "e0", "source": "start", "target": "check" },
+    { "id": "e1", "source": "check", "target": "yes", "label": { "text": "yes" } },
+    { "id": "e2", "source": "check", "target": "no", "label": { "text": "no" } }
+  ]
+}

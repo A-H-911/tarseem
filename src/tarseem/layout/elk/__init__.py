@@ -37,6 +37,7 @@ _BASE_OPTIONS = {
 }
 
 _EDGE_LABEL_SIZE = 12.0
+_PARALLELOGRAM_SLANT = 20.0  # must match the renderer's parallelogram skew
 
 
 @functools.lru_cache(maxsize=1)
@@ -140,11 +141,22 @@ class ElkLayout:
                 )
             )
 
+        pos_by_id = {n.id: n for n in nodes}
         edges_by_id = {e.id: e for e in graph.edges}
         edges: list[PositionedEdge] = []
         for ce in laid.get("edges", []):
             logical_edge = edges_by_id.get(ce["id"])
             points = _edge_points(ce)
+            # ELK attaches edges to the node bounding box; snap the terminal points onto the
+            # actual outline of non-rectangular shapes (diamond/parallelogram) so edges meet
+            # the shape instead of leaving a gap where the bbox extends past the rhombus.
+            if logical_edge is not None and len(points) >= 2:
+                src_node = pos_by_id.get(logical_edge.source)
+                tgt_node = pos_by_id.get(logical_edge.target)
+                if src_node is not None:
+                    points[0] = _snap_to_shape(points[0], points[1], src_node)
+                if tgt_node is not None:
+                    points[-1] = _snap_to_shape(points[-1], points[-2], tgt_node)
             label = logical_edge.label if logical_edge else None
             # elkjs reserves edge-label space but reports x/y=0, so place the label at
             # the geometric midpoint of the routed polyline (deterministic, spike-3 proven).
@@ -168,6 +180,35 @@ class ElkLayout:
             direction=graph.direction,
             theme=graph.theme,
         )
+
+
+def _snap_to_shape(
+    pt: tuple[float, float], adj: tuple[float, float], node: PositionedNode
+) -> tuple[float, float]:
+    """Move an edge endpoint from the node bbox onto the actual outline of an inscribed
+    shape. ELK routes orthogonally, so the terminal segment ``pt``->``adj`` is axis-aligned;
+    we project the bbox-boundary endpoint onto the diamond/parallelogram edge at the same
+    coordinate. Rect-like shapes already attach correctly, so they are returned unchanged."""
+    px, py = pt
+    ax, ay = adj
+    x, y, w, h = node.x, node.y, node.width, node.height
+    cx, cy = x + w / 2, y + h / 2
+    horizontal = abs(ay - py) <= abs(ax - px)  # terminal segment runs mostly horizontally
+
+    if node.shape == "diamond":
+        hw, hh = w / 2, h / 2
+        if horizontal and hh:
+            frac = 1.0 - min(1.0, abs(py - cy) / hh)
+            return (cx + hw * frac if px >= cx else cx - hw * frac, py)
+        if not horizontal and hw:
+            frac = 1.0 - min(1.0, abs(px - cx) / hw)
+            return (px, cy + hh * frac if py >= cy else cy - hh * frac)
+    elif node.shape == "parallelogram" and horizontal and h:
+        frac = min(1.0, max(0.0, (py - y) / h))  # 0 at top, 1 at bottom
+        if px <= cx:  # left (slanted) side
+            return (x + _PARALLELOGRAM_SLANT * (1.0 - frac), py)
+        return (x + w - _PARALLELOGRAM_SLANT * frac, py)
+    return pt
 
 
 def _edge_points(ce: dict) -> list[tuple[float, float]]:

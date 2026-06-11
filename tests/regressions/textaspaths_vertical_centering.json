@@ -1,0 +1,9 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "flowchart",
+  "direction": "LR",
+  "nodes": [
+    { "id": "a", "shape": "rect", "label": { "text": "Mij" } }
+  ],
+  "edges": []
+}

@@ -48,8 +48,9 @@ def _glyph_set_and_metrics() -> tuple[Any, list[str], int, float]:
     glyph_set = ttf.getGlyphSet()
     order = ttf.getGlyphOrder()
     upem = ttf["head"].unitsPerEm
-    # central-baseline approximation: shift glyphs down by half the typo height so a
-    # baseline-anchored outline sits where dominant-baseline="central" would.
+    # dominant-baseline="central" puts the central point — midpoint of ascent/descent,
+    # (asc+desc)/2 above the baseline — onto y. So the baseline sits *below* y by that
+    # amount: baseline_y = y + center_frac*size (see _text_to_group).
     asc = ttf["hhea"].ascent
     desc = ttf["hhea"].descent
     center_frac = (asc + desc) / 2.0 / upem
@@ -107,7 +108,7 @@ def _text_to_group(attrs_str: str, inner: str) -> str:
         pen_x = x - total_adv
     else:
         pen_x = x
-    baseline_y = y - center_frac * size  # center the run on y (central baseline)
+    baseline_y = y + center_frac * size  # baseline sits below y for central alignment
 
     paths: list[str] = []
     cursor = pen_x
