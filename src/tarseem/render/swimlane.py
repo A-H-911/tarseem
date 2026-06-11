@@ -71,8 +71,8 @@ def _lane_band(band, width: float) -> list[str]:
         f'<rect x="{_num(chip_x)}" y="{_num(chip_y)}" width="{_num(chip_w)}" '
         f'height="{_num(chip_h)}" rx="8" fill="{accent}"/>',
         f'<text x="{_num(chip_x + chip_w / 2)}" y="{_num(chip_y + chip_h / 2)}" font-size="13" '
-        f'font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central" '
-        f"{_label_attrs(band.label)}>{_esc(band.label.text)}</text>",
+        f'font-weight="700" fill="#FFFFFF" {_label_attrs(band.label)}>'
+        f"{_esc(band.label.text)}</text>",
     ]
 
 

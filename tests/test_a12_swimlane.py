@@ -183,3 +183,25 @@ def test_dashed_edge_renders_dashed():
     g = measure_graph(compile_spec(PIPELINE))
     svg = render_svg(LaneGridLayout().layout(g))
     assert "stroke-dasharray" in svg
+
+
+def test_rendered_svg_is_wellformed_xml():
+    """Strict SVG viewers reject duplicate attributes; the output must parse as XML."""
+    from defusedxml.ElementTree import fromstring  # safe parser (project invariant)
+
+    for spec in (BUG_TRIAGE, PIPELINE):
+        svg = render_svg(LaneGridLayout().layout(measure_graph(compile_spec(spec))))
+        fromstring(svg)  # raises ParseError on malformed XML (e.g. duplicate attrs)
+
+
+def test_edges_attach_to_parallelogram_slanted_edge():
+    """Connections must touch the parallelogram body, not its bounding box (no gap)."""
+    d = LaneGridLayout().layout(measure_graph(compile_spec(PIPELINE)))
+    upload = next(n for n in d.nodes if n.id == "upload")  # parallelogram
+    inset = 10.0  # s/2 at vertical center (shape slant s = 20)
+
+    start = next(e for e in d.edges if e.id == "__marker_start__")
+    assert abs(start.points[-1][0] - (upload.x + inset)) < 0.6  # left-center attach
+
+    bad = next(e for e in d.edges if e.id == "e3")  # validate -> upload (enters right)
+    assert abs(bad.points[-1][0] - (upload.x + upload.width - inset)) < 0.6

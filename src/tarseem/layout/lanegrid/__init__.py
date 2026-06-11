@@ -161,7 +161,10 @@ class LaneGridLayout:
                     label=n.label, shape=n.shape, style=style, badge=badge,
                 )
             )
-            geom[n.id] = {"x": x, "y": y, "w": w, "h": h, "lane_i": lane_index[lane_id], "hue": hue}
+            geom[n.id] = {
+                "x": x, "y": y, "w": w, "h": h,
+                "lane_i": lane_index[lane_id], "hue": hue, "shape": n.shape,
+            }
         return nodes, geom
 
     def _route_edges(self, edges: tuple, geom: dict) -> list[PositionedEdge]:
@@ -192,19 +195,24 @@ class LaneGridLayout:
         start = Marker(kind="start", cx=sx + r, cy=sy + r, r=r)
         end = Marker(kind="end", cx=ex + r, cy=ey + r, r=r)
         black = {"stroke": _MARKER_BLACK, "width": 2}
+        fp_cy = fp["y"] + _STEP_H / 2
+        lp_cy = lp["y"] + _STEP_H / 2
         edges = [
             PositionedEdge(
                 id="__marker_start__",
-                points=((sx + _MARKER, sy + r), (fp["x"], fp["y"] + _STEP_H / 2)),
+                points=((sx + _MARKER, sy + r), (_side_x(fp, "l", fp_cy), fp_cy)),
                 label=None, label_xy=None, style=black,
             ),
             PositionedEdge(
                 id="__marker_end__",
-                points=((lp["x"] + lp["w"], lp["y"] + _STEP_H / 2), (ex, ey + r)),
+                points=((_side_x(lp, "r", lp_cy), lp_cy), (ex, ey + r)),
                 label=None, label_xy=None, style=black,
             ),
         ]
         return (start, end), edges
+
+
+_PARALLELOGRAM_SLANT = 20.0  # must match the renderer's parallelogram skew
 
 
 def _anchors(g: dict) -> dict:
@@ -212,15 +220,32 @@ def _anchors(g: dict) -> dict:
     return {"cx": x + w / 2, "cy": y + h / 2, "l": x, "r": x + w, "t": y, "b": y + h}
 
 
+def _side_x(g: dict, side: str, y: float) -> float:
+    """X where a horizontal edge at height ``y`` meets the node's actual side.
+
+    Rect-like shapes use the bounding box; parallelograms are slanted, so the
+    attach point is inset along the skew (otherwise the arrow stops short -> gap)."""
+    left, right = g["x"], g["x"] + g["w"]
+    if g.get("shape") == "parallelogram":
+        frac = (y - g["y"]) / g["h"] if g["h"] else 0.0  # 0 at top, 1 at bottom
+        frac = min(1.0, max(0.0, frac))
+        if side == "l":
+            return left + _PARALLELOGRAM_SLANT * (1 - frac)
+        return right - _PARALLELOGRAM_SLANT * frac
+    return left if side == "l" else right
+
+
 def _route(a: dict, b: dict) -> list[tuple[float, float]]:
-    """Orthogonal polyline exploiting one-step-per-column."""
+    """Orthogonal polyline exploiting one-step-per-column; attaches to real shape sides."""
     A, B = _anchors(a), _anchors(b)
     if a["lane_i"] == b["lane_i"]:  # same lane -> straight horizontal at center y
+        cy = A["cy"]
         if B["cx"] > A["cx"]:
-            return [(A["r"], A["cy"]), (B["l"], A["cy"])]
-        return [(A["l"], A["cy"]), (B["r"], A["cy"])]
-    exit_y = A["t"] if B["cy"] < A["cy"] else A["b"]
-    enter_x = B["l"] if B["cx"] >= A["cx"] else B["r"]
+            return [(_side_x(a, "r", cy), cy), (_side_x(b, "l", cy), cy)]
+        return [(_side_x(a, "l", cy), cy), (_side_x(b, "r", cy), cy)]
+    exit_y = A["t"] if B["cy"] < A["cy"] else A["b"]  # top/bottom edges are flat -> bbox ok
+    side = "l" if B["cx"] >= A["cx"] else "r"
+    enter_x = _side_x(b, side, B["cy"])
     return [(A["cx"], exit_y), (A["cx"], B["cy"]), (enter_x, B["cy"])]
 
 
