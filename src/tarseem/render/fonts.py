@@ -25,10 +25,13 @@ FONT_FAMILY = "TarseemCairo"
 def subset_woff2_datauri(chars: frozenset[str]) -> str:
     """Base64 WOFF2 of the bundled font subset covering ``chars`` (whitespace dropped).
 
-    Codepoints are SORTED before subsetting so the output bytes are independent of set
-    iteration order (PYTHONHASHSEED) — required for cross-run determinism (A3)."""
+    Two things are pinned for cross-run determinism (A3 / invariant 7):
+    codepoints are SORTED before subsetting (output independent of set iteration order /
+    PYTHONHASHSEED), and ``recalcTimestamp=False`` keeps the bundled font's fixed
+    ``head.modified`` instead of stamping wall-clock time on save — otherwise two renders
+    seconds apart embed different timestamps (and a different ``checkSumAdjustment``)."""
     codepoints = sorted(ord(c) for c in chars if not c.isspace())
-    ttf = TTFont(str(default_font_path()))
+    ttf = TTFont(str(default_font_path()), recalcTimestamp=False)
     ss = subset.Subsetter()
     ss.populate(unicodes=codepoints or [ord("?")])
     ss.subset(ttf)

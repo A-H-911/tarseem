@@ -9,11 +9,11 @@ Review stops: after **A1–A5 green**, and at **Phase 2 exit (A1–A5 + A11 + A1
 | A5 | Basic styling (theme + overrides + presets) | ✅ green | `tests/test_a5_styling.py` (9) | cascade unit tests | deep-merge cascade theme→overrides→group→lane→styleRefs→inline; golden render lands with A2 |
 | A2 | Flowchart / architecture-C4 / dependency via ELK | ✅ green | `tests/test_a2_render.py` (12) | `phase-2-goldens/{flowchart,architecture,dependency}.{svg,png}` | full pipeline compile→measure(uharfbuzz)→ELK→SVG→PNG; ELK JSON confined to adapter; edge labels at routed-polyline midpoint |
 | A12 | Swimlane LTR (ref-1 + ref-3) | ✅ green | `tests/test_a12_swimlane.py` (12) | `phase-2-goldens/swimlane-{bug-triage,pipeline}.{svg,png}` | lane-grid layouter (pure Python, no ELK); title bar + pills + hue tints + badges + UML markers + back-edge/dashed routing; reuses A2 shape/font primitives |
-| A3 | SVG + PNG deterministic | ✅ green | `tests/test_a3_determinism.py` (5) | cross-hash-seed digest match | fixed font-subset nondeterminism (sorted codepoints vs PYTHONHASHSEED); SVG byte-identical across runs + PNG bytes stable |
+| A3 | SVG + PNG deterministic | ✅ green | `tests/test_a3_determinism.py` (5) | cross-hash-seed digest match | two font-subset nondeterminism sources fixed: (1) sorted codepoints vs PYTHONHASHSEED, (2) `recalcTimestamp=False` so `head.modified` keeps the bundled font's fixed value instead of wall-clock time on save; SVG byte-identical across runs + PNG bytes stable |
 | A4 | Clean Python API + CLI | ✅ green | `tests/test_a4_api.py` (11) | `Engine().render(spec).export(["svg","png"])` + `tarseem` CLI | facade dispatches swimlane→lanegrid, graph→ELK; provenance (spec-hash + versions) embedded (invariant 7) |
 | A11 | `engine doctor` | ✅ green | `tests/test_a11_doctor.py` (9) | `tarseem doctor` (+`--json`) | verifies node/elkjs(pinned 0.11.1)/Playwright-Chromium/Cairo font; every failure carries an actionable hint; exit 0/1 |
 
-**Phase-2 exit reached — A1–A5 + A11 + A12-LTR all green.** Full suite 73 passed; ruff + mypy clean.
+**Phase-2 exit reached — A1–A5 + A11 + A12-LTR all green.** Full suite 77 passed; ruff + mypy clean.
 
 ## A2 — evidence
 Three families render via ELK through one positioned IR (one IR, many writers):
@@ -46,7 +46,10 @@ Goldens reproduce the acceptance references (visual contract `references/analysi
   (parallelogram/diamond/roundrect/cylinder/document), UML start/end markers, dashed
   `async` edge, `bad` back-edge loop, long Save→Receipt edge.
 
-Known minor cosmetic: cylinder badge sits where the top ellipse curves (legible, logged).
+Shape-aware badge/edge geometry: badges shift clear of non-rect corners (`_badge_baseline`
+for the cylinder cap, `_badge_x` for the parallelogram skew) and edges attach to real shape
+sides (`_side_x`) so arrows touch the parallelogram body without a gap. SVG output is
+well-formed XML (no duplicate attrs) so strict viewers accept it.
 Per-lane theming = palette function over invariant geometry (binds F4 later). RTL variant
 is geometry-only and gated to Phase 4 (F3).
 
