@@ -67,6 +67,17 @@ def test_leading_separator_is_drawn_at_the_first_phase_start():
     assert needle in svg, f"no separator at first-phase left edge x={first.x}"
 
 
+def test_closing_separator_at_last_phase_end():
+    """A dashed separator must also close the last phase's right edge (mirrors the leading
+    separator at the first phase's start)."""
+    d = _layout(SPEC)
+    last = max(d.phases, key=lambda p: p.x + p.width)
+    edge = last.x + last.width
+    svg = render_svg(d)
+    needle = f'x1="{edge:.0f}"' if edge == int(edge) else f'x1="{edge:g}"'
+    assert needle in svg, f"no closing separator at last-phase right edge x={edge}"
+
+
 def test_title_text_stays_horizontal():
     d = _layout(SPEC)
     svg = render_svg(d)

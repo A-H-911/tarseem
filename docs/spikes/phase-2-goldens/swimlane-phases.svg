@@ -20,6 +20,7 @@ text{font-family:'TarseemCairo';}
 <line x1="570" y1="70" x2="570" y2="344" stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="3 4"/>
 <rect x="570" y="70" width="570" height="34" rx="5" fill="#37474F" opacity="0.92"/>
 <text x="855" y="87" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">Fulfilment</text>
+<line x1="1140" y1="70" x2="1140" y2="344" stroke="#B0BEC5" stroke-width="1.5" stroke-dasharray="3 4"/>
 <polyline points="285,199 285,284 400,284" fill="none" stroke="#333333" stroke-width="1"/>
 <polygon points="400,284 391,278.6 391,289.4" fill="#333333"/>
 <rect x="278.4" y="275" width="43.2" height="18" fill="#FFFFFF" opacity="0.9"/>

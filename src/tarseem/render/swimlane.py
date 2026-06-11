@@ -203,8 +203,16 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
             f'<line x1="{_num(sep_x)}" y1="{_num(top)}" x2="{_num(sep_x)}" y2="{_num(bottom)}" '
             f'stroke="{_SEPARATOR}" stroke-width="2"/>'
         )
-        for phase in diagram.phases:  # phase header bands + separators (FR-6.3)
+        for phase in diagram.phases:  # phase header bands + left-edge separators (FR-6.3)
             parts.extend(_phase_band(phase, bottom))
+        if diagram.phases:  # closing separator at the right edge of the last phase
+            last = max(diagram.phases, key=lambda p: p.x + p.width)
+            edge = last.x + last.width
+            parts.append(
+                f'<line x1="{_num(edge)}" y1="{_num(last.y)}" x2="{_num(edge)}" '
+                f'y2="{_num(bottom)}" stroke="{_SEPARATOR}" stroke-width="1.5" '
+                f'stroke-dasharray="3 4"/>'
+            )
 
     for e in diagram.edges:  # edges under nodes so arrowheads tuck at borders
         parts.extend(_edge_svg(e))
