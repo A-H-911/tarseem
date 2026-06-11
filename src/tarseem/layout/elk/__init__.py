@@ -115,6 +115,11 @@ class ElkLayout:
                 elk_edge["labels"] = [
                     {"id": f"{e.id}__lbl", "width": round(lw, 2), "height": 18.0}
                 ]
+            # Higher priority -> ELK keeps this edge straighter through the layered placement.
+            if e.priority is not None:
+                elk_edge["layoutOptions"] = {
+                    "elk.layered.priority.straightness": str(int(e.priority))
+                }
             edges.append(elk_edge)
 
         direction = _DIRECTION.get(graph.direction, "DOWN")
@@ -147,6 +152,11 @@ class ElkLayout:
         for ce in laid.get("edges", []):
             logical_edge = edges_by_id.get(ce["id"])
             points = _edge_points(ce)
+            # Manual waypoints (06 §2): splice the user's interior points over ELK's routed
+            # polyline, keeping ELK's terminal points as the node attachments. Re-applied on
+            # every render from the spec, so a re-render reproduces them exactly (round-trip).
+            if logical_edge is not None and logical_edge.waypoints and len(points) >= 2:
+                points = [points[0], *(p for p in logical_edge.waypoints), points[-1]]
             # ELK attaches edges to the node bounding box; snap the terminal points onto the
             # actual outline of non-rectangular shapes (diamond/parallelogram) so edges meet
             # the shape instead of leaving a gap where the bbox extends past the rhombus.

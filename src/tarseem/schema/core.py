@@ -32,6 +32,28 @@ _PORT = {
     "additionalProperties": False,
 }
 
+# A manual point [x, y] (waypoints, positions). Length-2 numeric tuple.
+_POINT = {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+
+# Edge routing hints (Phase 5). `mode` picks the router; `waypoints` are manual interior
+# points spliced over the routed polyline on every render (06 §2).
+_ROUTING = {
+    "type": "object",
+    "properties": {
+        "mode": {"enum": ["orthogonal", "polyline", "curved"]},
+        "waypoints": {"type": "array", "items": _POINT},
+    },
+    "additionalProperties": True,
+}
+
+# Manual node placement (honoured under layout.respectManualPositions).
+_POSITION = {
+    "type": "object",
+    "properties": {"x": {"type": "number"}, "y": {"type": "number"}},
+    "required": ["x", "y"],
+    "additionalProperties": False,
+}
+
 _NODE = {
     "type": "object",
     "required": ["id"],
@@ -46,7 +68,7 @@ _NODE = {
         "style": {"type": "object"},
         "size": {"type": "object"},
         "badge": {},
-        "position": {"type": "object"},
+        "position": _POSITION,
         "ports": {"type": "array", "items": _PORT},
         "ext": {"type": "object"},
     },
@@ -64,7 +86,9 @@ _EDGE = {
         "sourcePort": {"type": "string"},
         "targetPort": {"type": "string"},
         "label": _LABEL,
-        "routing": {"type": "object"},
+        "routing": _ROUTING,
+        "priority": {"type": "integer"},  # layered straightness bias (Phase 5)
+        "preferredDirection": {"enum": ["UP", "DOWN", "LEFT", "RIGHT"]},
         "arrow": {"type": "object"},
         "style": {"type": "object"},
         "styleRefs": {"type": "array", "items": {"type": "string"}},
@@ -115,6 +139,8 @@ _LAYOUT = {
             },
             "additionalProperties": False,
         },
+        # honour each node's manual `position` instead of engine placement (Phase 5)
+        "respectManualPositions": {"type": "boolean"},
     },
     "additionalProperties": True,  # forward-compat for later routing/layout hints
 }

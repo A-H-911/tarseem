@@ -46,6 +46,8 @@ class LogicalNode:
     phase: str | None = None  # swimlane phase-column membership (FR-6.3)
     show_badge: bool = True  # False = auto-number badge exempt (start/terminal pills)
     style: dict = field(default_factory=dict)
+    # manual placement (x, y) for respectManualPositions layouts; None = engine-placed (FR-5.x)
+    position: tuple[float, float] | None = None
     # sizes are None until the measurement stage fills them (measure-before-layout)
     width: float | None = None
     height: float | None = None
@@ -58,6 +60,11 @@ class LogicalEdge:
     target: str
     label: Label | None = None
     style: dict = field(default_factory=dict)
+    # routing hints (Phase 5, FR-5.x; 06 §2). All defaults inert: an edge without hints
+    # lays out exactly as before.
+    priority: int | None = None  # layered straightness bias (higher = straighter)
+    preferred_direction: str | None = None  # UP|DOWN|LEFT|RIGHT exit side for the edge
+    waypoints: tuple[tuple[float, float], ...] = ()  # manual interior points (post-layout splice)
 
 
 @dataclass(frozen=True)
@@ -87,6 +94,7 @@ class LogicalGraph:
     title: str | None = None
     markers: bool = False  # UML start/end markers (swimlane)
     layout_options: dict = field(default_factory=dict)  # spec `layout` hints (sidePadding…)
+    respect_manual_positions: bool = False  # honour node.position via interactive placement
     theme: dict = field(default_factory=dict)
 
 

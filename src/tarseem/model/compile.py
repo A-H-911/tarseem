@@ -39,6 +39,19 @@ def _label(raw: dict | None) -> Label | None:
     )
 
 
+def _position(raw: dict | None) -> tuple[float, float] | None:
+    """Manual node placement (x, y) -> tuple, or None when unset."""
+    if not raw:
+        return None
+    return (float(raw["x"]), float(raw["y"]))
+
+
+def _waypoints(routing: dict | None) -> tuple[tuple[float, float], ...]:
+    """Manual interior points from ``edge.routing.waypoints`` -> tuple of (x, y)."""
+    pts = (routing or {}).get("waypoints") or []
+    return tuple((float(p[0]), float(p[1])) for p in pts)
+
+
 def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     """Build the logical IR from a validated spec. Run :func:`tarseem.validation.validate`
     first; this assumes structural/referential integrity."""
@@ -61,6 +74,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
                 phase=raw.get("phase"),
                 show_badge=bool(raw.get("badge", True)),
                 style=resolve_node_style(spec, raw, theme),
+                position=_position(raw.get("position")),
             )
         )
 
@@ -69,6 +83,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         style = resolve_edge_style(spec, raw, theme)
         if raw.get("dashed"):
             style = {**style, "style": "dashed"}
+        priority = raw.get("priority")
         edges.append(
             LogicalEdge(
                 id=raw.get("id", f"{raw['source']}->{raw['target']}"),
@@ -76,6 +91,9 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
                 target=raw["target"],
                 label=_label(raw.get("label")),
                 style=style,
+                priority=int(priority) if priority is not None else None,
+                preferred_direction=raw.get("preferredDirection"),
+                waypoints=_waypoints(raw.get("routing")),
             )
         )
 
@@ -97,6 +115,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     title = (spec.get("meta") or {}).get("title")
     layout_options = dict(spec.get("layout") or {})
     markers = bool(layout_options.get("markers", False))
+    respect_manual_positions = bool(layout_options.get("respectManualPositions", False))
 
     return LogicalGraph(
         diagram_type=diagram_type,
@@ -108,5 +127,6 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         title=title,
         markers=markers,
         layout_options=layout_options,
+        respect_manual_positions=respect_manual_positions,
         theme=theme,
     )
