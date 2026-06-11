@@ -13,7 +13,7 @@ from tarseem import Engine, __version__
 from tarseem.errors import SpecValidationError
 from tarseem.validation import validate
 
-SUBCOMMANDS = ("validate", "render", "export", "doctor", "examples")
+SUBCOMMANDS = ("validate", "render", "export", "doctor", "examples", "gallery")
 
 
 def _load(path: str) -> dict:
@@ -75,6 +75,23 @@ def _cmd_examples(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_gallery(args: argparse.Namespace) -> int:
+    from tarseem.gallery import build_gallery
+
+    paths = sorted(Path(args.examples).glob("*.json"))
+    if not paths:
+        print(f"no specs found in {args.examples}")
+        return 1
+    result = build_gallery(paths, Path(args.out), with_png=not args.no_png, node=args.node)
+    failed = [s for s in result.samples if not s.ok]
+    for s in result.samples:
+        mark = "ok  " if s.ok else "FAIL"
+        print(f"[{mark}] {s.name}" + (f"  -> {s.error}" if not s.ok else ""))
+    print(f"gallery: {result.index_path}  ({len(result.samples) - len(failed)}/"
+          f"{len(result.samples)} rendered)")
+    return 1 if failed else 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="tarseem", description="Tarseem diagram engine.")
     parser.add_argument("--version", action="version", version=f"tarseem {__version__}")
@@ -104,6 +121,13 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_ex = sub.add_parser("examples", help="list bundled example specs")
     p_ex.set_defaults(func=_cmd_examples)
+
+    p_gal = sub.add_parser("gallery", help="build the static HTML gallery from examples/")
+    p_gal.add_argument("--examples", default="examples", help="directory of JSON specs")
+    p_gal.add_argument("-o", "--out", default="gallery", help="output directory")
+    p_gal.add_argument("--no-png", action="store_true", help="skip PNG thumbnails (faster)")
+    p_gal.add_argument("--node", default="node", help="Node.js executable (graph families)")
+    p_gal.set_defaults(func=_cmd_gallery)
     return parser
 
 
