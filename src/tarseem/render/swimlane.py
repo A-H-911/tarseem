@@ -25,6 +25,16 @@ _TITLE_FILL = "#269973"
 _SEPARATOR = "#B0BEC5"
 _EDGE_DEFAULT = "#2E8B57"
 _MARKER_BLACK = "#000000"
+_BADGE_INSET_Y = 15.0
+_CYLINDER_RY = 9.0  # matches the renderer's cylinder cap depth
+
+
+def _badge_baseline(shape: str, y: float) -> float:
+    """Badge text baseline. Nudged below curved-top shapes (cylinder) so the number
+    clears the top ellipse cap instead of sitting on the curve."""
+    if shape == "cylinder":
+        return y + _BADGE_INSET_Y + 2 * _CYLINDER_RY
+    return y + _BADGE_INSET_Y
 
 
 def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
@@ -117,8 +127,9 @@ def _node_svg(n: PositionedNode) -> list[str]:
     out = [_shape_svg(n)]
     accent = str((n.style.get("border") or {}).get("color", "#333333"))
     if n.badge:
+        badge_y = _badge_baseline(n.shape, n.y)
         out.append(
-            f'<text x="{_num(n.x + 10)}" y="{_num(n.y + 15)}" font-size="12" font-weight="700" '
+            f'<text x="{_num(n.x + 10)}" y="{_num(badge_y)}" font-size="12" font-weight="700" '
             f'fill="{accent}" text-anchor="start">{_esc(n.badge)}</text>'
         )
     out.append(

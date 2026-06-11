@@ -185,6 +185,14 @@ def test_dashed_edge_renders_dashed():
     assert "stroke-dasharray" in svg
 
 
+def test_cylinder_badge_clears_the_top_cap():
+    from tarseem.render.swimlane import _badge_baseline
+
+    # cylinder badge sits below its ellipse cap; flat-top shapes use the base inset
+    assert _badge_baseline("cylinder", 100.0) > _badge_baseline("roundrect", 100.0)
+    assert _badge_baseline("roundrect", 100.0) == _badge_baseline("diamond", 100.0)
+
+
 def test_rendered_svg_is_wellformed_xml():
     """Strict SVG viewers reject duplicate attributes; the output must parse as XML."""
     from defusedxml.ElementTree import fromstring  # safe parser (project invariant)
