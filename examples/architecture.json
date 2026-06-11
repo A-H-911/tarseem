@@ -1,0 +1,25 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "architecture",
+  "direction": "LR",
+  "meta": { "title": "Orders service (C4 container)" },
+  "styles": {
+    "datastore": { "fill": "#E8F0FF", "border": { "color": "#1976D2" } },
+    "edge": { "fill": "#EAF4EE" }
+  },
+  "nodes": [
+    { "id": "web", "shape": "rect", "label": { "text": "Web App" } },
+    { "id": "api", "shape": "rect", "label": { "text": "API Gateway" } },
+    { "id": "orders", "shape": "rect", "label": { "text": "Orders Service" } },
+    { "id": "billing", "shape": "rect", "label": { "text": "Billing Service" } },
+    { "id": "db", "shape": "cylinder", "styleRefs": ["datastore"], "label": { "text": "Orders DB" } },
+    { "id": "queue", "shape": "rect", "styleRefs": ["datastore"], "label": { "text": "Event Bus" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "web", "target": "api", "label": { "text": "HTTPS" } },
+    { "id": "e2", "source": "api", "target": "orders", "label": { "text": "gRPC" } },
+    { "id": "e3", "source": "orders", "target": "db", "label": { "text": "SQL" } },
+    { "id": "e4", "source": "orders", "target": "queue", "label": { "text": "publish" } },
+    { "id": "e5", "source": "queue", "target": "billing", "label": { "text": "consume" } }
+  ]
+}

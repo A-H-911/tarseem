@@ -1,0 +1,25 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "LR",
+  "meta": { "title": "Phase Layout Regression" },
+  "phases": [
+    { "id": "p1", "label": { "text": "Intake" } },
+    { "id": "p2", "label": { "text": "Fulfilment" } }
+  ],
+  "lanes": [
+    { "id": "a", "label": { "text": "Lane A" } },
+    { "id": "b", "label": { "text": "Lane B" } }
+  ],
+  "nodes": [
+    { "id": "n1", "lane": "a", "phase": "p1", "shape": "stadium", "badge": false, "label": { "text": "Start" } },
+    { "id": "n2", "lane": "b", "phase": "p1", "shape": "roundrect", "label": { "text": "Check" } },
+    { "id": "n3", "lane": "b", "phase": "p2", "shape": "roundrect", "label": { "text": "Work" } },
+    { "id": "n4", "lane": "a", "phase": "p2", "shape": "stadium", "badge": false, "label": { "text": "End" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "n1", "target": "n2" },
+    { "id": "e2", "source": "n2", "target": "n3" },
+    { "id": "e3", "source": "n3", "target": "n4" }
+  ]
+}

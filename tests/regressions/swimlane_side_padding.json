@@ -1,0 +1,19 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "LR",
+  "meta": { "title": "Side Padding" },
+  "lanes": [
+    { "id": "a", "label": { "text": "Lane A" } },
+    { "id": "b", "label": { "text": "Lane B" } }
+  ],
+  "nodes": [
+    { "id": "n1", "lane": "a", "shape": "stadium", "badge": false, "label": { "text": "Start" } },
+    { "id": "n2", "lane": "b", "shape": "roundrect", "label": { "text": "Middle" } },
+    { "id": "n3", "lane": "a", "shape": "stadium", "badge": false, "label": { "text": "End" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "n1", "target": "n2" },
+    { "id": "e2", "source": "n2", "target": "n3" }
+  ]
+}

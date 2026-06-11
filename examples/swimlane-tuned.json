@@ -1,0 +1,30 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "LR",
+  "meta": { "title": "Tuned Layout" },
+  "layout": {
+    "sidePadding": 32,
+    "columnGap": 72,
+    "phaseSeparator": { "style": "solid", "color": "#90A4AE", "width": 2 }
+  },
+  "phases": [
+    { "id": "intake", "label": { "text": "Intake" } },
+    { "id": "review", "label": { "text": "Review" } }
+  ],
+  "lanes": [
+    { "id": "req", "label": { "text": "Requester" } },
+    { "id": "ops", "label": { "text": "Operations" } }
+  ],
+  "nodes": [
+    { "id": "submit", "lane": "req", "phase": "intake", "shape": "stadium", "badge": false, "label": { "text": "Submit" } },
+    { "id": "triage", "lane": "ops", "phase": "intake", "shape": "roundrect", "label": { "text": "Triage" } },
+    { "id": "approve", "lane": "ops", "phase": "review", "shape": "diamond", "label": { "text": "Approve?" } },
+    { "id": "done", "lane": "req", "phase": "review", "shape": "stadium", "badge": false, "label": { "text": "Done" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "submit", "target": "triage", "label": { "text": "ticket" } },
+    { "id": "e2", "source": "triage", "target": "approve" },
+    { "id": "e3", "source": "approve", "target": "done", "label": { "text": "yes" } }
+  ]
+}

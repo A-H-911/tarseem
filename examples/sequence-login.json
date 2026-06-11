@@ -1,0 +1,20 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "sequence",
+  "meta": { "title": "Login" },
+  "nodes": [
+    { "id": "user", "label": { "text": "User" } },
+    { "id": "ui", "label": { "text": "Browser" } },
+    { "id": "api", "label": { "text": "API" } },
+    { "id": "db", "label": { "text": "Database" } }
+  ],
+  "edges": [
+    { "id": "m1", "source": "user", "target": "ui", "label": { "text": "submit credentials" } },
+    { "id": "m2", "source": "ui", "target": "api", "label": { "text": "POST /login" } },
+    { "id": "m3", "source": "api", "target": "db", "label": { "text": "SELECT user" } },
+    { "id": "m4", "source": "db", "target": "api", "label": { "text": "row" }, "dashed": true },
+    { "id": "m5", "source": "api", "target": "api", "label": { "text": "sign JWT" } },
+    { "id": "m6", "source": "api", "target": "ui", "label": { "text": "200 + token" }, "dashed": true },
+    { "id": "m7", "source": "ui", "target": "user", "label": { "text": "dashboard" }, "dashed": true }
+  ]
+}

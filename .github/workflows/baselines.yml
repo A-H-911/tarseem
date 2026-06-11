@@ -1,0 +1,39 @@
+name: Regen visual baselines
+
+# Manually dispatched: regenerates the per-OS screenshot baselines on real runners and
+# uploads them as artifacts to download + commit. Baselines are OS-specific (Chromium
+# rasterises fonts per platform), so each platform must produce its own. This never
+# commits anything itself — regeneration stays an explicit, reviewed action (R-21).
+on:
+  workflow_dispatch:
+  push:
+    branches: [regen-baselines]  # push here to (re)generate per-OS baselines
+
+jobs:
+  regen:
+    name: baselines / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+      - name: Install package + dev tooling
+        run: python -m pip install -e ".[dev]"
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Regenerate baselines for this platform
+        run: python scripts/regen_baselines.py
+      - name: Upload baselines
+        uses: actions/upload-artifact@v4
+        with:
+          name: baselines-${{ matrix.os }}
+          path: tests/baselines/
+          if-no-files-found: error

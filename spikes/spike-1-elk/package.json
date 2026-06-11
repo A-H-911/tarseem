@@ -1,0 +1,10 @@
+{
+  "name": "tarseem-spike-1-elk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Throwaway Phase-0 spike: long-lived elkjs subprocess round-trip from Python.",
+  "type": "commonjs",
+  "dependencies": {
+    "elkjs": "0.11.1"
+  }
+}

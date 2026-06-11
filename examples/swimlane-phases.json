@@ -1,0 +1,27 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "LR",
+  "meta": { "title": "Order Flow" },
+  "phases": [
+    { "id": "intake", "label": { "text": "Intake" } },
+    { "id": "fulfil", "label": { "text": "Fulfilment" } }
+  ],
+  "lanes": [
+    { "id": "cust", "label": { "text": "Customer" } },
+    { "id": "ops", "label": { "text": "Operations" } }
+  ],
+  "nodes": [
+    { "id": "order", "lane": "cust", "phase": "intake", "shape": "stadium", "badge": false, "label": { "text": "Place order" } },
+    { "id": "check", "lane": "ops", "phase": "intake", "shape": "roundrect", "label": { "text": "Validate" } },
+    { "id": "pick", "lane": "ops", "phase": "fulfil", "shape": "roundrect", "label": { "text": "Pick" } },
+    { "id": "ship", "lane": "ops", "phase": "fulfil", "shape": "roundrect", "label": { "text": "Ship" } },
+    { "id": "recv", "lane": "cust", "phase": "fulfil", "shape": "stadium", "badge": false, "label": { "text": "Receive" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "order", "target": "check", "label": { "text": "submit" } },
+    { "id": "e2", "source": "check", "target": "pick", "label": { "text": "ok" } },
+    { "id": "e3", "source": "pick", "target": "ship" },
+    { "id": "e4", "source": "ship", "target": "recv", "label": { "text": "notify" } }
+  ]
+}

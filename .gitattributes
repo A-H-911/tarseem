@@ -1,0 +1,10 @@
+# Keep vendored/binary artifacts byte-exact across platforms.
+# The elkjs bundle is PINNED (ADR-002): no line-ending conversion.
+src/tarseem/_vendor/** -text
+# Binary assets: fonts, raster goldens.
+*.ttf binary
+*.otf binary
+*.woff2 binary
+*.png binary
+*.pdf binary
+*.pptx binary
