@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from tarseem import Engine, __version__
@@ -131,7 +132,21 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _force_utf8_stdio() -> None:
+    """Emit UTF-8 regardless of platform. Windows consoles default to cp1252, which cannot
+    encode Arabic — e.g. the ``doctor`` shaping probe or RTL spec output would crash. Best
+    effort: a stream without ``reconfigure`` (already wrapped/redirected) is left as-is."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8")
+            except (ValueError, OSError):
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8_stdio()
     parser = _build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "command", None):
