@@ -68,14 +68,20 @@ Each criterion with its verifying test/artifact, and an honest verification-stre
 | A4 | Clean Python API + CLI equivalents | `tests/test_a4_api.py` (11); `engine.py`, `cli/` | **Strong** |
 | A5 | Styling: theme + overrides + named presets | `tests/test_a5_styling.py` (9); golden via A2 | **Strong** |
 | A6 | Gallery builds; all samples render error-free in Chromium | `tests/test_gallery.py` (6) + `tests/test_e2e_gallery.py` (2) | **Strong** |
-| A7 | Automated tests at schema/unit/contract/render/E2E in CI | all `tests/`; `ci.yml` | **Moderate** — see ⚠1 (no unified adapter-contract suite; no coverage gate) |
-| A8 | Green on ≥1 OS + documented path for Win/macOS/Linux | `ci.yml` 3-OS matrix — all 6 jobs green (run #27332733033) | **Strong (suite)** / **Weak (visual cross-OS)** — see ⚠2 |
-| A9 | Documented examples for every MVP family (gallery = docs fixtures) | `examples/` (4 families + sequence); gallery | **Moderate** — see ⚠3 |
+| A7 | Automated tests at schema/unit/contract/render/E2E in CI | all `tests/`; `ci.yml`; `tests/test_adapter_contract.py` (6) | **Strong** — ⚠1 resolved (unified adapter-contract suite + 80% coverage gate) |
+| A8 | Green on ≥1 OS + documented path for Win/macOS/Linux | `ci.yml` 3-OS matrix — all 6 jobs green; baselines for win32/linux/darwin | **Strong** — ⚠2 resolved (visual regression now runs on all 3 OS) |
+| A9 | Documented examples for every MVP family (gallery = docs fixtures) | `examples/` + gallery + `docs/guide/`; `tests/test_docs.py` (4) | **Strong** — ⚠3 resolved (prose quickstart + family guide, doc-rot test) |
 | A10 | Sequence diagrams via deterministic layouter | `tests/test_a10_sequence.py` (11); golden | **Strong** |
 | A11 | `engine doctor` verifies Node/elkjs/Playwright/fonts | `tests/test_a11_doctor.py` (9) | **Strong** |
-| A12 | Swimlane LTR: reference shapes/markers/back-edges; Ref-1 & Ref-3 reproduced | `tests/test_a12_swimlane.py` (16) + `tests/test_phases.py` (8); goldens | **Strong (mechanics)** / **Weak (fidelity)** — see ⚠4 |
+| A12 | Swimlane LTR: reference shapes/markers/back-edges; Ref-1 & Ref-3 reproduced | `tests/test_a12_swimlane.py` (16) + `tests/test_phases.py` (8) + `tests/test_reference_contract.py` (2); goldens | **Strong** — ⚠4 resolved (reference-fidelity contract encoded) |
 
-## Honestly weakly verified
+## Soft spots — all four resolved (post-audit)
+
+The four ⚠ items flagged below were subsequently fixed; each entry keeps the original
+honest assessment followed by **Resolved:** with the fix. Full suite now **134 passed**,
+coverage 92.67% (gate 80%), matrix green on all 3 OS.
+
+## Honestly weakly verified (original audit)
 
 **⚠1 — A7 "contract" layer is implicit, and there is no coverage gate.** The plan calls for
 an adapter-contract suite where *every* `LayoutAdapter` (ELK, lane-grid, sequence) passes
@@ -85,6 +91,9 @@ contract suite — so a new adapter could be added without being forced through 
 contract. Also `testing.md` asks for 80% coverage; no `--cov-fail-under` gate is enforced.
 *Fix:* add `tests/test_adapter_contract.py` parametrized over all adapters; add a coverage
 gate. (Low effort, real value.)
+**Resolved** (`bf4bd67`): `tests/test_adapter_contract.py` parametrizes one contract over
+ELK/lane-grid/sequence (positive extent, finite/positive node geometry, finite edge points,
+determinism, no ELK-JSON leak); CI enforces `--cov-fail-under=80` (current 92.67%).
 
 **⚠2 — Screenshot regression is single-OS.** All 6 matrix jobs are green, and the Windows
 legs *did* run the pixel comparison against the committed win32 baselines and passed — so the
@@ -93,21 +102,33 @@ runs where baselines exist (win32); macOS/Linux skip it. So visual regression is
 verified on one OS only; cross-OS font rasterization is unguarded until per-OS baselines are
 generated on their runners. *Fix:* run `regen_baselines.py` on linux/macos CI legs (or a
 matrix job) and commit those baselines.
+**Resolved** (`9f9287b`): added `.github/workflows/baselines.yml`; ran it on real runners
+(#27350355859) and committed `tests/baselines/{linux,darwin}/`. The pixel comparison now
+runs on all three OS instead of skipping linux/macos.
 
 **⚠3 — A9 "documented" = the gallery, not prose.** Every MVP family has a golden example and
 a gallery page, which satisfies "gallery = docs fixtures". But there is no user-facing
 quickstart/guide yet (those are scheduled for later phases). If A9 is read as "prose docs per
 family", it is not met; if read as "a rendered, inspectable example per family", it is.
+**Resolved** (`380a1ec`): `docs/guide/quickstart.md` + `docs/guide/families.md` document
+every family with a minimal spec; `tests/test_docs.py` guards against doc rot (every
+referenced example exists, every example + diagramType is documented).
 
 **⚠4 — A12 reference fidelity is eyeball, not automated.** Ref-1/Ref-3 reproduction was
 confirmed by visual side-by-side (and looks faithful), but there is no automated comparison
 of the rendered swimlanes against the reference PNGs in `references/`. The *mechanics*
 (lanes, pills, hues, badges, shape set, markers, back-edges, phases) are unit-tested; the
 *visual match* to the references is manual.
+**Resolved** (`07725d7`): `tests/test_reference_contract.py` encodes the analysis.md visual
+contract for Ref-1/Ref-3 as assertions (lane set, reference shape set, UML markers, numbered
+badges with terminals exempt, hue tints, title bar, geometric back-edge detection). Pixel
+identity to the draw.io references stays intentionally out of scope (different renderer).
 
 ## Net
 
-A1–A6, A10, A11 are strongly verified. A12 mechanics strong, fidelity manual. A7/A9 moderate
-(implicit contract layer / gallery-as-docs). A8 suite-green across 3 OS (pending Windows
-finish) but visual regression is single-OS. No criterion is unverified; the four ⚠ items are
-the honest soft spots and each has a concrete, low-effort fix.
+**All twelve criteria are now strongly verified.** The four post-audit fixes closed the soft
+spots: A7 has a unified adapter-contract suite + coverage gate, A8's visual regression runs on
+all three OS, A9 has prose docs with a doc-rot test, and A12 has an automated reference-fidelity
+contract. The matrix is green on Windows/macOS/Linux × py3.10/3.12; full suite 134 passed,
+coverage 92.67%. The only remaining intentional non-goal is pixel-identity to the draw.io
+reference exports (different renderer — contract fidelity is the gate instead).
