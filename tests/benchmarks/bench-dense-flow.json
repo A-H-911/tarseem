@@ -1,0 +1,34 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "flowchart",
+  "direction": "TB",
+  "meta": { "title": "Dense branching flow" },
+  "nodes": [
+    { "id": "start", "shape": "stadium", "label": { "text": "Start" } },
+    { "id": "load", "shape": "roundrect", "label": { "text": "Load" } },
+    { "id": "valid", "shape": "diamond", "label": { "text": "Valid?" } },
+    { "id": "parse", "shape": "roundrect", "label": { "text": "Parse" } },
+    { "id": "enrich", "shape": "roundrect", "label": { "text": "Enrich" } },
+    { "id": "dedupe", "shape": "diamond", "label": { "text": "Dup?" } },
+    { "id": "merge", "shape": "roundrect", "label": { "text": "Merge" } },
+    { "id": "score", "shape": "roundrect", "label": { "text": "Score" } },
+    { "id": "gate", "shape": "diamond", "label": { "text": "Pass?" } },
+    { "id": "emit", "shape": "roundrect", "label": { "text": "Emit" } },
+    { "id": "done", "shape": "stadium", "label": { "text": "Done" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start", "target": "load" },
+    { "id": "e2", "source": "load", "target": "valid" },
+    { "id": "e3", "source": "valid", "target": "parse", "label": { "text": "yes" } },
+    { "id": "e4", "source": "valid", "target": "load", "label": { "text": "retry" } },
+    { "id": "e5", "source": "parse", "target": "enrich" },
+    { "id": "e6", "source": "enrich", "target": "dedupe" },
+    { "id": "e7", "source": "dedupe", "target": "merge", "label": { "text": "no" } },
+    { "id": "e8", "source": "dedupe", "target": "enrich", "label": { "text": "yes" } },
+    { "id": "e9", "source": "merge", "target": "score" },
+    { "id": "e10", "source": "score", "target": "gate" },
+    { "id": "e11", "source": "gate", "target": "emit", "label": { "text": "ok" } },
+    { "id": "e12", "source": "gate", "target": "score", "label": { "text": "low" } },
+    { "id": "e13", "source": "emit", "target": "done" }
+  ]
+}
