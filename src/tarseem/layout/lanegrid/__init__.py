@@ -247,13 +247,16 @@ class LaneGridLayout:
         return nodes, geom
 
     def _route_edges(self, edges: tuple, geom: dict) -> list[PositionedEdge]:
+        boxes = [(g["x"], g["y"], g["x"] + g["w"], g["y"] + g["h"]) for g in geom.values()]
         out: list[PositionedEdge] = []
         for e in edges:
             a, b = geom.get(e.source), geom.get(e.target)
             if a is None or b is None:
                 continue
             pts = _route(a, b)
-            label_xy = _polyline_midpoint(pts) if e.label and e.label.text else None
+            label_xy = (
+                _label_clear_xy(pts, e.label.text, boxes) if e.label and e.label.text else None
+            )
             out.append(
                 PositionedEdge(
                     id=e.id, points=tuple(pts), label=e.label,
@@ -353,3 +356,63 @@ def _polyline_midpoint(points: list[tuple[float, float]]) -> tuple[float, float]
             return (p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t)
         half -= seg
     return points[len(points) // 2]
+
+
+# Edge-label background dimensions — MUST match the swimlane renderer's `_edge_svg`
+# (half = max(10, len*3.6); rect height 18 => half-height 9), so the layout-time clearance
+# check matches the box actually drawn.
+_LABEL_HALF_H = 9.0
+_LABEL_CLEAR_MARGIN = 2.0
+_LABEL_SAMPLES = 80
+
+
+def _label_half_w(text: str) -> float:
+    return max(10.0, len(text) * 3.6)
+
+
+def _rect_clear(cx: float, cy: float, hw: float, hh: float, boxes: list) -> bool:
+    m = _LABEL_CLEAR_MARGIN
+    for x0, y0, x1, y1 in boxes:
+        if cx + hw + m > x0 and cx - hw - m < x1 and cy + hh + m > y0 and cy - hh - m < y1:
+            return False
+    return True
+
+
+def _point_at(points: list[tuple[float, float]], arclen: float) -> tuple[float, float]:
+    for i in range(len(points) - 1):
+        p, q = points[i], points[i + 1]
+        seg = abs(p[0] - q[0]) + abs(p[1] - q[1])
+        if arclen <= seg or i == len(points) - 2:
+            t = arclen / seg if seg else 0.0
+            return (p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t)
+        arclen -= seg
+    return points[-1]
+
+
+def _label_clear_xy(
+    points: list[tuple[float, float]], text: str, boxes: list
+) -> tuple[float, float]:
+    """Place an edge label at the polyline point nearest the midpoint whose background box
+    clears every node. The midpoint is used unchanged when it is already clear, so labels
+    that never overlapped keep their exact position (no baseline churn); only labels that
+    sat on a node — e.g. a back-edge crossing an intervening same-lane node — get nudged
+    along the edge to a readable spot."""
+    mid = _polyline_midpoint(points)
+    hw = _label_half_w(text)
+    if len(points) < 2 or _rect_clear(mid[0], mid[1], hw, _LABEL_HALF_H, boxes):
+        return mid
+    segs = [(points[i], points[i + 1]) for i in range(len(points) - 1)]
+    total = sum(abs(p[0] - q[0]) + abs(p[1] - q[1]) for p, q in segs)
+    if total <= 0:
+        return mid
+    half = total / 2
+    best: tuple[float, float] | None = None
+    best_d: float | None = None
+    for k in range(_LABEL_SAMPLES + 1):
+        al = total * k / _LABEL_SAMPLES
+        x, y = _point_at(points, al)
+        if _rect_clear(x, y, hw, _LABEL_HALF_H, boxes):
+            d = abs(al - half)
+            if best_d is None or d < best_d:
+                best, best_d = (x, y), d
+    return best or mid
