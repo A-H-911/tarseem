@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Node (layout subprocess workspace)
+node_modules/
+npm-debug.log*
+
+# Playwright
+.playwright/
+playwright-report/
+test-results/
+
+# Engine artifacts
+out/
+artifacts/
+gallery-dist/
+*.local.*
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Secrets
+.env
+.env.*
