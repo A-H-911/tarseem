@@ -3,6 +3,7 @@
 Throwaway — exercises themes (corporate/monochrome), the full shape set, back-edges,
 phases+markers, RTL+theme combos, and a multi-participant sequence. Not committed examples.
 """
+# ruff: noqa: E501 - compact one-line diagram data literals (incl. Arabic) read better unwrapped
 from __future__ import annotations
 
 from pathlib import Path
