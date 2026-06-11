@@ -1,0 +1,23 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "dependency",
+  "direction": "LR",
+  "meta": { "title": "Package dependencies" },
+  "nodes": [
+    { "id": "cli", "label": { "text": "cli" } },
+    { "id": "engine", "label": { "text": "engine" } },
+    { "id": "render", "label": { "text": "render" } },
+    { "id": "layout", "label": { "text": "layout" } },
+    { "id": "model", "label": { "text": "model" } },
+    { "id": "measure", "label": { "text": "measure" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "cli", "target": "engine" },
+    { "id": "e2", "source": "engine", "target": "render" },
+    { "id": "e3", "source": "engine", "target": "layout" },
+    { "id": "e4", "source": "render", "target": "model" },
+    { "id": "e5", "source": "layout", "target": "model" },
+    { "id": "e6", "source": "layout", "target": "measure" },
+    { "id": "e7", "source": "measure", "target": "model" }
+  ]
+}

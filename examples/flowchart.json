@@ -1,0 +1,24 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "flowchart",
+  "direction": "TB",
+  "meta": { "title": "Order processing" },
+  "nodes": [
+    { "id": "start", "shape": "stadium", "label": { "text": "Start" } },
+    { "id": "receive", "shape": "roundrect", "label": { "text": "Receive order" } },
+    { "id": "instock", "shape": "diamond", "label": { "text": "In stock?" } },
+    { "id": "charge", "shape": "roundrect", "label": { "text": "Charge card" } },
+    { "id": "backorder", "shape": "roundrect", "label": { "text": "Back-order" } },
+    { "id": "ship", "shape": "roundrect", "label": { "text": "Ship order" } },
+    { "id": "done", "shape": "stadium", "label": { "text": "Done" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start", "target": "receive" },
+    { "id": "e2", "source": "receive", "target": "instock" },
+    { "id": "e3", "source": "instock", "target": "charge", "label": { "text": "yes" } },
+    { "id": "e4", "source": "instock", "target": "backorder", "label": { "text": "no" } },
+    { "id": "e5", "source": "charge", "target": "ship" },
+    { "id": "e6", "source": "backorder", "target": "receive", "label": { "text": "retry" } },
+    { "id": "e7", "source": "ship", "target": "done" }
+  ]
+}

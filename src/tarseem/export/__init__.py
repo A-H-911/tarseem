@@ -1,1 +1,6 @@
-"""Tarseem export package (Phase 1 scaffold; implemented in later phases)."""
+"""Export writers (raster/editable). PNG via Chromium (ADR-003)."""
+from __future__ import annotations
+
+from tarseem.export.png import svg_to_png
+
+__all__ = ["svg_to_png"]
