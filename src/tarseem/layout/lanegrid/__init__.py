@@ -43,6 +43,7 @@ _MARKER = 36.0
 _END_W = 80.0
 _PHASE_H = 34.0  # phase header band height (FR-6.3); 0 when no phases declared
 _MARKER_BLACK = "#000000"
+_ROUTE_CORRIDOR = 16.0  # clearance below/above all nodes for back-edge detour channels
 
 
 def _topo_numbers(nodes: tuple[LogicalNode, ...], edges: tuple[LogicalEdge, ...]) -> dict[str, int]:
@@ -96,14 +97,17 @@ class LaneGridLayout:
             col = nums[n.id]
             col_width[col] = max(col_width.get(col, _STEP_W), w)
 
-        start_x = _M + _LABEL_W + side_pad + end_w
-        col_x: dict[int, float] = {}
-        cursor = start_x
-        for c in range(1, n_cols + 1):
-            col_x[c] = cursor
-            cursor += col_width.get(c, _STEP_W) + col_gap
-        inner_right = cursor - col_gap
-        total_w = inner_right + end_w + side_pad + _M
+        # RL = right-to-left mirroring (geometry only; theme/text invariant — analysis.md
+        # §Reference-2). Total width is direction-independent; only column placement, the
+        # header-column side, badge corner and markers flip.
+        rtl = graph.direction == "RL"
+        content_w = (
+            sum(col_width.get(c, _STEP_W) for c in range(1, n_cols + 1))
+            + col_gap * (n_cols - 1)
+        )
+        total_w = 2 * _M + _LABEL_W + 2 * side_pad + 2 * end_w + content_w
+        col_x = self._column_x(n_cols, col_width, side_pad, end_w, col_gap, total_w, rtl)
+
         phase_h = _PHASE_H if graph.phases else 0.0
         lanes_top = _M + _TITLE_H + phase_h
         total_h = lanes_top + len(lanes) * _LANE_H + _M
@@ -113,13 +117,14 @@ class LaneGridLayout:
 
         nodes, geom = self._place_nodes(graph, nums, lane_index, col_x, col_width, node_w, band_y)
         edges = self._route_edges(graph.edges, geom)
-        content_left = _M + _LABEL_W  # actor/label separator
-        content_right = total_w - _M  # lane band right border
+        # content area = the non-header side; the header column moves right under RTL
+        content_left = _M if rtl else _M + _LABEL_W
+        content_right = (total_w - _M - _LABEL_W) if rtl else total_w - _M
         phase_bands = self._phase_bands(
-            graph, nums, col_x, col_width, content_left, content_right, col_gap
+            graph, nums, col_x, col_width, content_left, content_right, col_gap, rtl
         )
         if markers:
-            marker_objs, marker_edges = self._markers(graph, nums, geom, total_w, side_pad)
+            marker_objs, marker_edges = self._markers(graph, nums, geom, total_w, side_pad, rtl)
             edges = edges + marker_edges
         else:
             marker_objs = ()
@@ -140,6 +145,26 @@ class LaneGridLayout:
         )
 
     # -- pieces ---------------------------------------------------------------
+    def _column_x(
+        self, n_cols, col_width, side_pad, end_w, col_gap, total_w, rtl
+    ) -> dict[int, float]:
+        """Left-edge x of each step column. LTR lays columns left->right from the header
+        side; RTL lays them right->left so column 1 (first step) sits on the right and the
+        flow proceeds leftward. The LTR branch reproduces the pre-Phase-4 positions exactly."""
+        col_x: dict[int, float] = {}
+        if rtl:
+            cursor = total_w - _M - _LABEL_W - side_pad - end_w  # right edge of content
+            for c in range(1, n_cols + 1):
+                w = col_width.get(c, _STEP_W)
+                col_x[c] = cursor - w
+                cursor = col_x[c] - col_gap
+        else:
+            cursor = _M + _LABEL_W + side_pad + end_w
+            for c in range(1, n_cols + 1):
+                col_x[c] = cursor
+                cursor += col_width.get(c, _STEP_W) + col_gap
+        return col_x
+
     def _lane_bands(self, lanes: tuple, total_w: float, lanes_top: float) -> list[LaneBand]:
         bands = []
         for i, lane in enumerate(lanes):
@@ -157,14 +182,15 @@ class LaneGridLayout:
         return bands
 
     def _phase_bands(
-        self, graph, nums, col_x, col_width, content_left, content_right, col_gap
+        self, graph, nums, col_x, col_width, content_left, content_right, col_gap, rtl=False
     ) -> list[PhaseBand]:
         """One header band per phase, tiling the column space contiguously: internal phase
         boundaries fall at the column-gap midpoint (so adjacent phases meet exactly), while
         the OUTER edges are clamped to the content area — the first phase starts at the
         actor/label separator and the last phase ends at the lane border, so the bands and
-        their separators never poke past the swimlane sides. Assumes phases occupy
-        contiguous column ranges (the documented MVP shape)."""
+        their separators never poke past the swimlane sides. Phases are ordered by flow, so
+        under RTL the first phase (lowest column numbers) sits on the *right*. Assumes phases
+        occupy contiguous column ranges (the documented MVP shape)."""
         cols_by_phase: dict[str, list[int]] = {}
         for n in graph.nodes:
             if n.phase:
@@ -172,12 +198,17 @@ class LaneGridLayout:
         ordered = [ph for ph in graph.phases if ph.id in cols_by_phase]
         ordered.sort(key=lambda ph: min(cols_by_phase[ph.id]))
         half = col_gap / 2
+        last_i = len(ordered) - 1
         bands: list[PhaseBand] = []
         for i, ph in enumerate(ordered):
             cols = cols_by_phase[ph.id]
-            first, last = min(cols), max(cols)
-            left = content_left if i == 0 else col_x[first] - half
-            right = content_right if i == len(ordered) - 1 else col_x[last] + col_width[last] + half
+            first, last = min(cols), max(cols)  # by flow number
+            if rtl:  # first(flow) is the right-most column on screen
+                right = content_right if i == 0 else col_x[first] + col_width[first] + half
+                left = content_left if i == last_i else col_x[last] - half
+            else:
+                left = content_left if i == 0 else col_x[first] - half
+                right = content_right if i == last_i else col_x[last] + col_width[last] + half
             bands.append(
                 PhaseBand(
                     id=ph.id, label=ph.label,
@@ -217,13 +248,23 @@ class LaneGridLayout:
         return nodes, geom
 
     def _route_edges(self, edges: tuple, geom: dict) -> list[PositionedEdge]:
+        boxes_by_id = {
+            nid: (g["x"], g["y"], g["x"] + g["w"], g["y"] + g["h"]) for nid, g in geom.items()
+        }
+        boxes = list(boxes_by_id.values())
+        # node-free corridors just below/above every node, used to detour around obstacles
+        bot_y = max((b[3] for b in boxes), default=0.0) + _ROUTE_CORRIDOR
+        top_y = min((b[1] for b in boxes), default=0.0) - _ROUTE_CORRIDOR
         out: list[PositionedEdge] = []
         for e in edges:
             a, b = geom.get(e.source), geom.get(e.target)
             if a is None or b is None:
                 continue
-            pts = _route(a, b)
-            label_xy = _polyline_midpoint(pts) if e.label and e.label.text else None
+            obstacles = [box for nid, box in boxes_by_id.items() if nid not in (e.source, e.target)]
+            pts = _route(a, b, obstacles, top_y, bot_y)
+            label_xy = (
+                _label_clear_xy(pts, e.label.text, boxes) if e.label and e.label.text else None
+            )
             out.append(
                 PositionedEdge(
                     id=e.id, points=tuple(pts), label=e.label,
@@ -232,29 +273,41 @@ class LaneGridLayout:
             )
         return out
 
-    def _markers(self, graph, nums, geom, total_w, side_pad):
+    def _markers(self, graph, nums, geom, total_w, side_pad, rtl=False):
         first = min(nums, key=lambda k: nums[k])
         last = max(nums, key=lambda k: nums[k])
         fp, lp = geom[first], geom[last]
         r = _MARKER / 2
-        sx = _M + _LABEL_W + side_pad + (_END_W - _MARKER) / 2
+        # start gutter is on the flow-start side (left for LTR, right for RTL); end gutter
+        # mirrors it. Connectors attach to the node side that faces its marker.
+        if rtl:
+            sx = total_w - _M - _LABEL_W - side_pad - _END_W + (_END_W - _MARKER) / 2
+            ex = _M + side_pad + (_END_W - _MARKER) / 2
+            start_side, end_side = "r", "l"
+        else:
+            sx = _M + _LABEL_W + side_pad + (_END_W - _MARKER) / 2
+            ex = total_w - _M - side_pad - _END_W + (_END_W - _MARKER) / 2
+            start_side, end_side = "l", "r"
         sy = fp["y"] + (_STEP_H - _MARKER) / 2
-        ex = total_w - _M - side_pad - _END_W + (_END_W - _MARKER) / 2
         ey = lp["y"] + (_STEP_H - _MARKER) / 2
         start = Marker(kind="start", cx=sx + r, cy=sy + r, r=r)
         end = Marker(kind="end", cx=ex + r, cy=ey + r, r=r)
         black = {"stroke": _MARKER_BLACK, "width": 2}
         fp_cy = fp["y"] + _STEP_H / 2
         lp_cy = lp["y"] + _STEP_H / 2
+        # marker edge that faces the node: right edge (sx+_MARKER) when the marker is to the
+        # node's left, left edge (sx) when it is to the node's right.
+        start_marker_x = sx if rtl else sx + _MARKER
+        end_marker_x = ex + _MARKER if rtl else ex
         edges = [
             PositionedEdge(
                 id="__marker_start__",
-                points=((sx + _MARKER, sy + r), (_side_x(fp, "l", fp_cy), fp_cy)),
+                points=((start_marker_x, sy + r), (_side_x(fp, start_side, fp_cy), fp_cy)),
                 label=None, label_xy=None, style=black,
             ),
             PositionedEdge(
                 id="__marker_end__",
-                points=((_side_x(lp, "r", lp_cy), lp_cy), (ex, ey + r)),
+                points=((_side_x(lp, end_side, lp_cy), lp_cy), (end_marker_x, ey + r)),
                 label=None, label_xy=None, style=black,
             ),
         ]
@@ -284,18 +337,68 @@ def _side_x(g: dict, side: str, y: float) -> float:
     return left if side == "l" else right
 
 
-def _route(a: dict, b: dict) -> list[tuple[float, float]]:
-    """Orthogonal polyline exploiting one-step-per-column; attaches to real shape sides."""
+def _seg_clear(p: tuple, q: tuple, boxes: list) -> bool:
+    """True if the axis-aligned segment ``p``-``q`` passes through no box interior."""
+    eps = 0.5
+    if abs(p[1] - q[1]) < 1e-6:  # horizontal
+        y = p[1]
+        lo, hi = sorted((p[0], q[0]))
+        return not any(
+            (y0 + eps < y < y1 - eps) and (x0 < hi - eps) and (x1 > lo + eps)
+            for x0, y0, x1, y1 in boxes
+        )
+    x = p[0]  # vertical
+    lo, hi = sorted((p[1], q[1]))
+    return not any(
+        (x0 + eps < x < x1 - eps) and (y0 < hi - eps) and (y1 > lo + eps)
+        for x0, y0, x1, y1 in boxes
+    )
+
+
+def _route_clear(points: list, boxes: list) -> bool:
+    return all(_seg_clear(points[i], points[i + 1], boxes) for i in range(len(points) - 1))
+
+
+def _route(
+    a: dict, b: dict, obstacles: list | None = None,
+    top_y: float | None = None, bot_y: float | None = None,
+) -> list[tuple[float, float]]:
+    """Orthogonal polyline exploiting one-step-per-column; attaches to real shape sides.
+
+    The direct route is used whenever it is clear (so the common forward edge is unchanged).
+    When it would cross an *intervening* node — a back-edge or long edge passing over a node
+    in the target's lane — it detours through a node-free corridor below (then above) all
+    nodes, leaving and re-entering the endpoints vertically (south-to-south / north-to-north)
+    so the line never crosses a box."""
     A, B = _anchors(a), _anchors(b)
     if a["lane_i"] == b["lane_i"]:  # same lane -> straight horizontal at center y
         cy = A["cy"]
         if B["cx"] > A["cx"]:
-            return [(_side_x(a, "r", cy), cy), (_side_x(b, "l", cy), cy)]
-        return [(_side_x(a, "l", cy), cy), (_side_x(b, "r", cy), cy)]
-    exit_y = A["t"] if B["cy"] < A["cy"] else A["b"]  # top/bottom edges are flat -> bbox ok
-    side = "l" if B["cx"] >= A["cx"] else "r"
-    enter_x = _side_x(b, side, B["cy"])
-    return [(A["cx"], exit_y), (A["cx"], B["cy"]), (enter_x, B["cy"])]
+            direct = [(_side_x(a, "r", cy), cy), (_side_x(b, "l", cy), cy)]
+        else:
+            direct = [(_side_x(a, "l", cy), cy), (_side_x(b, "r", cy), cy)]
+    else:
+        exit_y = A["t"] if B["cy"] < A["cy"] else A["b"]  # top/bottom edges are flat -> bbox ok
+        side = "l" if B["cx"] >= A["cx"] else "r"
+        enter_x = _side_x(b, side, B["cy"])
+        direct = [(A["cx"], exit_y), (A["cx"], B["cy"]), (enter_x, B["cy"])]
+
+    if not obstacles or _route_clear(direct, obstacles):
+        return direct
+    # detour via a node-free corridor: exit/enter both shapes vertically (south, then north)
+    for corridor_y, a_exit, b_enter in (
+        (bot_y, A["b"], B["b"]),
+        (top_y, A["t"], B["t"]),
+    ):
+        if corridor_y is None:
+            continue
+        detour = [
+            (A["cx"], a_exit), (A["cx"], corridor_y),
+            (B["cx"], corridor_y), (B["cx"], b_enter),
+        ]
+        if _route_clear(detour, obstacles):
+            return detour
+    return direct
 
 
 def _polyline_midpoint(points: list[tuple[float, float]]) -> tuple[float, float]:
@@ -311,3 +414,63 @@ def _polyline_midpoint(points: list[tuple[float, float]]) -> tuple[float, float]
             return (p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t)
         half -= seg
     return points[len(points) // 2]
+
+
+# Edge-label background dimensions — MUST match the swimlane renderer's `_edge_svg`
+# (half = max(10, len*3.6); rect height 18 => half-height 9), so the layout-time clearance
+# check matches the box actually drawn.
+_LABEL_HALF_H = 9.0
+_LABEL_CLEAR_MARGIN = 2.0
+_LABEL_SAMPLES = 80
+
+
+def _label_half_w(text: str) -> float:
+    return max(10.0, len(text) * 3.6)
+
+
+def _rect_clear(cx: float, cy: float, hw: float, hh: float, boxes: list) -> bool:
+    m = _LABEL_CLEAR_MARGIN
+    for x0, y0, x1, y1 in boxes:
+        if cx + hw + m > x0 and cx - hw - m < x1 and cy + hh + m > y0 and cy - hh - m < y1:
+            return False
+    return True
+
+
+def _point_at(points: list[tuple[float, float]], arclen: float) -> tuple[float, float]:
+    for i in range(len(points) - 1):
+        p, q = points[i], points[i + 1]
+        seg = abs(p[0] - q[0]) + abs(p[1] - q[1])
+        if arclen <= seg or i == len(points) - 2:
+            t = arclen / seg if seg else 0.0
+            return (p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t)
+        arclen -= seg
+    return points[-1]
+
+
+def _label_clear_xy(
+    points: list[tuple[float, float]], text: str, boxes: list
+) -> tuple[float, float]:
+    """Place an edge label at the polyline point nearest the midpoint whose background box
+    clears every node. The midpoint is used unchanged when it is already clear, so labels
+    that never overlapped keep their exact position (no baseline churn); only labels that
+    sat on a node — e.g. a back-edge crossing an intervening same-lane node — get nudged
+    along the edge to a readable spot."""
+    mid = _polyline_midpoint(points)
+    hw = _label_half_w(text)
+    if len(points) < 2 or _rect_clear(mid[0], mid[1], hw, _LABEL_HALF_H, boxes):
+        return mid
+    segs = [(points[i], points[i + 1]) for i in range(len(points) - 1)]
+    total = sum(abs(p[0] - q[0]) + abs(p[1] - q[1]) for p, q in segs)
+    if total <= 0:
+        return mid
+    half = total / 2
+    best: tuple[float, float] | None = None
+    best_d: float | None = None
+    for k in range(_LABEL_SAMPLES + 1):
+        al = total * k / _LABEL_SAMPLES
+        x, y = _point_at(points, al)
+        if _rect_clear(x, y, hw, _LABEL_HALF_H, boxes):
+            d = abs(al - half)
+            if best_d is None or d < best_d:
+                best, best_d = (x, y), d
+    return best or mid

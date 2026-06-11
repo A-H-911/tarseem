@@ -42,7 +42,9 @@ def _label(raw: dict | None) -> Label | None:
 def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     """Build the logical IR from a validated spec. Run :func:`tarseem.validation.validate`
     first; this assumes structural/referential integrity."""
-    theme = theme or get_theme((spec.get("theme") or {}).get("name"))
+    theme_ref = spec.get("theme") or {}
+    # accept either `theme.ref` (schema-preferred) or `theme.name`; ref wins
+    theme = theme or get_theme(theme_ref.get("ref") or theme_ref.get("name"))
     diagram_type = spec.get("diagramType", "flowchart")
     default_shape = _DEFAULT_SHAPE.get(diagram_type, "rect")
 
@@ -77,9 +79,13 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
             )
         )
 
+    # lane hues come from the *resolved theme's* palette, so swapping themes swaps the
+    # swimlane palette over identical geometry (F4). default theme's palette IS the global,
+    # so default output is unchanged.
+    lane_palette = theme.get("lanePalette") or LANE_PALETTE
     lanes: list[LogicalLane] = []
     for i, raw in enumerate(spec.get("lanes", []) or []):
-        hue = LANE_PALETTE[i % len(LANE_PALETTE)]
+        hue = lane_palette[i % len(lane_palette)]
         label = _label(raw.get("label")) or Label(text=str(raw.get("id", "")))
         lanes.append(LogicalLane(id=raw["id"], label=label, hue=hue))
 

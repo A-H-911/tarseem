@@ -1,0 +1,17 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "flowchart",
+  "direction": "RL",
+  "meta": { "title": "مزيج عربي + Latin + أرقام" },
+  "nodes": [
+    { "id": "req", "shape": "roundrect", "label": { "text": "طلب HTTP إلى login" } },
+    { "id": "api", "shape": "roundrect", "label": { "text": "خادم API رقم 1" } },
+    { "id": "ok", "shape": "roundrect", "label": { "text": "رمز 200 ناجح" } },
+    { "id": "err", "shape": "roundrect", "label": { "text": "خطأ 500 داخلي" } }
+  ],
+  "edges": [
+    { "source": "req", "target": "api" },
+    { "source": "api", "target": "ok", "label": { "text": "OK" } },
+    { "source": "api", "target": "err", "label": { "text": "خطأ" } }
+  ]
+}

@@ -23,8 +23,13 @@ __all__ = [
     "check_elkjs",
     "check_playwright_chromium",
     "check_fonts",
+    "check_arabic_shaping",
+    "check_raqm",
     "run_doctor",
 ]
+
+# A diacritized word that only renders correctly when joining + mark positioning work.
+_SHAPE_PROBE = "مقدّم"
 
 PINNED_ELKJS = "0.11.1"
 
@@ -134,6 +139,59 @@ def check_fonts(font_path: Path | None = None) -> CheckResult:
     return CheckResult("fonts", True, f"Cairo font at {path.name}")
 
 
+def check_arabic_shaping(font_path: Path | None = None) -> CheckResult:
+    """Shape a diacritized Arabic probe with the bundled font via uharfbuzz: the bundled
+    Cairo must cover Arabic and shaping must run (no .notdef, positive advance). This is
+    the primary Arabic-correctness gate (07 §1)."""
+    path = Path(font_path) if font_path is not None else default_font_path()
+    try:
+        import uharfbuzz as hb
+
+        face = hb.Face(hb.Blob.from_file_path(str(path)))
+        font = hb.Font(face)
+        buf = hb.Buffer()
+        buf.add_str(_SHAPE_PROBE)
+        buf.guess_segment_properties()
+        hb.shape(font, buf)
+        gids = [info.codepoint for info in buf.glyph_infos]
+        advance = sum(p.x_advance for p in buf.glyph_positions)
+    except Exception as exc:  # noqa: BLE001 - any shaping failure is actionable
+        return CheckResult(
+            "arabic-shaping", False, f"shaping probe failed: {exc}",
+            hint="reinstall tarseem; uharfbuzz + the bundled Cairo font are required",
+        )
+    if not gids or 0 in gids or advance <= 0:
+        return CheckResult(
+            "arabic-shaping", False,
+            f"probe {_SHAPE_PROBE!r} produced gids={gids} advance={advance}",
+            hint="the bundled font lacks Arabic coverage; restore the OFL Cairo build",
+        )
+    return CheckResult(
+        "arabic-shaping", True, f"shaped {_SHAPE_PROBE!r} -> {len(gids)} glyphs (uharfbuzz)"
+    )
+
+
+def check_raqm() -> CheckResult:
+    """Report Pillow+libraqm availability for the *optional* measurement cross-check.
+
+    Informational only (always ``ok``): uharfbuzz is the primary measurer, so a missing
+    libraqm — common on Windows — must not fail ``doctor``. It only disables the
+    secondary cross-check (07 §1, R-3)."""
+    try:
+        from PIL import features
+
+        available = bool(features.check("raqm"))
+    except Exception as exc:  # noqa: BLE001 - Pillow missing -> cross-check simply off
+        return CheckResult(
+            "raqm", True, f"Pillow/raqm unavailable ({exc}); uharfbuzz is primary"
+        )
+    if available:
+        return CheckResult("raqm", True, "Pillow+libraqm available (measurement cross-check on)")
+    return CheckResult(
+        "raqm", True, "libraqm not built into Pillow; uharfbuzz is primary (cross-check off)"
+    )
+
+
 def run_doctor() -> DoctorReport:
     """Run all dependency checks and return a structured report."""
     return DoctorReport(
@@ -142,5 +200,7 @@ def run_doctor() -> DoctorReport:
             check_elkjs(),
             check_playwright_chromium(),
             check_fonts(),
+            check_arabic_shaping(),
+            check_raqm(),
         ]
     )

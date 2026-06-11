@@ -17,6 +17,7 @@ from tarseem.render.svg import (
     _num,
     _shape_svg,
 )
+from tarseem.render.text import bidi_attrs
 
 __all__ = ["render_swimlane_svg"]
 
@@ -67,11 +68,15 @@ def _title_bar(diagram: PositionedDiagram, m: float, title_h: float) -> list[str
     if not diagram.title:
         return []
     w = diagram.width
+    # title bar colour is a theme function (F4): default theme = #269973 (unchanged).
+    title = diagram.theme.get("title") or {}
+    fill = str(title.get("fill", _TITLE_FILL))
+    text_color = str(title.get("text", "#FFFFFF"))
     return [
         f'<rect x="{_num(m)}" y="{_num(m)}" width="{_num(w - 2 * m)}" height="{_num(title_h)}" '
-        f'rx="6" fill="{_TITLE_FILL}"/>',
+        f'rx="6" fill="{fill}"/>',
         f'<text x="{_num(w / 2)}" y="{_num(m + title_h / 2)}" font-size="18" font-weight="700" '
-        f'fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">'
+        f'fill="{text_color}" {bidi_attrs(diagram.title)}>'
         f"{_esc(diagram.title)}</text>",
     ]
 
@@ -103,13 +108,14 @@ def _phase_band(band, lanes_top: float, lanes_bottom: float, sep: dict) -> list[
     ]
 
 
-def _lane_band(band, width: float) -> list[str]:
+def _lane_band(band, width: float, rtl: bool = False) -> list[str]:
     c = band.hue
     row = c.get("row", "#EEEEEE")
     accent = c.get("label", "#333333")
     chip_h = 56.0
     chip_w = _LABEL_W - 16.0
-    chip_x = band.x + 8.0
+    # header pill sits on the flow-start side: left for LTR, right for RTL (analysis.md §R-2)
+    chip_x = (band.x + band.width - chip_w - 8.0) if rtl else band.x + 8.0
     chip_y = band.y + (band.height - chip_h) / 2
     return [
         f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
@@ -160,15 +166,21 @@ def _edge_svg(e: PositionedEdge) -> list[str]:
     return out
 
 
-def _node_svg(n: PositionedNode) -> list[str]:
+def _node_svg(n: PositionedNode, rtl: bool = False) -> list[str]:
     out = [_shape_svg(n)]
     accent = str((n.style.get("border") or {}).get("color", "#333333"))
     if n.badge:
-        bx = _badge_x(n.shape, n.x)
         by = _badge_baseline(n.shape, n.y)
+        # badge corner mirrors under RTL: top-right (anchor end) instead of top-left
+        if rtl:
+            bx = n.x + n.width - _BADGE_INSET_X
+            anchor = "end"
+        else:
+            bx = _badge_x(n.shape, n.x)
+            anchor = "start"
         out.append(
             f'<text x="{_num(bx)}" y="{_num(by)}" font-size="12" font-weight="700" '
-            f'fill="{accent}" text-anchor="start">{_esc(n.badge)}</text>'
+            f'fill="{accent}" text-anchor="{anchor}">{_esc(n.badge)}</text>'
         )
     out.append(
         f'<text x="{_num(n.x + n.width / 2)}" y="{_num(n.y + n.height / 2)}" font-size="12" '
@@ -200,12 +212,14 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
         "</style>",
         f'<rect width="{_num(w)}" height="{_num(h)}" fill="#FFFFFF"/>',
     ]
+    rtl = diagram.direction == "RL"
     parts.extend(_title_bar(diagram, m, title_h))
     for band in diagram.lanes:
-        parts.extend(_lane_band(band, w))
+        parts.extend(_lane_band(band, w, rtl))
 
     if diagram.lanes:
-        sep_x = m + _LABEL_W  # actor/label separator; symmetric content padding starts here
+        # actor/label separator runs down the header-column side (right under RTL)
+        sep_x = (w - m - _LABEL_W) if rtl else m + _LABEL_W
         top = diagram.lanes[0].y
         bottom = diagram.lanes[-1].y + diagram.lanes[-1].height
         parts.append(
@@ -228,7 +242,7 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
     for marker in diagram.markers:
         parts.append(_marker_svg(marker))
     for n in diagram.nodes:
-        parts.extend(_node_svg(n))
+        parts.extend(_node_svg(n, rtl))
 
     parts.append("</svg>")
     return "\n".join(parts)
