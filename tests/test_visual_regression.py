@@ -87,11 +87,12 @@ requires_baselines = pytest.mark.skipif(
 )
 
 
-# A real geometry/style change shifts shape edges across many pixels (>>1%); sub-pixel
-# anti-aliasing jitter between Chromium builds on the same OS stays well under this. The
-# tolerance absorbs single-level AA differences; the ratio threshold is the regression gate.
-_AA_TOLERANCE = 4
-_MAX_DIFF_RATIO = 0.01  # 1% of pixels
+# Same OS + same Chromium => byte-identical (A3), so the baseline diff is normally 0. The
+# tolerance absorbs single-level anti-aliasing jitter from a Chromium build drift; the ratio
+# gate is set tight (0.1%) because a real change is sharp/high-contrast and clears the
+# tolerance everywhere it touches. Empirically a 2px head-border change is ~0.55% — caught.
+_AA_TOLERANCE = 8
+_MAX_DIFF_RATIO = 0.001  # 0.1% of pixels
 
 
 @requires_baselines
