@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from tarseem.model.ir import Label, PositionedDiagram, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
+from tarseem.render.text import label_attrs as _resolve_label_attrs
 
 __all__ = ["render_svg"]
 
@@ -101,12 +102,9 @@ def _arrowhead(p1: tuple[float, float], p2: tuple[float, float], color: str) -> 
 
 
 def _label_attrs(label: Label) -> str:
-    attrs = 'text-anchor="middle" dominant-baseline="central"'
-    if label.direction:
-        attrs += f' direction="{label.direction}"'
-    if label.lang:
-        attrs += f' xml:lang="{_esc(label.lang)}"'
-    return attrs
+    """Anchoring + bidi (direction/xml:lang) for a label. Auto-detects Arabic so RTL
+    text renders naturally; LTR labels keep their pre-Phase-4 attribute bytes (07 §2)."""
+    return _resolve_label_attrs(label)
 
 
 def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:

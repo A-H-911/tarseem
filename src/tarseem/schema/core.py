@@ -119,6 +119,23 @@ _LAYOUT = {
     "additionalProperties": True,  # forward-compat for later routing/layout hints
 }
 
+# Export options. Only the SVG writer's options are typed in the MVP core; other targets
+# (png/pdf/drawio/pptx) attach their own keys and are forward-compatible.
+_EXPORT = {
+    "type": "object",
+    "properties": {
+        "svg": {
+            "type": "object",
+            "properties": {
+                "embedFonts": {"type": "boolean"},  # default true: embed WOFF2 subset
+                "textAsPaths": {"type": "boolean"},  # default false: glyph outlines
+            },
+            "additionalProperties": True,
+        },
+    },
+    "additionalProperties": True,
+}
+
 _GROUP = {
     "type": "object",
     "required": ["id"],
@@ -156,7 +173,7 @@ CORE_SCHEMA: dict = {
         "edges": {"type": "array", "items": _EDGE},
         "annotations": {"type": "array"},
         "layout": _LAYOUT,
-        "export": {"type": "object"},
+        "export": _EXPORT,
     },
     "patternProperties": {"^x-": {}},
     "additionalProperties": False,

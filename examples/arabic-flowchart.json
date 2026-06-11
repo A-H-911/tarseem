@@ -1,0 +1,17 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "flowchart",
+  "direction": "RL",
+  "meta": { "title": "تدفّق تسجيل الدخول" },
+  "nodes": [
+    { "id": "start", "shape": "stadium", "label": { "text": "بداية", "lang": "ar" } },
+    { "id": "check", "shape": "diamond", "label": { "text": "بيانات صحيحة؟", "lang": "ar" } },
+    { "id": "ok", "shape": "roundrect", "label": { "text": "دخول ناجح", "lang": "ar" } },
+    { "id": "fail", "shape": "roundrect", "label": { "text": "رفض الدخول", "lang": "ar" } }
+  ],
+  "edges": [
+    { "source": "start", "target": "check" },
+    { "source": "check", "target": "ok", "label": { "text": "نعم", "lang": "ar" } },
+    { "source": "check", "target": "fail", "label": { "text": "لا", "lang": "ar" } }
+  ]
+}

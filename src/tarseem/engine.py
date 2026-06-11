@@ -51,6 +51,7 @@ class RenderResult:
     spec_hash: str
     versions: dict = field(default_factory=dict)
     layout_ms: float | None = None
+    export_opts: dict = field(default_factory=dict)  # resolved spec.export.svg options
     _svg: str | None = field(default=None, repr=False)
 
     @property
@@ -62,9 +63,12 @@ class RenderResult:
 
     @property
     def svg(self) -> str:
-        """Canonical SVG (no provenance comment — byte-stable, see A3)."""
+        """Canonical SVG (no provenance comment — byte-stable, see A3). Applies the
+        resolved ``export.svg`` options (embedFonts / textAsPaths); defaults are a no-op."""
         if self._svg is None:
-            self._svg = render_svg(self.diagram)
+            from tarseem.render.export_opts import apply_export_options
+
+            self._svg = apply_export_options(render_svg(self.diagram), self.export_opts)
         return self._svg
 
     def to_svg(self, provenance: bool = False) -> str:
@@ -129,4 +133,5 @@ class Engine:
             spec_hash=spec_hash(spec),
             versions=versions,
             layout_ms=layout_ms,
+            export_opts=(spec.get("export") or {}).get("svg") or {},
         )

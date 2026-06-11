@@ -1,0 +1,22 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "RL",
+  "meta": { "title": "إجراءات استخراج وثيقة" },
+  "lanes": [
+    { "id": "applicant", "label": { "text": "مقدّم الطلب", "lang": "ar" } },
+    { "id": "reception", "label": { "text": "الاستقبال", "lang": "ar" } },
+    { "id": "review", "label": { "text": "المراجعة", "lang": "ar" } }
+  ],
+  "nodes": [
+    { "id": "submit", "lane": "applicant", "shape": "stadium", "badge": false, "label": { "text": "تعبئة الطلب", "lang": "ar" } },
+    { "id": "intake", "lane": "reception", "shape": "roundrect", "label": { "text": "استقبال", "lang": "ar" } },
+    { "id": "review", "lane": "review", "shape": "roundrect", "label": { "text": "مراجعة", "lang": "ar" } },
+    { "id": "receive", "lane": "applicant", "shape": "stadium", "badge": false, "label": { "text": "استلام", "lang": "ar" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "submit", "target": "intake", "label": { "text": "طلب", "lang": "ar" } },
+    { "id": "e2", "source": "intake", "target": "review" },
+    { "id": "e3", "source": "review", "target": "receive", "label": { "text": "موافقة", "lang": "ar" } }
+  ]
+}

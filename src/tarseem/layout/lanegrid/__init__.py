@@ -96,14 +96,17 @@ class LaneGridLayout:
             col = nums[n.id]
             col_width[col] = max(col_width.get(col, _STEP_W), w)
 
-        start_x = _M + _LABEL_W + side_pad + end_w
-        col_x: dict[int, float] = {}
-        cursor = start_x
-        for c in range(1, n_cols + 1):
-            col_x[c] = cursor
-            cursor += col_width.get(c, _STEP_W) + col_gap
-        inner_right = cursor - col_gap
-        total_w = inner_right + end_w + side_pad + _M
+        # RL = right-to-left mirroring (geometry only; theme/text invariant — analysis.md
+        # §Reference-2). Total width is direction-independent; only column placement, the
+        # header-column side, badge corner and markers flip.
+        rtl = graph.direction == "RL"
+        content_w = (
+            sum(col_width.get(c, _STEP_W) for c in range(1, n_cols + 1))
+            + col_gap * (n_cols - 1)
+        )
+        total_w = 2 * _M + _LABEL_W + 2 * side_pad + 2 * end_w + content_w
+        col_x = self._column_x(n_cols, col_width, side_pad, end_w, col_gap, total_w, rtl)
+
         phase_h = _PHASE_H if graph.phases else 0.0
         lanes_top = _M + _TITLE_H + phase_h
         total_h = lanes_top + len(lanes) * _LANE_H + _M
@@ -113,13 +116,14 @@ class LaneGridLayout:
 
         nodes, geom = self._place_nodes(graph, nums, lane_index, col_x, col_width, node_w, band_y)
         edges = self._route_edges(graph.edges, geom)
-        content_left = _M + _LABEL_W  # actor/label separator
-        content_right = total_w - _M  # lane band right border
+        # content area = the non-header side; the header column moves right under RTL
+        content_left = _M if rtl else _M + _LABEL_W
+        content_right = (total_w - _M - _LABEL_W) if rtl else total_w - _M
         phase_bands = self._phase_bands(
-            graph, nums, col_x, col_width, content_left, content_right, col_gap
+            graph, nums, col_x, col_width, content_left, content_right, col_gap, rtl
         )
         if markers:
-            marker_objs, marker_edges = self._markers(graph, nums, geom, total_w, side_pad)
+            marker_objs, marker_edges = self._markers(graph, nums, geom, total_w, side_pad, rtl)
             edges = edges + marker_edges
         else:
             marker_objs = ()
@@ -140,6 +144,26 @@ class LaneGridLayout:
         )
 
     # -- pieces ---------------------------------------------------------------
+    def _column_x(
+        self, n_cols, col_width, side_pad, end_w, col_gap, total_w, rtl
+    ) -> dict[int, float]:
+        """Left-edge x of each step column. LTR lays columns left->right from the header
+        side; RTL lays them right->left so column 1 (first step) sits on the right and the
+        flow proceeds leftward. The LTR branch reproduces the pre-Phase-4 positions exactly."""
+        col_x: dict[int, float] = {}
+        if rtl:
+            cursor = total_w - _M - _LABEL_W - side_pad - end_w  # right edge of content
+            for c in range(1, n_cols + 1):
+                w = col_width.get(c, _STEP_W)
+                col_x[c] = cursor - w
+                cursor = col_x[c] - col_gap
+        else:
+            cursor = _M + _LABEL_W + side_pad + end_w
+            for c in range(1, n_cols + 1):
+                col_x[c] = cursor
+                cursor += col_width.get(c, _STEP_W) + col_gap
+        return col_x
+
     def _lane_bands(self, lanes: tuple, total_w: float, lanes_top: float) -> list[LaneBand]:
         bands = []
         for i, lane in enumerate(lanes):
@@ -157,14 +181,15 @@ class LaneGridLayout:
         return bands
 
     def _phase_bands(
-        self, graph, nums, col_x, col_width, content_left, content_right, col_gap
+        self, graph, nums, col_x, col_width, content_left, content_right, col_gap, rtl=False
     ) -> list[PhaseBand]:
         """One header band per phase, tiling the column space contiguously: internal phase
         boundaries fall at the column-gap midpoint (so adjacent phases meet exactly), while
         the OUTER edges are clamped to the content area — the first phase starts at the
         actor/label separator and the last phase ends at the lane border, so the bands and
-        their separators never poke past the swimlane sides. Assumes phases occupy
-        contiguous column ranges (the documented MVP shape)."""
+        their separators never poke past the swimlane sides. Phases are ordered by flow, so
+        under RTL the first phase (lowest column numbers) sits on the *right*. Assumes phases
+        occupy contiguous column ranges (the documented MVP shape)."""
         cols_by_phase: dict[str, list[int]] = {}
         for n in graph.nodes:
             if n.phase:
@@ -172,12 +197,17 @@ class LaneGridLayout:
         ordered = [ph for ph in graph.phases if ph.id in cols_by_phase]
         ordered.sort(key=lambda ph: min(cols_by_phase[ph.id]))
         half = col_gap / 2
+        last_i = len(ordered) - 1
         bands: list[PhaseBand] = []
         for i, ph in enumerate(ordered):
             cols = cols_by_phase[ph.id]
-            first, last = min(cols), max(cols)
-            left = content_left if i == 0 else col_x[first] - half
-            right = content_right if i == len(ordered) - 1 else col_x[last] + col_width[last] + half
+            first, last = min(cols), max(cols)  # by flow number
+            if rtl:  # first(flow) is the right-most column on screen
+                right = content_right if i == 0 else col_x[first] + col_width[first] + half
+                left = content_left if i == last_i else col_x[last] - half
+            else:
+                left = content_left if i == 0 else col_x[first] - half
+                right = content_right if i == last_i else col_x[last] + col_width[last] + half
             bands.append(
                 PhaseBand(
                     id=ph.id, label=ph.label,
@@ -232,29 +262,41 @@ class LaneGridLayout:
             )
         return out
 
-    def _markers(self, graph, nums, geom, total_w, side_pad):
+    def _markers(self, graph, nums, geom, total_w, side_pad, rtl=False):
         first = min(nums, key=lambda k: nums[k])
         last = max(nums, key=lambda k: nums[k])
         fp, lp = geom[first], geom[last]
         r = _MARKER / 2
-        sx = _M + _LABEL_W + side_pad + (_END_W - _MARKER) / 2
+        # start gutter is on the flow-start side (left for LTR, right for RTL); end gutter
+        # mirrors it. Connectors attach to the node side that faces its marker.
+        if rtl:
+            sx = total_w - _M - _LABEL_W - side_pad - _END_W + (_END_W - _MARKER) / 2
+            ex = _M + side_pad + (_END_W - _MARKER) / 2
+            start_side, end_side = "r", "l"
+        else:
+            sx = _M + _LABEL_W + side_pad + (_END_W - _MARKER) / 2
+            ex = total_w - _M - side_pad - _END_W + (_END_W - _MARKER) / 2
+            start_side, end_side = "l", "r"
         sy = fp["y"] + (_STEP_H - _MARKER) / 2
-        ex = total_w - _M - side_pad - _END_W + (_END_W - _MARKER) / 2
         ey = lp["y"] + (_STEP_H - _MARKER) / 2
         start = Marker(kind="start", cx=sx + r, cy=sy + r, r=r)
         end = Marker(kind="end", cx=ex + r, cy=ey + r, r=r)
         black = {"stroke": _MARKER_BLACK, "width": 2}
         fp_cy = fp["y"] + _STEP_H / 2
         lp_cy = lp["y"] + _STEP_H / 2
+        # marker edge that faces the node: right edge (sx+_MARKER) when the marker is to the
+        # node's left, left edge (sx) when it is to the node's right.
+        start_marker_x = sx if rtl else sx + _MARKER
+        end_marker_x = ex + _MARKER if rtl else ex
         edges = [
             PositionedEdge(
                 id="__marker_start__",
-                points=((sx + _MARKER, sy + r), (_side_x(fp, "l", fp_cy), fp_cy)),
+                points=((start_marker_x, sy + r), (_side_x(fp, start_side, fp_cy), fp_cy)),
                 label=None, label_xy=None, style=black,
             ),
             PositionedEdge(
                 id="__marker_end__",
-                points=((_side_x(lp, "r", lp_cy), lp_cy), (ex, ey + r)),
+                points=((_side_x(lp, end_side, lp_cy), lp_cy), (end_marker_x, ey + r)),
                 label=None, label_xy=None, style=black,
             ),
         ]

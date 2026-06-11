@@ -1,0 +1,17 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "architecture",
+  "direction": "RL",
+  "meta": { "title": "معمارية النظام" },
+  "nodes": [
+    { "id": "client", "shape": "roundrect", "label": { "text": "العميل", "lang": "ar" } },
+    { "id": "gateway", "shape": "roundrect", "label": { "text": "بوّابة الـ API", "lang": "ar" } },
+    { "id": "svc", "shape": "roundrect", "label": { "text": "خدمة المعالجة", "lang": "ar" } },
+    { "id": "db", "shape": "cylinder", "label": { "text": "قاعدة البيانات", "lang": "ar" } }
+  ],
+  "edges": [
+    { "source": "client", "target": "gateway", "label": { "text": "طلب", "lang": "ar" } },
+    { "source": "gateway", "target": "svc" },
+    { "source": "svc", "target": "db", "label": { "text": "حفظ", "lang": "ar" } }
+  ]
+}

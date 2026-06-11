@@ -11,6 +11,7 @@ from __future__ import annotations
 from tarseem.model.ir import PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
 from tarseem.render.svg import _arrowhead, _esc, _label_attrs, _num, _shape_svg
+from tarseem.render.text import bidi_attrs
 
 __all__ = ["render_sequence_svg"]
 
@@ -93,7 +94,7 @@ def render_sequence_svg(diagram: PositionedDiagram) -> str:
     if diagram.title:
         parts.append(
             f'<text x="{_num(w / 2)}" y="{_num(_M / 2 + 6)}" font-size="18" font-weight="700" '
-            f'fill="#14281D" text-anchor="middle" dominant-baseline="central">'
+            f'fill="#14281D" {bidi_attrs(diagram.title)}>'
             f"{_esc(diagram.title)}</text>"
         )
 

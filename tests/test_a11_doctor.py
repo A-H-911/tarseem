@@ -19,10 +19,11 @@ requires_node = pytest.mark.skipif(
 )
 
 
-def test_run_doctor_covers_all_four_dependencies():
+def test_run_doctor_covers_all_dependencies():
     report = run_doctor()
     names = {c.name for c in report.checks}
-    assert names == {"node", "elkjs", "playwright", "fonts"}
+    # core runtime deps + the Phase-4 Arabic checks (shaping gate + optional raqm status)
+    assert names == {"node", "elkjs", "playwright", "fonts", "arabic-shaping", "raqm"}
 
 
 def test_report_ok_aggregates_checks():
