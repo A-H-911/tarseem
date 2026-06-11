@@ -6,6 +6,8 @@ name: Regen visual baselines
 # commits anything itself — regeneration stays an explicit, reviewed action (R-21).
 on:
   workflow_dispatch:
+  push:
+    branches: [regen-baselines]  # push here to (re)generate per-OS baselines
 
 jobs:
   regen:
