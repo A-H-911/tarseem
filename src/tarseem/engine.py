@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from tarseem import __version__
 from tarseem.layout.elk import ElkLayout
@@ -25,6 +27,9 @@ from tarseem.measure import measure_graph
 from tarseem.model import PositionedDiagram, compile_spec
 from tarseem.render import render_svg
 from tarseem.validation import validate
+
+if TYPE_CHECKING:
+    from tarseem.report import RenderReport
 
 __all__ = ["Engine", "RenderResult"]
 
@@ -45,7 +50,15 @@ class RenderResult:
     diagram: PositionedDiagram
     spec_hash: str
     versions: dict = field(default_factory=dict)
+    layout_ms: float | None = None
     _svg: str | None = field(default=None, repr=False)
+
+    @property
+    def report(self) -> RenderReport:
+        """Quality metrics (crossings/overlaps/extent) + layout timing for this render."""
+        from tarseem.report import analyze
+
+        return analyze(self.diagram, render_ms=self.layout_ms)
 
     @property
     def svg(self) -> str:
@@ -101,6 +114,7 @@ class Engine:
 
         graph = measure_graph(compile_spec(spec))
         versions = {"tarseem": __version__}
+        start = time.perf_counter()
         if graph.diagram_type in _SWIMLANE_TYPES:
             diagram = LaneGridLayout().layout(graph)
         elif graph.diagram_type in _SEQUENCE_TYPES:
@@ -109,4 +123,10 @@ class Engine:
             with ElkLayout(node=self._node) as elk:
                 diagram = elk.layout(graph)
                 versions["elkjs"] = elk.capabilities()["elkjs_version"]
-        return RenderResult(diagram=diagram, spec_hash=spec_hash(spec), versions=versions)
+        layout_ms = (time.perf_counter() - start) * 1000.0
+        return RenderResult(
+            diagram=diagram,
+            spec_hash=spec_hash(spec),
+            versions=versions,
+            layout_ms=layout_ms,
+        )
