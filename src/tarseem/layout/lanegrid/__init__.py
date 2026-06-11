@@ -18,6 +18,7 @@ from tarseem.model.ir import (
     LogicalGraph,
     LogicalNode,
     Marker,
+    PhaseBand,
     PositionedDiagram,
     PositionedEdge,
     PositionedNode,
@@ -37,6 +38,8 @@ _LABEL_GAP = 30.0
 _MARKER = 36.0
 _END_W = 80.0
 _TRAIL = 80.0
+_PHASE_H = 34.0  # phase header band height (FR-6.3); 0 when no phases declared
+_PHASE_PAD = 6.0  # horizontal padding around a phase's member columns
 _MARKER_BLACK = "#000000"
 
 
@@ -94,13 +97,16 @@ class LaneGridLayout:
             cursor += col_width.get(c, _STEP_W) + _COL_GAP
         inner_right = cursor - _COL_GAP
         total_w = inner_right + end_w + _TRAIL + _M
-        total_h = _M + _TITLE_H + len(lanes) * _LANE_H + _M
+        phase_h = _PHASE_H if graph.phases else 0.0
+        lanes_top = _M + _TITLE_H + phase_h
+        total_h = lanes_top + len(lanes) * _LANE_H + _M
 
-        bands = self._lane_bands(lanes, total_w)
-        band_y = {lanes[i].id: _M + _TITLE_H + i * _LANE_H for i in range(len(lanes))}
+        bands = self._lane_bands(lanes, total_w, lanes_top)
+        band_y = {lanes[i].id: lanes_top + i * _LANE_H for i in range(len(lanes))}
 
         nodes, geom = self._place_nodes(graph, nums, lane_index, col_x, col_width, node_w, band_y)
         edges = self._route_edges(graph.edges, geom)
+        phase_bands = self._phase_bands(graph, geom)
         if markers:
             marker_objs, marker_edges = self._markers(graph, nums, geom, total_w)
             edges = edges + marker_edges
@@ -116,12 +122,13 @@ class LaneGridLayout:
             direction=graph.direction,
             title=graph.title,
             lanes=tuple(bands),
+            phases=tuple(phase_bands),
             markers=tuple(marker_objs),
             theme=graph.theme,
         )
 
     # -- pieces ---------------------------------------------------------------
-    def _lane_bands(self, lanes: tuple, total_w: float) -> list[LaneBand]:
+    def _lane_bands(self, lanes: tuple, total_w: float, lanes_top: float) -> list[LaneBand]:
         bands = []
         for i, lane in enumerate(lanes):
             bands.append(
@@ -129,10 +136,28 @@ class LaneGridLayout:
                     id=lane.id,
                     label=lane.label,
                     x=_M,
-                    y=_M + _TITLE_H + i * _LANE_H,
+                    y=lanes_top + i * _LANE_H,
                     width=total_w - 2 * _M,
                     height=_LANE_H,
                     hue=lane.hue,
+                )
+            )
+        return bands
+
+    def _phase_bands(self, graph, geom) -> list[PhaseBand]:
+        """One header band per phase, spanning the x-extent of its member nodes' columns.
+        Best-effort: phases whose columns interleave still get a band over their span."""
+        bands: list[PhaseBand] = []
+        for ph in sorted(graph.phases, key=lambda p: p.order):
+            members = [geom[n.id] for n in graph.nodes if n.phase == ph.id and n.id in geom]
+            if not members:
+                continue
+            left = min(g["x"] for g in members) - _PHASE_PAD
+            right = max(g["x"] + g["w"] for g in members) + _PHASE_PAD
+            bands.append(
+                PhaseBand(
+                    id=ph.id, label=ph.label,
+                    x=left, y=_M + _TITLE_H, width=right - left, height=_PHASE_H,
                 )
             )
         return bands

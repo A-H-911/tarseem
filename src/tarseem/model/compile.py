@@ -6,7 +6,14 @@ mutates the input spec.
 """
 from __future__ import annotations
 
-from tarseem.model.ir import Label, LogicalEdge, LogicalGraph, LogicalLane, LogicalNode
+from tarseem.model.ir import (
+    Label,
+    LogicalEdge,
+    LogicalGraph,
+    LogicalLane,
+    LogicalNode,
+    LogicalPhase,
+)
 from tarseem.themes import LANE_PALETTE, get_theme
 from tarseem.themes.cascade import resolve_edge_style, resolve_node_style
 
@@ -49,6 +56,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
                 shape=raw.get("shape", default_shape),
                 kind=raw.get("kind"),
                 lane=raw.get("lane"),
+                phase=raw.get("phase"),
                 show_badge=bool(raw.get("badge", True)),
                 style=resolve_node_style(spec, raw, theme),
             )
@@ -75,6 +83,11 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         label = _label(raw.get("label")) or Label(text=str(raw.get("id", "")))
         lanes.append(LogicalLane(id=raw["id"], label=label, hue=hue))
 
+    phases: list[LogicalPhase] = []
+    for i, raw in enumerate(spec.get("phases", []) or []):
+        label = _label(raw.get("label")) or Label(text=str(raw.get("id", "")))
+        phases.append(LogicalPhase(id=raw["id"], label=label, order=float(raw.get("order", i))))
+
     title = (spec.get("meta") or {}).get("title")
     markers = bool((spec.get("layout") or {}).get("markers", False))
 
@@ -84,6 +97,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         nodes=tuple(nodes),
         edges=tuple(edges),
         lanes=tuple(lanes),
+        phases=tuple(phases),
         title=title,
         markers=markers,
         theme=theme,

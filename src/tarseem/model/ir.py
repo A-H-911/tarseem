@@ -11,10 +11,12 @@ from dataclasses import dataclass, field, replace
 __all__ = [
     "Label",
     "LogicalLane",
+    "LogicalPhase",
     "LogicalNode",
     "LogicalEdge",
     "LogicalGraph",
     "LaneBand",
+    "PhaseBand",
     "Marker",
     "Activation",
     "PositionedNode",
@@ -41,6 +43,7 @@ class LogicalNode:
     shape: str = "rect"
     kind: str | None = None
     lane: str | None = None  # swimlane membership
+    phase: str | None = None  # swimlane phase-column membership (FR-6.3)
     show_badge: bool = True  # False = auto-number badge exempt (start/terminal pills)
     style: dict = field(default_factory=dict)
     # sizes are None until the measurement stage fills them (measure-before-layout)
@@ -65,12 +68,22 @@ class LogicalLane:
 
 
 @dataclass(frozen=True)
+class LogicalPhase:
+    """A phase groups one or more flow columns under a header band (FR-6.3)."""
+
+    id: str
+    label: Label
+    order: float = 0.0
+
+
+@dataclass(frozen=True)
 class LogicalGraph:
     diagram_type: str
     direction: str = "TB"  # TB | BT | LR | RL
     nodes: tuple[LogicalNode, ...] = ()
     edges: tuple[LogicalEdge, ...] = ()
     lanes: tuple[LogicalLane, ...] = ()  # swimlane families only
+    phases: tuple[LogicalPhase, ...] = ()  # swimlane phase columns (FR-6.3)
     title: str | None = None
     markers: bool = False  # UML start/end markers (swimlane)
     theme: dict = field(default_factory=dict)
@@ -98,6 +111,19 @@ class LaneBand:
     width: float
     height: float
     hue: dict  # palette entry: row/box/label tints
+
+
+@dataclass(frozen=True)
+class PhaseBand:
+    """A phase header band spanning the columns of its member nodes (FR-6.3). Geometry
+    only; positioned above the lane bands, with a separator drawn down through the lanes."""
+
+    id: str
+    label: Label
+    x: float
+    y: float
+    width: float
+    height: float
 
 
 @dataclass(frozen=True)
@@ -138,6 +164,7 @@ class PositionedDiagram:
     direction: str = "TB"
     title: str | None = None
     lanes: tuple[LaneBand, ...] = ()  # swimlane band chrome
+    phases: tuple[PhaseBand, ...] = ()  # swimlane phase header bands (FR-6.3)
     markers: tuple[Marker, ...] = ()  # swimlane UML markers
     activations: tuple[Activation, ...] = ()  # sequence activation bars
     theme: dict = field(default_factory=dict)

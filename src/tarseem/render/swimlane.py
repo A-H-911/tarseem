@@ -76,6 +76,22 @@ def _title_bar(diagram: PositionedDiagram, m: float, title_h: float) -> list[str
     ]
 
 
+def _phase_band(band, lanes_bottom: float) -> list[str]:
+    """Phase header pill + a dotted separator dropping through the lanes (FR-6.3)."""
+    cx = band.x + band.width / 2
+    sep_x = band.x + band.width
+    return [
+        f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
+        f'height="{_num(band.height)}" rx="5" fill="#37474F" opacity="0.92"/>',
+        f'<text x="{_num(cx)}" y="{_num(band.y + band.height / 2)}" font-size="13" '
+        f'font-weight="700" fill="#FFFFFF" {_label_attrs(band.label)}>'
+        f"{_esc(band.label.text)}</text>",
+        f'<line x1="{_num(sep_x)}" y1="{_num(band.y)}" x2="{_num(sep_x)}" '
+        f'y2="{_num(lanes_bottom)}" stroke="{_SEPARATOR}" stroke-width="1.5" '
+        f'stroke-dasharray="3 4"/>',
+    ]
+
+
 def _lane_band(band, width: float) -> list[str]:
     c = band.hue
     row = c.get("row", "#EEEEEE")
@@ -179,6 +195,8 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
             f'<line x1="{_num(sep_x)}" y1="{_num(top)}" x2="{_num(sep_x)}" y2="{_num(bottom)}" '
             f'stroke="{_SEPARATOR}" stroke-width="2"/>'
         )
+        for phase in diagram.phases:  # phase header bands + separators (FR-6.3)
+            parts.extend(_phase_band(phase, bottom))
 
     for e in diagram.edges:  # edges under nodes so arrowheads tuck at borders
         parts.extend(_edge_svg(e))
