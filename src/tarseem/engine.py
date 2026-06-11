@@ -20,6 +20,7 @@ from pathlib import Path
 from tarseem import __version__
 from tarseem.layout.elk import ElkLayout
 from tarseem.layout.lanegrid import LaneGridLayout
+from tarseem.layout.sequence import SequenceLayout
 from tarseem.measure import measure_graph
 from tarseem.model import PositionedDiagram, compile_spec
 from tarseem.render import render_svg
@@ -28,6 +29,7 @@ from tarseem.validation import validate
 __all__ = ["Engine", "RenderResult"]
 
 _SWIMLANE_TYPES = {"swimlane"}
+_SEQUENCE_TYPES = {"sequence"}
 
 
 def spec_hash(spec: dict) -> str:
@@ -101,6 +103,8 @@ class Engine:
         versions = {"tarseem": __version__}
         if graph.diagram_type in _SWIMLANE_TYPES:
             diagram = LaneGridLayout().layout(graph)
+        elif graph.diagram_type in _SEQUENCE_TYPES:
+            diagram = SequenceLayout().layout(graph)
         else:
             with ElkLayout(node=self._node) as elk:
                 diagram = elk.layout(graph)

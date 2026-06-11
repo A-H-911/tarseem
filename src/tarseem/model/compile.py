@@ -18,6 +18,7 @@ _DEFAULT_SHAPE: dict[str, str] = {
     "architecture": "rect",
     "dependency": "rect",
     "swimlane": "roundrect",
+    "sequence": "rect",  # participant head boxes
 }
 
 

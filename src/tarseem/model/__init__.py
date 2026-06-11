@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from tarseem.model.compile import compile_spec
 from tarseem.model.ir import (
+    Activation,
     Label,
     LaneBand,
     LogicalEdge,
@@ -24,6 +25,7 @@ __all__ = [
     "LogicalGraph",
     "LaneBand",
     "Marker",
+    "Activation",
     "PositionedNode",
     "PositionedEdge",
     "PositionedDiagram",

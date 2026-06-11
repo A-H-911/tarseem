@@ -16,6 +16,7 @@ __all__ = [
     "LogicalGraph",
     "LaneBand",
     "Marker",
+    "Activation",
     "PositionedNode",
     "PositionedEdge",
     "PositionedDiagram",
@@ -108,6 +109,17 @@ class Marker:
 
 
 @dataclass(frozen=True)
+class Activation:
+    """Activation bar overlay for sequence diagrams: a thin rect on a lifeline marking
+    the span where a participant is active (between a call and its return)."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+@dataclass(frozen=True)
 class PositionedEdge:
     id: str
     points: tuple[tuple[float, float], ...]  # routed orthogonal polyline
@@ -127,4 +139,5 @@ class PositionedDiagram:
     title: str | None = None
     lanes: tuple[LaneBand, ...] = ()  # swimlane band chrome
     markers: tuple[Marker, ...] = ()  # swimlane UML markers
+    activations: tuple[Activation, ...] = ()  # sequence activation bars
     theme: dict = field(default_factory=dict)

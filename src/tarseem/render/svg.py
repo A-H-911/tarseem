@@ -125,6 +125,11 @@ def render_svg(diagram: PositionedDiagram) -> str:
         from tarseem.render.swimlane import render_swimlane_svg
 
         return render_swimlane_svg(diagram)
+    # sequence diagrams have lifeline stems + activation bars -> dedicated writer
+    if diagram.diagram_type == "sequence":
+        from tarseem.render.sequence import render_sequence_svg
+
+        return render_sequence_svg(diagram)
 
     dx, dy = _MARGIN, _MARGIN
     width = diagram.width + 2 * _MARGIN
