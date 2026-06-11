@@ -53,8 +53,19 @@ def _cmd_export(args: argparse.Namespace) -> int:
 
 
 def _cmd_doctor(args: argparse.Namespace) -> int:
-    print("doctor: implemented in A11 (verifies Node/elkjs/Playwright/fonts).")
-    return 0
+    from tarseem.doctor import run_doctor
+
+    report = run_doctor()
+    if args.json:
+        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        for check in report.checks:
+            mark = "OK  " if check.ok else "FAIL"
+            print(f"[{mark}] {check.name:11} {check.detail}")
+            if not check.ok and check.hint:
+                print(f"       -> {check.hint}")
+        print("doctor: all checks passed." if report.ok else "doctor: problems found (see above).")
+    return 0 if report.ok else 1
 
 
 def _cmd_examples(args: argparse.Namespace) -> int:
@@ -87,7 +98,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p_exp.add_argument("--node", default="node", help="Node.js executable (graph families)")
     p_exp.set_defaults(func=_cmd_export)
 
-    p_doc = sub.add_parser("doctor", help="verify runtime deps")
+    p_doc = sub.add_parser("doctor", help="verify Node/elkjs/Playwright/fonts")
+    p_doc.add_argument("--json", action="store_true", help="emit a machine-readable report")
     p_doc.set_defaults(func=_cmd_doctor)
 
     p_ex = sub.add_parser("examples", help="list bundled example specs")

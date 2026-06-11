@@ -11,10 +11,9 @@ Review stops: after **A1–A5 green**, and at **Phase 2 exit (A1–A5 + A11 + A1
 | A12 | Swimlane LTR (ref-1 + ref-3) | ✅ green | `tests/test_a12_swimlane.py` (12) | `phase-2-goldens/swimlane-{bug-triage,pipeline}.{svg,png}` | lane-grid layouter (pure Python, no ELK); title bar + pills + hue tints + badges + UML markers + back-edge/dashed routing; reuses A2 shape/font primitives |
 | A3 | SVG + PNG deterministic | ✅ green | `tests/test_a3_determinism.py` (5) | cross-hash-seed digest match | fixed font-subset nondeterminism (sorted codepoints vs PYTHONHASHSEED); SVG byte-identical across runs + PNG bytes stable |
 | A4 | Clean Python API + CLI | ✅ green | `tests/test_a4_api.py` (11) | `Engine().render(spec).export(["svg","png"])` + `tarseem` CLI | facade dispatches swimlane→lanegrid, graph→ELK; provenance (spec-hash + versions) embedded (invariant 7) |
-| A11 | `engine doctor` | ⏳ next (after stop) | — | — | Node/elkjs/Playwright/fonts checks |
+| A11 | `engine doctor` | ✅ green | `tests/test_a11_doctor.py` (9) | `tarseem doctor` (+`--json`) | verifies node/elkjs(pinned 0.11.1)/Playwright-Chromium/Cairo font; every failure carries an actionable hint; exit 0/1 |
 
-**First review stop reached — A1–A5 all green** (A1 ✅ A2 ✅ A3 ✅ A4 ✅ A5 ✅), plus A12-LTR ✅.
-Remaining for Phase-2 exit: **A11** (`engine doctor`).
+**Phase-2 exit reached — A1–A5 + A11 + A12-LTR all green.** Full suite 73 passed; ruff + mypy clean.
 
 ## A2 — evidence
 Three families render via ELK through one positioned IR (one IR, many writers):
