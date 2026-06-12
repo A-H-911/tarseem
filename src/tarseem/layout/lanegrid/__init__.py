@@ -46,6 +46,13 @@ _PHASE_H = 34.0  # phase header band height (FR-6.3); 0 when no phases declared
 _GROUP_W = 34.0  # outer gutter width for a nested-lane parent group header (AM-6)
 _MARKER_BLACK = "#000000"
 _ROUTE_CORRIDOR = 16.0  # clearance below/above all nodes for back-edge detour channels
+# Vertical orientation (lanes = columns, flow top->bottom; landscape node shapes kept). Lane
+# columns are relaxed to the widest node + padding so shapes are NOT rotated (bug #7). _V_HEADER
+# MUST match the swimlane renderer's vertical header constant.
+_V_HEADER = 64.0  # lane header band (the actor/user area) at the top of each column
+_V_COL_PAD = 28.0  # horizontal padding inside a lane column (relaxes the width)
+_V_ROW_GAP = 60.0  # gap between flow rows
+_V_END_H = 72.0  # gutter above/below the flow for UML start/end markers
 
 
 def _topo_numbers(nodes: tuple[LogicalNode, ...], edges: tuple[LogicalEdge, ...]) -> dict[str, int]:
@@ -78,6 +85,8 @@ class LaneGridLayout:
     """Places a swimlane LogicalGraph into a PositionedDiagram (LTR; RTL in Phase 4)."""
 
     def layout(self, graph: LogicalGraph) -> PositionedDiagram:
+        if graph.lane_orientation == "vertical":
+            return self._vertical_layout(graph)  # lanes as columns, landscape shapes (bug #7)
         # nested lanes (best-effort, AM-6): a lane named as another lane's `parent` is a
         # group, not a flow row. Rows are the LEAF lanes; group bands are drawn as an outer
         # gutter in a post-pass. With no parents declared, every lane is a leaf -> unchanged.
@@ -149,8 +158,6 @@ class LaneGridLayout:
             phase_separator=dict(opts.get("phaseSeparator") or {}),
             theme=graph.theme,
         )
-        if graph.lane_orientation == "vertical":
-            return _to_vertical(diagram)  # nested groups unsupported in vertical (documented)
         if parent_ids:
             return _with_lane_groups(diagram, graph)
         return diagram
@@ -324,77 +331,106 @@ class LaneGridLayout:
         ]
         return (start, end), edges
 
+    # -- vertical orientation (lanes = columns, flow top->bottom; bug #7) ------
+    def _vertical_layout(self, graph: LogicalGraph) -> PositionedDiagram:
+        """Lay swimlanes out vertically: lanes become side-by-side COLUMNS and the flow runs
+        top->bottom, while node shapes keep their landscape size (NOT rotated). Lane columns
+        are relaxed to the widest node + padding. Routing reuses the horizontal orthogonal
+        router by feeding it axis-swapped geometry (flow->x, lanes->rows) and transposing the
+        routed points back — so back-edge/cross-lane avoidance carries over unchanged."""
+        lanes = graph.lanes
+        lane_index = {lane.id: i for i, lane in enumerate(lanes)}
+        nums = _topo_numbers(graph.nodes, graph.edges)
+        n_rows = max(nums.values(), default=1)
+        markers = graph.markers
+        end_h = _V_END_H if markers else 0.0
 
-def _to_vertical(d: PositionedDiagram) -> PositionedDiagram:
-    """Transpose a horizontal lane-grid diagram into vertical lanes (FR-6.1).
+        node_w = {n.id: max(_STEP_W, n.width or _STEP_W) for n in graph.nodes}
+        lane_w: dict[str, float] = {}
+        for n in graph.nodes:
+            lane_w[n.lane or ""] = max(lane_w.get(n.lane or "", _STEP_W), node_w[n.id])
+        col_w = {lane.id: lane_w.get(lane.id, _STEP_W) + 2 * _V_COL_PAD for lane in lanes}
 
-    Lanes become columns and flow runs top->bottom. One affine map is applied to every
-    coordinate — ``T(x, y) = (m + (y - lanes_top), vtop + (x - m))`` — with width<->height
-    swapped for sized boxes (nodes, lane bands). Because edge routes and node boxes share
-    the same map, arrowheads still meet borders exactly and the layout stays collision-free
-    and deterministic; only the pixel frame flips.
+        col_x: dict[str, float] = {}
+        cursor = _M
+        for lane in lanes:
+            col_x[lane.id] = cursor
+            cursor += col_w[lane.id]
+        total_w = cursor + _M
 
-    Documented limitations (AM-6): node boxes rotate to portrait aspect (a wide step becomes
-    a tall one — fine for short labels), and phase header bands are not drawn in the vertical
-    variant. The title bar stays a horizontal bar on top in both orientations.
-    """
-    m = _M
-    lanes_top = d.lanes[0].y if d.lanes else m + _TITLE_H
-    vtop = m + _TITLE_H  # vertical content sits under a fresh top title bar (no phase row)
+        rows_top = _M + _TITLE_H + _V_HEADER + end_h
+        row_pitch = _STEP_H + _V_ROW_GAP
+        row_y = {r: rows_top + (r - 1) * row_pitch for r in range(1, n_rows + 1)}
+        total_h = rows_top + (n_rows - 1) * row_pitch + _STEP_H + end_h + _M
 
-    def pt(x: float, y: float) -> tuple[float, float]:
-        return (m + (y - lanes_top), vtop + (x - m))
+        hue_by_lane = {lane.id: lane.hue for lane in lanes}
+        nodes: list[PositionedNode] = []
+        router_geom: dict[str, dict] = {}
+        for n in graph.nodes:
+            w, h = node_w[n.id], _STEP_H
+            lane_id = n.lane or ""
+            hue = hue_by_lane.get(lane_id, {})
+            x = col_x[lane_id] + (col_w[lane_id] - w) / 2
+            y = row_y[nums[n.id]]
+            style = {
+                **n.style,
+                "fill": hue.get("box", n.style.get("fill", "#FFFFFF")),
+                "border": {"color": hue.get("label", "#333333"), "width": 2, "style": "solid"},
+            }
+            badge = f"{nums[n.id]}." if n.show_badge else None
+            nodes.append(PositionedNode(id=n.id, x=x, y=y, width=w, height=h, label=n.label,
+                                        shape=n.shape, style=style, badge=badge))
+            # router frame: flow along x (= vertical y), lane axis along y (= vertical x); swap
+            # w/h so the box matches. lane_i indexes the router's "rows" (our columns).
+            router_geom[n.id] = {"x": y, "y": x, "w": h, "h": w,
+                                 "lane_i": lane_index[lane_id], "hue": hue, "shape": n.shape}
 
-    def vnode(n: PositionedNode) -> PositionedNode:
-        nx, ny = pt(n.x, n.y)
-        # lane axis (was height) -> width; flow axis (was width) -> height
-        return replace(n, x=nx, y=ny, width=n.height, height=n.width)
+        edges = [
+            replace(
+                e,
+                points=tuple((py, px) for px, py in e.points),
+                label_xy=((e.label_xy[1], e.label_xy[0]) if e.label_xy else None),
+            )
+            for e in self._route_edges(graph.edges, router_geom)
+        ]
 
-    def vband(b: LaneBand) -> LaneBand:
-        nx, ny = pt(b.x, b.y)
-        return replace(b, x=nx, y=ny, width=b.height, height=b.width)
+        band_top = _M + _TITLE_H
+        band_h = total_h - band_top - _M
+        bands = [LaneBand(id=lane.id, label=lane.label, x=col_x[lane.id], y=band_top,
+                          width=col_w[lane.id], height=band_h, hue=lane.hue) for lane in lanes]
 
-    def vmarker(mk: Marker) -> Marker:
-        cx, cy = pt(mk.cx, mk.cy)
-        return replace(mk, cx=cx, cy=cy)
+        if markers:
+            marker_objs, marker_edges = self._vertical_markers(nums, nodes, end_h)
+            edges = edges + list(marker_edges)
+        else:
+            marker_objs = ()
 
-    nodes = tuple(vnode(n) for n in d.nodes)
-    edges = tuple(
-        replace(
-            e,
-            points=tuple(pt(px, py) for px, py in e.points),
-            label_xy=(pt(*e.label_xy) if e.label_xy else None),
+        return PositionedDiagram(
+            width=total_w, height=total_h, nodes=tuple(nodes), edges=tuple(edges),
+            diagram_type=graph.diagram_type, direction=graph.direction, orientation="vertical",
+            title=graph.title, lanes=tuple(bands), markers=tuple(marker_objs), theme=graph.theme,
         )
-        for e in d.edges
-    )
-    bands = tuple(vband(b) for b in d.lanes)
-    markers = tuple(vmarker(mk) for mk in d.markers)
 
-    rights = (
-        [b.x + b.width for b in bands]
-        + [n.x + n.width for n in nodes]
-        + [px for e in edges for px, _ in e.points]
-        + [mk.cx + mk.r for mk in markers]
-    )
-    bottoms = (
-        [b.y + b.height for b in bands]
-        + [n.y + n.height for n in nodes]
-        + [py for e in edges for _, py in e.points]
-        + [mk.cy + mk.r for mk in markers]
-    )
-    width = max(rights, default=m) + m
-    height = max(bottoms, default=vtop) + m
-    return replace(
-        d,
-        width=width,
-        height=height,
-        orientation="vertical",
-        nodes=nodes,
-        edges=edges,
-        lanes=bands,
-        markers=markers,
-        phases=(),  # phase bands are a horizontal-only feature (documented limitation)
-    )
+    def _vertical_markers(self, nums, nodes, end_h):
+        """UML start/end markers in the flow-start (top) and flow-end (bottom) gutters."""
+        by_id = {n.id: n for n in nodes}
+        first = by_id[min(nums, key=lambda k: nums[k])]
+        last = by_id[max(nums, key=lambda k: nums[k])]
+        r = _MARKER / 2
+        sx = first.x + first.width / 2
+        ex = last.x + last.width / 2
+        start = Marker(kind="start", cx=sx, cy=first.y - end_h / 2, r=r)
+        end = Marker(kind="end", cx=ex, cy=last.y + last.height + end_h / 2, r=r)
+        black = {"stroke": _MARKER_BLACK, "width": 2}
+        edges = (
+            PositionedEdge(id="__marker_start__",
+                           points=((sx, start.cy + r), (sx, first.y)),
+                           label=None, label_xy=None, style=black),
+            PositionedEdge(id="__marker_end__",
+                           points=((ex, last.y + last.height), (ex, end.cy - r)),
+                           label=None, label_xy=None, style=black),
+        )
+        return (start, end), edges
 
 
 def _with_lane_groups(d: PositionedDiagram, graph: LogicalGraph) -> PositionedDiagram:

@@ -71,17 +71,17 @@ band (with a separator dropping through the lanes). See `examples/swimlane-phase
 ### Vertical lanes (FR-6.1)
 
 Set `layout.laneOrientation: "vertical"` to lay lanes out as **columns** with flow running
-top-to-bottom (instead of the default horizontal rows). The title bar stays on top and the
-lane header pills move to the top of each column. The vertical variant is a deterministic
-coordinate transpose of the horizontal layout, so topological ordering and obstacle-avoiding
-routing carry over unchanged. See `examples/swimlane-vertical-release.json`.
+top-to-bottom (instead of the default horizontal rows). Lanes flip to columns — relaxed to the
+widest node — while node shapes keep the same landscape dimensions they have in a horizontal
+swimlane. The title bar stays on top and the lane header pills move to the top of each column.
+Routing reuses the orthogonal lane-grid router (back-edge / cross-lane avoidance carries over).
+See `examples/swimlane-vertical-release.json`.
 
 Documented limitations (AM-6) of the vertical variant:
 
-- **Node boxes are portrait-oriented** — a wide step becomes a tall one (the transpose swaps
-  width and height). Best suited to short labels; long labels may need a wider lane.
 - **Phase columns are not drawn** in vertical orientation; `phases` are ignored when
   `laneOrientation` is `"vertical"`.
+- **Nested lanes are not supported** with vertical orientation.
 - Only top-to-bottom flow is supported (no vertical RTL / bottom-to-top mirroring yet).
 
 ### Nested lanes (best-effort, AM-6)

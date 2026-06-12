@@ -22,6 +22,7 @@ from tarseem.render.text import bidi_attrs
 __all__ = ["render_swimlane_svg"]
 
 _LABEL_W = 160.0  # left header-column width (matches lanegrid geometry)
+_V_HEADER = 64.0  # vertical-orientation lane header band height (MUST match lanegrid _V_HEADER)
 _TITLE_FILL = "#269973"
 _SEPARATOR = "#B0BEC5"
 _EDGE_DEFAULT = "#2E8B57"
@@ -117,11 +118,11 @@ def _lane_band(band, width: float, rtl: bool = False, vertical: bool = False) ->
     accent = c.get("label", "#333333")
     if vertical:
         # vertical lanes are columns -> header pill sits at the TOP of the column, centered
-        # in the header strip (the transposed _LABEL_W band reserved above the first step).
+        # in the header band (the actor/user area reserved above the first row).
         chip_h = 48.0
         chip_w = band.width - 16.0
         chip_x = band.x + 8.0
-        chip_y = band.y + (_LABEL_W - chip_h) / 2
+        chip_y = band.y + (_V_HEADER - chip_h) / 2
     else:
         chip_h = 56.0
         chip_w = _LABEL_W - 16.0
@@ -254,7 +255,7 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
 
     if diagram.lanes and vertical:
         # actor/label separator runs ACROSS the columns, just below the header pills
-        sep_y = diagram.lanes[0].y + _LABEL_W
+        sep_y = diagram.lanes[0].y + _V_HEADER
         left = diagram.lanes[0].x
         right = diagram.lanes[-1].x + diagram.lanes[-1].width
         parts.append(
