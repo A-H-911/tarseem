@@ -1,0 +1,88 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "deployment",
+  "direction": "TB",
+  "meta": {
+    "title": "Web Stack Deployment"
+  },
+  "nodes": [
+    {
+      "id": "browser",
+      "label": {
+        "text": "Browser"
+      }
+    },
+    {
+      "id": "lb",
+      "label": {
+        "text": "Load Balancer"
+      }
+    },
+    {
+      "id": "app1",
+      "label": {
+        "text": "App Server 1"
+      }
+    },
+    {
+      "id": "app2",
+      "label": {
+        "text": "App Server 2"
+      }
+    },
+    {
+      "id": "db",
+      "shape": "cylinder",
+      "label": {
+        "text": "PostgreSQL"
+      }
+    },
+    {
+      "id": "cache",
+      "shape": "cylinder",
+      "label": {
+        "text": "Redis"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "browser",
+      "target": "lb",
+      "label": {
+        "text": "HTTPS"
+      }
+    },
+    {
+      "id": "e2",
+      "source": "lb",
+      "target": "app1"
+    },
+    {
+      "id": "e3",
+      "source": "lb",
+      "target": "app2"
+    },
+    {
+      "id": "e4",
+      "source": "app1",
+      "target": "db"
+    },
+    {
+      "id": "e5",
+      "source": "app2",
+      "target": "db"
+    },
+    {
+      "id": "e6",
+      "source": "app1",
+      "target": "cache"
+    },
+    {
+      "id": "e7",
+      "source": "app2",
+      "target": "cache"
+    }
+  ]
+}

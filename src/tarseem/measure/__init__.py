@@ -24,6 +24,9 @@ _MIN_W = 84.0
 _MIN_H = 44.0
 _DIAMOND_SCALE = 1.6
 _DEFAULT_SIZE = 12.0
+# State-machine pseudostates are fixed-size markers, not text boxes (FR family: state).
+_STATE_MARKER = {"initial": 26.0, "final": 30.0}
+_CUBE_DEPTH = 14.0  # deployment 3D-node faces eat into the box; pad so the label still fits
 
 _FONTS_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
 
@@ -56,6 +59,9 @@ class TextMeasurer:
         return advance_units / self._upem * size
 
     def node_size(self, node: LogicalNode) -> tuple[float, float]:
+        if node.shape in _STATE_MARKER:  # initial/final pseudostates: fixed-size markers
+            d = _STATE_MARKER[node.shape]
+            return d, d
         size = float((node.style.get("text") or {}).get("size", _DEFAULT_SIZE))
         text_w = self.width(node.label.text, size)
         w = max(text_w + 2 * _PAD_X, _MIN_W)
@@ -63,6 +69,9 @@ class TextMeasurer:
         if node.shape == "diamond":
             w *= _DIAMOND_SCALE
             h *= _DIAMOND_SCALE
+        elif node.shape == "cube":  # reserve room for the 3D depth faces
+            w += _CUBE_DEPTH
+            h += _CUBE_DEPTH
         return round(w, 2), round(h, 2)
 
 

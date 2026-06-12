@@ -26,6 +26,8 @@ _DEFAULT_SHAPE: dict[str, str] = {
     "dependency": "rect",
     "swimlane": "roundrect",
     "sequence": "rect",  # participant head boxes
+    "state": "roundrect",  # states are rounded boxes; initial/final use marker shapes
+    "deployment": "cube",  # deployment nodes are 3D boxes (devices/containers)
 }
 
 

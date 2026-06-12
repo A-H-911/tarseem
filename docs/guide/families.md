@@ -9,8 +9,10 @@ The MVP supports four diagram families plus sequence. Every family ships a golde
 | Flowchart | `flowchart` | ELK | yes | `examples/flowchart.json` |
 | Architecture / C4 | `architecture` | ELK | yes | `examples/architecture.json` |
 | Dependency | `dependency` | ELK | yes | `examples/dependency.json` |
-| Swimlane | `swimlane` | lane-grid (pure Python) | no | `examples/swimlane-bug-triage.json`, `swimlane-pipeline.json`, `swimlane-phases.json` |
+| Swimlane | `swimlane` | lane-grid (pure Python) | no | `examples/swimlane-bug-triage.json`, `swimlane-pipeline.json`, `swimlane-phases.json`, `swimlane-vertical-release.json`, `swimlane-nested-delivery.json` |
 | Sequence | `sequence` | sequence (pure Python) | no | `examples/sequence-login.json` |
+| State | `state` | ELK | yes | `examples/state-order-lifecycle.json` |
+| Deployment | `deployment` | ELK | yes | `examples/deployment-web-stack.json` |
 
 All families share the same spec vocabulary (`nodes` / `edges` / `label` / `style` …) and the
 same positioned IR; only the layouter and a few family-specific fields differ.
@@ -150,6 +152,44 @@ order); a `dashed: true` edge is a **return** (open arrowhead), a solid edge is 
   ]
 }
 ```
+
+## State
+
+A UML-style state machine, laid out by ELK. States are rounded boxes; transitions are
+labelled edges. Two pseudostate marker shapes are available:
+
+- `shape: "initial"` — the start pseudostate (a solid filled dot, fixed size, empty label).
+- `shape: "final"` — the end pseudostate (a ring around a filled dot).
+
+```json
+{
+  "specVersion": "0.1", "diagramType": "state", "direction": "LR",
+  "nodes": [{"id": "start", "shape": "initial", "label": {"text": ""}},
+            {"id": "pending", "label": {"text": "Pending"}},
+            {"id": "done", "shape": "final", "label": {"text": ""}}],
+  "edges": [{"id": "e1", "source": "start", "target": "pending"},
+            {"id": "e2", "source": "pending", "target": "done", "label": {"text": "finish"}}]
+}
+```
+
+See `examples/state-order-lifecycle.json`.
+
+## Deployment
+
+An infrastructure / deployment topology, laid out by ELK. Nodes default to `shape: "cube"`
+(a 3D box for devices, hosts, or containers); datastores read well as `cylinder`, and any
+other shape from the graph set is available. Edges are communication paths.
+
+```json
+{
+  "specVersion": "0.1", "diagramType": "deployment", "direction": "TB",
+  "nodes": [{"id": "lb", "label": {"text": "Load Balancer"}},
+            {"id": "db", "shape": "cylinder", "label": {"text": "PostgreSQL"}}],
+  "edges": [{"id": "e1", "source": "lb", "target": "db"}]
+}
+```
+
+See `examples/deployment-web-stack.json`.
 
 ## Capability reports, never silent drops
 

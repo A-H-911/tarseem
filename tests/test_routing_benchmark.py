@@ -34,8 +34,9 @@ _HAS_NODE = shutil.which("node") is not None
 # Per-sample crossing budget (max allowed). Default 0; only genuinely crossing-prone
 # samples carry a non-zero ceiling, each justified by its structure.
 _CROSSING_BUDGET: dict[str, int] = {
-    "swimlane-bug-triage.json": 1,   # one unavoidable back-edge crossing
-    "bench-dependency-web.json": 2,  # 14 edges over 8 nodes; dense by design
+    "swimlane-bug-triage.json": 1,     # one unavoidable back-edge crossing
+    "bench-dependency-web.json": 2,    # 14 edges over 8 nodes; dense by design
+    "deployment-web-stack.json": 1,    # two app servers each share two datastores
 }
 
 

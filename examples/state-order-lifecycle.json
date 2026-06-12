@@ -1,0 +1,92 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "state",
+  "direction": "LR",
+  "meta": {
+    "title": "Order Lifecycle"
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "shape": "initial",
+      "label": {
+        "text": ""
+      }
+    },
+    {
+      "id": "pending",
+      "label": {
+        "text": "Pending"
+      }
+    },
+    {
+      "id": "paid",
+      "label": {
+        "text": "Paid"
+      }
+    },
+    {
+      "id": "shipped",
+      "label": {
+        "text": "Shipped"
+      }
+    },
+    {
+      "id": "cancelled",
+      "label": {
+        "text": "Cancelled"
+      }
+    },
+    {
+      "id": "done",
+      "shape": "final",
+      "label": {
+        "text": ""
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "start",
+      "target": "pending"
+    },
+    {
+      "id": "e2",
+      "source": "pending",
+      "target": "paid",
+      "label": {
+        "text": "pay"
+      }
+    },
+    {
+      "id": "e3",
+      "source": "pending",
+      "target": "cancelled",
+      "label": {
+        "text": "cancel"
+      }
+    },
+    {
+      "id": "e4",
+      "source": "paid",
+      "target": "shipped",
+      "label": {
+        "text": "ship"
+      }
+    },
+    {
+      "id": "e5",
+      "source": "shipped",
+      "target": "done",
+      "label": {
+        "text": "deliver"
+      }
+    },
+    {
+      "id": "e6",
+      "source": "cancelled",
+      "target": "done"
+    }
+  ]
+}
