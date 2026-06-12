@@ -274,13 +274,30 @@ class LaneGridLayout:
         bot_y = max((b[3] for b in boxes), default=0.0) + _ROUTE_CORRIDOR
         top_y = min((b[1] for b in boxes), default=0.0) - _ROUTE_CORRIDOR
         entry_y = _convergence_entries(edges, geom)
-        out: list[PositionedEdge] = []
-        for e in edges:
-            a, b = geom.get(e.source), geom.get(e.target)
-            if a is None or b is None:
+        valid = [e for e in edges if geom.get(e.source) and geom.get(e.target)]
+        obstacles_for = {
+            e.id: [box for nid, box in boxes_by_id.items() if nid not in (e.source, e.target)]
+            for e in valid
+        }
+        routes = {
+            e.id: _route(geom[e.source], geom[e.target],
+                         obstacles_for[e.id], top_y, bot_y, entry_y.get(e.id))
+            for e in valid
+        }
+        # bug #3: a long cross-lane edge's vertical segment can cross another edge's horizontal
+        # one. Flip such an edge to the alternate L-orientation (run along its own row, then
+        # descend in the target column) when that is clear of nodes AND of the other routed
+        # edges. Only edges that actually cross are touched, so well-routed edges are unchanged.
+        for e in valid:
+            a, b = geom[e.source], geom[e.target]
+            if a["lane_i"] == b["lane_i"] or not _route_crosses_other(routes[e.id], e.id, routes):
                 continue
-            obstacles = [box for nid, box in boxes_by_id.items() if nid not in (e.source, e.target)]
-            pts = _route(a, b, obstacles, top_y, bot_y, entry_y.get(e.id))
+            alt = _route_alt(a, b, obstacles_for[e.id])
+            if alt is not None and not _route_crosses_other(alt, e.id, routes):
+                routes[e.id] = alt
+        out: list[PositionedEdge] = []
+        for e in valid:
+            pts = routes[e.id]
             label_xy = (
                 _label_clear_xy(pts, e.label.text, boxes) if e.label and e.label.text else None
             )
@@ -541,6 +558,45 @@ def _seg_clear(p: tuple, q: tuple, boxes: list) -> bool:
 
 def _route_clear(points: list, boxes: list) -> bool:
     return all(_seg_clear(points[i], points[i + 1], boxes) for i in range(len(points) - 1))
+
+
+def _route_alt(a: dict, b: dict, obstacles: list | None) -> list[tuple[float, float]] | None:
+    """Alternate L-orientation for a cross-lane edge: leave the source along ITS OWN row
+    (horizontal first), then descend/ascend in the TARGET's column to enter the target from
+    top/bottom. Returns None when this path is not clear of nodes. Used to dodge another edge
+    that the default (source-column-first) orientation would cross (bug #3)."""
+    A, B = _anchors(a), _anchors(b)
+    exit_x = _side_x(a, "l", A["cy"]) if B["cx"] < A["cx"] else _side_x(a, "r", A["cy"])
+    enter_y = B["b"] if A["cy"] > B["cy"] else B["t"]
+    alt = [(exit_x, A["cy"]), (B["cx"], A["cy"]), (B["cx"], enter_y)]
+    if not obstacles or _route_clear(alt, obstacles):
+        return alt
+    return None
+
+
+def _route_crosses_other(route: list, eid: str, routes: dict[str, list]) -> bool:
+    """True if a VERTICAL segment of ``route`` properly crosses a HORIZONTAL segment of any
+    OTHER edge's route (interior crossing, endpoints excluded)."""
+    eps = 1.0
+    verts = [(p, q) for p, q in _pairs(route) if abs(p[0] - q[0]) < 1e-6]
+    for oid, oroute in routes.items():
+        if oid == eid:
+            continue
+        for ha, hb in _pairs(oroute):
+            if abs(ha[1] - hb[1]) >= 1e-6:  # not horizontal
+                continue
+            hy = ha[1]
+            hx0, hx1 = sorted((ha[0], hb[0]))
+            for va, vb in verts:
+                vx = va[0]
+                vy0, vy1 = sorted((va[1], vb[1]))
+                if hx0 + eps < vx < hx1 - eps and vy0 + eps < hy < vy1 - eps:
+                    return True
+    return False
+
+
+def _pairs(points: list) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    return [(points[i], points[i + 1]) for i in range(len(points) - 1)]
 
 
 def _convergence_entries(edges: tuple, geom: dict) -> dict[str, float]:
