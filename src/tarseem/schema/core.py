@@ -141,6 +141,8 @@ _LAYOUT = {
         },
         # honour each node's manual `position` instead of engine placement (Phase 5)
         "respectManualPositions": {"type": "boolean"},
+        # optional post-placement re-router; "elk" (default) or "libavoid" (experimental, ADR-006)
+        "router": {"enum": ["elk", "libavoid"]},
     },
     "additionalProperties": True,  # forward-compat for later routing/layout hints
 }

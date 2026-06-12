@@ -127,6 +127,13 @@ class Engine:
             with ElkLayout(node=self._node) as elk:
                 diagram = elk.layout(graph)
                 versions["elkjs"] = elk.capabilities()["elkjs_version"]
+        # Optional, experimental post-placement re-router (ADR-006): off unless opted in.
+        if graph.layout_options.get("router") == "libavoid":
+            from tarseem.layout.libavoid import LibavoidRouter
+
+            with LibavoidRouter(node=self._node) as router:
+                diagram = router.reroute(graph, diagram)
+                versions["libavoid-js"] = router.capabilities()["version"]
         layout_ms = (time.perf_counter() - start) * 1000.0
         return RenderResult(
             diagram=diagram,
