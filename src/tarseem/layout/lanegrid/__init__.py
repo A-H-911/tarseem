@@ -532,13 +532,22 @@ def _route(
 
     if not obstacles or _route_clear(direct, obstacles):
         return direct
-    # detour via a node-free corridor: exit/enter both shapes vertically (south, then north)
-    for corridor_y, a_exit, b_enter in (
-        (bot_y, A["b"], B["b"]),
-        (top_y, A["t"], B["t"]),
-    ):
-        if corridor_y is None:
-            continue
+    # detour via a node-free corridor: exit/enter both shapes vertically (south, then north).
+    # Try the NEAREST clear channel first — just below / just above the two endpoints — and
+    # only fall back to the global bottom/top corridor when those are blocked. This keeps a
+    # back-edge hugging its own rows instead of always diving to the bottom of the diagram
+    # (bug #6): a long dive looks like the edge avoids an obstacle that isn't there.
+    near_below = max(A["b"], B["b"]) + _ROUTE_CORRIDOR
+    near_above = min(A["t"], B["t"]) - _ROUTE_CORRIDOR
+    candidates = [
+        (near_below, A["b"], B["b"]),
+        (near_above, A["t"], B["t"]),
+    ]
+    if bot_y is not None:
+        candidates.append((bot_y, A["b"], B["b"]))
+    if top_y is not None:
+        candidates.append((top_y, A["t"], B["t"]))
+    for corridor_y, a_exit, b_enter in candidates:
         detour = [
             (A["cx"], a_exit), (A["cx"], corridor_y),
             (B["cx"], corridor_y), (B["cx"], b_enter),
