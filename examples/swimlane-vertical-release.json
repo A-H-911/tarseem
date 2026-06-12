@@ -1,0 +1,109 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "TB",
+  "meta": {
+    "title": "Release Flow"
+  },
+  "layout": {
+    "laneOrientation": "vertical",
+    "markers": true
+  },
+  "lanes": [
+    {
+      "id": "dev",
+      "label": {
+        "text": "Dev"
+      }
+    },
+    {
+      "id": "ci",
+      "label": {
+        "text": "CI"
+      }
+    },
+    {
+      "id": "ops",
+      "label": {
+        "text": "Ops"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "commit",
+      "lane": "dev",
+      "shape": "stadium",
+      "badge": false,
+      "label": {
+        "text": "Commit"
+      }
+    },
+    {
+      "id": "build",
+      "lane": "ci",
+      "shape": "roundrect",
+      "label": {
+        "text": "Build"
+      }
+    },
+    {
+      "id": "test",
+      "lane": "ci",
+      "shape": "diamond",
+      "label": {
+        "text": "Pass?"
+      }
+    },
+    {
+      "id": "deploy",
+      "lane": "ops",
+      "shape": "roundrect",
+      "label": {
+        "text": "Deploy"
+      }
+    },
+    {
+      "id": "release",
+      "lane": "ops",
+      "shape": "stadium",
+      "badge": false,
+      "label": {
+        "text": "Release"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "commit",
+      "target": "build"
+    },
+    {
+      "id": "e2",
+      "source": "build",
+      "target": "test"
+    },
+    {
+      "id": "e3",
+      "source": "test",
+      "target": "deploy",
+      "label": {
+        "text": "yes"
+      }
+    },
+    {
+      "id": "e4",
+      "source": "test",
+      "target": "build",
+      "label": {
+        "text": "no"
+      }
+    },
+    {
+      "id": "e5",
+      "source": "deploy",
+      "target": "release"
+    }
+  ]
+}

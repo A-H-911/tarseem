@@ -108,15 +108,23 @@ def _phase_band(band, lanes_top: float, lanes_bottom: float, sep: dict) -> list[
     ]
 
 
-def _lane_band(band, width: float, rtl: bool = False) -> list[str]:
+def _lane_band(band, width: float, rtl: bool = False, vertical: bool = False) -> list[str]:
     c = band.hue
     row = c.get("row", "#EEEEEE")
     accent = c.get("label", "#333333")
-    chip_h = 56.0
-    chip_w = _LABEL_W - 16.0
-    # header pill sits on the flow-start side: left for LTR, right for RTL (analysis.md §R-2)
-    chip_x = (band.x + band.width - chip_w - 8.0) if rtl else band.x + 8.0
-    chip_y = band.y + (band.height - chip_h) / 2
+    if vertical:
+        # vertical lanes are columns -> header pill sits at the TOP of the column, centered
+        # in the header strip (the transposed _LABEL_W band reserved above the first step).
+        chip_h = 48.0
+        chip_w = band.width - 16.0
+        chip_x = band.x + 8.0
+        chip_y = band.y + (_LABEL_W - chip_h) / 2
+    else:
+        chip_h = 56.0
+        chip_w = _LABEL_W - 16.0
+        # header pill sits on the flow-start side: left for LTR, right for RTL (analysis.md §R-2)
+        chip_x = (band.x + band.width - chip_w - 8.0) if rtl else band.x + 8.0
+        chip_y = band.y + (band.height - chip_h) / 2
     return [
         f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
         f'height="{_num(band.height)}" fill="{row}" stroke="{accent}" stroke-width="1" '
@@ -213,11 +221,21 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
         f'<rect width="{_num(w)}" height="{_num(h)}" fill="#FFFFFF"/>',
     ]
     rtl = diagram.direction == "RL"
+    vertical = diagram.orientation == "vertical"
     parts.extend(_title_bar(diagram, m, title_h))
     for band in diagram.lanes:
-        parts.extend(_lane_band(band, w, rtl))
+        parts.extend(_lane_band(band, w, rtl, vertical))
 
-    if diagram.lanes:
+    if diagram.lanes and vertical:
+        # actor/label separator runs ACROSS the columns, just below the header pills
+        sep_y = diagram.lanes[0].y + _LABEL_W
+        left = diagram.lanes[0].x
+        right = diagram.lanes[-1].x + diagram.lanes[-1].width
+        parts.append(
+            f'<line x1="{_num(left)}" y1="{_num(sep_y)}" x2="{_num(right)}" y2="{_num(sep_y)}" '
+            f'stroke="{_SEPARATOR}" stroke-width="2"/>'
+        )
+    elif diagram.lanes:
         # actor/label separator runs down the header-column side (right under RTL)
         sep_x = (w - m - _LABEL_W) if rtl else m + _LABEL_W
         top = diagram.lanes[0].y

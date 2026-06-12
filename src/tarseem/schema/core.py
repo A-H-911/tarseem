@@ -128,6 +128,9 @@ _LAYOUT = {
     "type": "object",
     "properties": {
         "markers": {"type": "boolean"},  # UML start/end markers
+        # lane axis (FR-6.1): "horizontal" (default; rows, flow L->R) or "vertical"
+        # (columns, flow top->bottom). Vertical is a transpose of the horizontal layout.
+        "laneOrientation": {"enum": ["horizontal", "vertical"]},
         "sidePadding": {"type": "number", "minimum": 0},  # symmetric left/right content pad
         "columnGap": {"type": "number", "minimum": 0},  # horizontal gap between step columns
         "phaseSeparator": {

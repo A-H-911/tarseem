@@ -93,6 +93,9 @@ class LogicalGraph:
     phases: tuple[LogicalPhase, ...] = ()  # swimlane phase columns (FR-6.3)
     title: str | None = None
     markers: bool = False  # UML start/end markers (swimlane)
+    # swimlane lane axis: "horizontal" (lanes = rows, flow L->R) | "vertical" (lanes =
+    # columns, flow top->bottom). FR-6.1. Vertical is a transpose of the horizontal layout.
+    lane_orientation: str = "horizontal"
     layout_options: dict = field(default_factory=dict)  # spec `layout` hints (sidePadding…)
     respect_manual_positions: bool = False  # honour node.position via interactive placement
     theme: dict = field(default_factory=dict)
@@ -171,6 +174,7 @@ class PositionedDiagram:
     edges: tuple[PositionedEdge, ...]
     diagram_type: str
     direction: str = "TB"
+    orientation: str = "horizontal"  # swimlane lane axis (FR-6.1); "vertical" = transposed
     title: str | None = None
     lanes: tuple[LaneBand, ...] = ()  # swimlane band chrome
     phases: tuple[PhaseBand, ...] = ()  # swimlane phase header bands (FR-6.3)

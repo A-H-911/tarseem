@@ -65,6 +65,22 @@ terminal) from numbering; `layout.markers: true` adds UML start/end markers.
 Declare top-level `phases` and set each node's `phase` to group flow columns under a header
 band (with a separator dropping through the lanes). See `examples/swimlane-phases.json`.
 
+### Vertical lanes (FR-6.1)
+
+Set `layout.laneOrientation: "vertical"` to lay lanes out as **columns** with flow running
+top-to-bottom (instead of the default horizontal rows). The title bar stays on top and the
+lane header pills move to the top of each column. The vertical variant is a deterministic
+coordinate transpose of the horizontal layout, so topological ordering and obstacle-avoiding
+routing carry over unchanged. See `examples/swimlane-vertical-release.json`.
+
+Documented limitations (AM-6) of the vertical variant:
+
+- **Node boxes are portrait-oriented** — a wide step becomes a tall one (the transpose swaps
+  width and height). Best suited to short labels; long labels may need a wider lane.
+- **Phase columns are not drawn** in vertical orientation; `phases` are ignored when
+  `laneOrientation` is `"vertical"`.
+- Only top-to-bottom flow is supported (no vertical RTL / bottom-to-top mirroring yet).
+
 ### Layout options
 
 Swimlane spacing and the phase-separator look are tunable per diagram under `layout` (all
@@ -78,6 +94,7 @@ optional; defaults equal the built-in constants, so omitting them changes nothin
 | `phaseSeparator.color` | string | `#B0BEC5` | phase separator colour |
 | `phaseSeparator.width` | number | 1.5 | phase separator stroke width |
 | `markers` | boolean | false | UML start/end markers |
+| `laneOrientation` | `"horizontal"` \| `"vertical"` | `"horizontal"` | lane axis: rows (flow L→R) or columns (flow top→bottom) — see [Vertical lanes](#vertical-lanes-fr-61) |
 
 ```json
 {

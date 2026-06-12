@@ -22,6 +22,7 @@ from tarseem.model.ir import (
     PositionedDiagram,
     PositionedEdge,
     PositionedNode,
+    replace,
 )
 
 __all__ = ["LaneGridLayout"]
@@ -129,7 +130,7 @@ class LaneGridLayout:
         else:
             marker_objs = ()
 
-        return PositionedDiagram(
+        diagram = PositionedDiagram(
             width=total_w,
             height=total_h,
             nodes=tuple(nodes),
@@ -143,6 +144,9 @@ class LaneGridLayout:
             phase_separator=dict(opts.get("phaseSeparator") or {}),
             theme=graph.theme,
         )
+        if graph.lane_orientation == "vertical":
+            return _to_vertical(diagram)
+        return diagram
 
     # -- pieces ---------------------------------------------------------------
     def _column_x(
@@ -312,6 +316,78 @@ class LaneGridLayout:
             ),
         ]
         return (start, end), edges
+
+
+def _to_vertical(d: PositionedDiagram) -> PositionedDiagram:
+    """Transpose a horizontal lane-grid diagram into vertical lanes (FR-6.1).
+
+    Lanes become columns and flow runs top->bottom. One affine map is applied to every
+    coordinate — ``T(x, y) = (m + (y - lanes_top), vtop + (x - m))`` — with width<->height
+    swapped for sized boxes (nodes, lane bands). Because edge routes and node boxes share
+    the same map, arrowheads still meet borders exactly and the layout stays collision-free
+    and deterministic; only the pixel frame flips.
+
+    Documented limitations (AM-6): node boxes rotate to portrait aspect (a wide step becomes
+    a tall one — fine for short labels), and phase header bands are not drawn in the vertical
+    variant. The title bar stays a horizontal bar on top in both orientations.
+    """
+    m = _M
+    lanes_top = d.lanes[0].y if d.lanes else m + _TITLE_H
+    vtop = m + _TITLE_H  # vertical content sits under a fresh top title bar (no phase row)
+
+    def pt(x: float, y: float) -> tuple[float, float]:
+        return (m + (y - lanes_top), vtop + (x - m))
+
+    def vnode(n: PositionedNode) -> PositionedNode:
+        nx, ny = pt(n.x, n.y)
+        # lane axis (was height) -> width; flow axis (was width) -> height
+        return replace(n, x=nx, y=ny, width=n.height, height=n.width)
+
+    def vband(b: LaneBand) -> LaneBand:
+        nx, ny = pt(b.x, b.y)
+        return replace(b, x=nx, y=ny, width=b.height, height=b.width)
+
+    def vmarker(mk: Marker) -> Marker:
+        cx, cy = pt(mk.cx, mk.cy)
+        return replace(mk, cx=cx, cy=cy)
+
+    nodes = tuple(vnode(n) for n in d.nodes)
+    edges = tuple(
+        replace(
+            e,
+            points=tuple(pt(px, py) for px, py in e.points),
+            label_xy=(pt(*e.label_xy) if e.label_xy else None),
+        )
+        for e in d.edges
+    )
+    bands = tuple(vband(b) for b in d.lanes)
+    markers = tuple(vmarker(mk) for mk in d.markers)
+
+    rights = (
+        [b.x + b.width for b in bands]
+        + [n.x + n.width for n in nodes]
+        + [px for e in edges for px, _ in e.points]
+        + [mk.cx + mk.r for mk in markers]
+    )
+    bottoms = (
+        [b.y + b.height for b in bands]
+        + [n.y + n.height for n in nodes]
+        + [py for e in edges for _, py in e.points]
+        + [mk.cy + mk.r for mk in markers]
+    )
+    width = max(rights, default=m) + m
+    height = max(bottoms, default=vtop) + m
+    return replace(
+        d,
+        width=width,
+        height=height,
+        orientation="vertical",
+        nodes=nodes,
+        edges=edges,
+        lanes=bands,
+        markers=markers,
+        phases=(),  # phase bands are a horizontal-only feature (documented limitation)
+    )
 
 
 _PARALLELOGRAM_SLANT = 20.0  # must match the renderer's parallelogram skew

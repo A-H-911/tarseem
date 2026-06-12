@@ -116,6 +116,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     layout_options = dict(spec.get("layout") or {})
     markers = bool(layout_options.get("markers", False))
     respect_manual_positions = bool(layout_options.get("respectManualPositions", False))
+    lane_orientation = str(layout_options.get("laneOrientation", "horizontal"))
 
     return LogicalGraph(
         diagram_type=diagram_type,
@@ -126,6 +127,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         phases=tuple(phases),
         title=title,
         markers=markers,
+        lane_orientation=lane_orientation,
         layout_options=layout_options,
         respect_manual_positions=respect_manual_positions,
         theme=theme,
