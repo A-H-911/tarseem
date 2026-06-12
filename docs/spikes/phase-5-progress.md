@@ -11,7 +11,7 @@ pushed / no PR). Exit criteria: F5 routing demonstrable **+ new families in the 
 | 1 | Routing hints | ✅ done | see below |
 | 2 | Benchmark corpus + CI threshold gate | ✅ done | `tests/test_routing_benchmark.py`, `tests/benchmarks/` |
 | 3 | libavoid evaluation → build | ✅ done (experimental, opt-in) | `ADR-006`, `src/tarseem/layout/libavoid/` |
-| 4 | Swimlane polish | ⬜ **next** | vertical-lane hardening; nested lanes best-effort + documented limits |
+| 4 | Swimlane polish | ✅ done | vertical lanes (`f06c29e`) + nested lanes (`370a157`) |
 | 5 | New families | ⬜ **next** | `state`, `deployment`/infra, `ER`-with-ports — each with a golden sample + gallery card + per-OS baselines |
 
 ## Done — detail
@@ -35,6 +35,19 @@ extra only; default path stays ELK/Apache-2.0. Empirical finding: **worse than E
 (it can't beat ELK's integrated placement+routing); its niche is **obstacle avoidance on fixed
 positions** (cut edges-through-boxes ~80%, 10→2 vs naive). `.gitignore` has an exception so the
 `dist/` WASM ships in the wheel. `engine doctor` reports it (optional/informational).
+
+**4. Swimlane polish** — both halves done as low-risk **post-passes** over the untouched
+horizontal layout (so flat/horizontal output stays byte-identical → no baseline churn):
+- **Vertical lanes** (`layout.laneOrientation: "vertical"`): lanes become columns, flow runs
+  top→bottom. A uniform coordinate transpose `T(x,y) = (m + y−lanes_top, vtop + x−m)` with
+  width↔height swap; routing + topo order carry over. Renderer chrome is orientation-aware
+  (title stays on top, header pills move to column tops). Limits (AM-6): portrait node
+  aspect, phases not drawn, TB flow only. Example `swimlane-vertical-release.json`.
+- **Nested lanes** (`lane.parent`): the parent becomes an outer header gutter spanning its
+  children (a single x-translate). Limits (AM-6): one level, nodes attach to leaf lanes,
+  horizontal-only. Example `swimlane-nested-delivery.json`. Dropped the orphan per-lane
+  `orientation` schema key.
+- Tests: `tests/test_swimlane_vertical.py` (11) + `tests/test_swimlane_nested.py` (7).
 
 ## Bans / invariants honoured
 
