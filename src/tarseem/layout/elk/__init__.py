@@ -187,6 +187,7 @@ class ElkLayout:
 
         pos_by_id = {n.id: n for n in nodes}
         edges_by_id = {e.id: e for e in graph.edges}
+        corridors = _ported_corridors(graph, pos_by_id)
         edges: list[PositionedEdge] = []
         for ce in laid.get("edges", []):
             logical_edge = edges_by_id.get(ce["id"])
@@ -214,9 +215,11 @@ class ElkLayout:
                 src_node = pos_by_id.get(logical_edge.source)
                 tgt_node = pos_by_id.get(logical_edge.target)
                 if src_node is not None and tgt_node is not None:
+                    count, index = corridors.get(ce["id"], (1, 0))
                     points = _row_connector(
                         src_node, logical_edge.source_port,
                         tgt_node, logical_edge.target_port,
+                        count, index,
                     )
             label = logical_edge.label if logical_edge else None
             # elkjs reserves edge-label space but reports x/y=0, so place the label at
@@ -272,6 +275,31 @@ def _snap_to_shape(
     return pt
 
 
+def _ported_corridors(
+    graph: LogicalGraph, pos_by_id: dict[str, PositionedNode]
+) -> dict[str, tuple[int, int]]:
+    """Assign each ported edge a (count, index) within the set of connectors leaving the same
+    entity on the same side (bug #1). Siblings are ordered by target-row height so their fanned
+    corridors nest without overlapping; a lone connector keeps (1, 0) -> centred midpoint."""
+    groups: dict[tuple[str, str], list[str]] = {}
+    for e in graph.edges:
+        if not (e.source_port or e.target_port):
+            continue
+        s, t = pos_by_id.get(e.source), pos_by_id.get(e.target)
+        if s is None or t is None:
+            continue
+        side = "R" if (s.x + s.width / 2) <= (t.x + t.width / 2) else "L"
+        groups.setdefault((e.source, side), []).append(e.id)
+    out: dict[str, tuple[int, int]] = {}
+    edges_by_id = {e.id: e for e in graph.edges}
+    for ids in groups.values():
+        ids.sort(key=lambda eid: _row_anchor(pos_by_id[edges_by_id[eid].target],
+                                             edges_by_id[eid].target_port))
+        for i, eid in enumerate(ids):
+            out[eid] = (len(ids), i)
+    return out
+
+
 def _row_anchor(node: PositionedNode, port_id: str | None) -> float:
     """Vertical center of the attribute row named ``port_id`` (node center if unmatched)."""
     if port_id:
@@ -284,12 +312,15 @@ def _row_anchor(node: PositionedNode, port_id: str | None) -> float:
 def _row_connector(
     src: PositionedNode, src_port: str | None,
     tgt: PositionedNode, tgt_port: str | None,
+    count: int = 1, index: int = 0,
 ) -> list[tuple[float, float]]:
     """Orthogonal connector between two entity rows, attaching on the facing sides.
 
     The source exits the side that faces the target and the target is entered from the side
-    facing the source; the horizontal run meets at the midpoint between the two facing edges,
-    so the connector is a clean 3-bend orthogonal path even when the rows differ in height."""
+    facing the source. ``count``/``index`` fan out connectors that share a source side so
+    their vertical corridors don't overlap (bug #1): the run meets at ``(index+1)/(count+1)``
+    of the gap rather than always the midpoint, which keeps a single connector centred
+    (1/2) while spreading siblings into distinct corridors."""
     sy = _row_anchor(src, src_port)
     ty = _row_anchor(tgt, tgt_port)
     src_cx, tgt_cx = src.x + src.width / 2, tgt.x + tgt.width / 2
@@ -297,7 +328,7 @@ def _row_connector(
         sx, tx = src.x + src.width, tgt.x
     else:
         sx, tx = src.x, tgt.x + tgt.width
-    mx = (sx + tx) / 2
+    mx = sx + (tx - sx) * (index + 1) / (count + 1)
     return [(sx, sy), (mx, sy), (mx, ty), (tx, ty)]
 
 
