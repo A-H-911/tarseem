@@ -13,6 +13,7 @@ The MVP supports four diagram families plus sequence. Every family ships a golde
 | Sequence | `sequence` | sequence (pure Python) | no | `examples/sequence-login.json` |
 | State | `state` | ELK | yes | `examples/state-order-lifecycle.json` |
 | Deployment | `deployment` | ELK | yes | `examples/deployment-web-stack.json` |
+| ER | `er` | ELK + per-row ports | yes | `examples/er-shop.json` |
 
 All families share the same spec vocabulary (`nodes` / `edges` / `label` / `style` …) and the
 same positioned IR; only the layouter and a few family-specific fields differ.
@@ -190,6 +191,32 @@ other shape from the graph set is available. Edges are communication paths.
 ```
 
 See `examples/deployment-web-stack.json`.
+
+## ER (entity-relationship)
+
+Each entity is a node with an `attributes` array; it renders as a **table** — a title row
+plus one row per attribute, with an optional `key` of `"PK"` or `"FK"` shown as a tag.
+Relationships are `edges`; set `sourcePort` / `targetPort` to an attribute `id` to anchor the
+connector to that exact row (typically an FK row pointing at the referenced PK row). Entities
+are placed by ELK; the per-row connectors attach on the facing sides.
+
+```json
+{
+  "specVersion": "0.1", "diagramType": "er", "direction": "LR",
+  "nodes": [
+    {"id": "customer", "label": {"text": "Customer"}, "attributes": [
+      {"id": "id", "label": {"text": "id"}, "key": "PK"},
+      {"id": "email", "label": {"text": "email"}}]},
+    {"id": "order", "label": {"text": "Order"}, "attributes": [
+      {"id": "id", "label": {"text": "id"}, "key": "PK"},
+      {"id": "customer_id", "label": {"text": "customer_id"}, "key": "FK"}]}
+  ],
+  "edges": [{"id": "r1", "source": "order", "target": "customer",
+             "sourcePort": "customer_id", "targetPort": "id", "label": {"text": "N:1"}}]
+}
+```
+
+Cardinality is conveyed with the edge `label` (e.g. `"N:1"`). See `examples/er-shop.json`.
 
 ## Capability reports, never silent drops
 

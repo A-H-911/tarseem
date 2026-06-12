@@ -27,7 +27,7 @@ EXAMPLES = ROOT / "examples"
 BENCHMARKS = Path(__file__).resolve().parent / "benchmarks"
 
 # Families whose layout runs through the ELK Node subprocess.
-_ELK_FAMILIES = {"flowchart", "architecture", "dependency"}
+_ELK_FAMILIES = {"flowchart", "architecture", "dependency", "state", "deployment", "er"}
 
 _HAS_NODE = shutil.which("node") is not None
 
@@ -37,6 +37,7 @@ _CROSSING_BUDGET: dict[str, int] = {
     "swimlane-bug-triage.json": 1,     # one unavoidable back-edge crossing
     "bench-dependency-web.json": 2,    # 14 edges over 8 nodes; dense by design
     "deployment-web-stack.json": 1,    # two app servers each share two datastores
+    "er-shop.json": 1,                 # OrderLine fans out to two entities; one crossing
 }
 
 

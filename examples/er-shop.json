@@ -1,0 +1,82 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "er",
+  "direction": "LR",
+  "meta": {
+    "title": "Shop Schema"
+  },
+  "nodes": [
+    {
+      "id": "customer",
+      "label": {
+        "text": "Customer"
+      },
+      "attributes": [
+        {"id": "id", "label": {"text": "id"}, "key": "PK"},
+        {"id": "name", "label": {"text": "name"}},
+        {"id": "email", "label": {"text": "email"}}
+      ]
+    },
+    {
+      "id": "order",
+      "label": {
+        "text": "Order"
+      },
+      "attributes": [
+        {"id": "id", "label": {"text": "id"}, "key": "PK"},
+        {"id": "customer_id", "label": {"text": "customer_id"}, "key": "FK"},
+        {"id": "placed_at", "label": {"text": "placed_at"}},
+        {"id": "total", "label": {"text": "total"}}
+      ]
+    },
+    {
+      "id": "line",
+      "label": {
+        "text": "OrderLine"
+      },
+      "attributes": [
+        {"id": "id", "label": {"text": "id"}, "key": "PK"},
+        {"id": "order_id", "label": {"text": "order_id"}, "key": "FK"},
+        {"id": "product_id", "label": {"text": "product_id"}, "key": "FK"},
+        {"id": "qty", "label": {"text": "qty"}}
+      ]
+    },
+    {
+      "id": "product",
+      "label": {
+        "text": "Product"
+      },
+      "attributes": [
+        {"id": "id", "label": {"text": "id"}, "key": "PK"},
+        {"id": "sku", "label": {"text": "sku"}},
+        {"id": "price", "label": {"text": "price"}}
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "r1",
+      "source": "order",
+      "target": "customer",
+      "sourcePort": "customer_id",
+      "targetPort": "id",
+      "label": {"text": "N:1"}
+    },
+    {
+      "id": "r2",
+      "source": "line",
+      "target": "order",
+      "sourcePort": "order_id",
+      "targetPort": "id",
+      "label": {"text": "N:1"}
+    },
+    {
+      "id": "r3",
+      "source": "line",
+      "target": "product",
+      "sourcePort": "product_id",
+      "targetPort": "id",
+      "label": {"text": "N:1"}
+    }
+  ]
+}

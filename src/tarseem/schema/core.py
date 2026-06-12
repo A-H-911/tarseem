@@ -54,6 +54,19 @@ _POSITION = {
     "additionalProperties": False,
 }
 
+# An ER entity attribute row (family: er). `key` marks a primary/foreign key. The `id` is
+# the port name an edge's sourcePort/targetPort references to anchor to this row.
+_ATTRIBUTE = {
+    "type": "object",
+    "required": ["id"],
+    "properties": {
+        "id": {"type": "string"},
+        "label": _LABEL,
+        "key": {"enum": ["PK", "FK"]},
+    },
+    "additionalProperties": False,
+}
+
 _NODE = {
     "type": "object",
     "required": ["id"],
@@ -64,6 +77,7 @@ _NODE = {
         "lane": {"type": "string"},
         "phase": {"type": "string"},
         "label": _LABEL,
+        "attributes": {"type": "array", "items": _ATTRIBUTE},  # ER entity rows (family: er)
         "styleRefs": {"type": "array", "items": {"type": "string"}},
         "style": {"type": "object"},
         "size": {"type": "object"},

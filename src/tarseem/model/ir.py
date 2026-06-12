@@ -10,6 +10,7 @@ from dataclasses import dataclass, field, replace
 
 __all__ = [
     "Label",
+    "EntityRow",
     "LogicalLane",
     "LogicalPhase",
     "LogicalNode",
@@ -37,6 +38,21 @@ class Label:
 
 
 @dataclass(frozen=True)
+class EntityRow:
+    """A row in an ER entity table (family: er). ``key`` is ``"PK"`` | ``"FK"`` | None.
+
+    ``y_offset``/``height`` are the row's vertical geometry relative to the node's top edge,
+    stamped once by the measurement stage so the table writer and the layout adapter (per-row
+    edge anchoring) share one source of truth."""
+
+    id: str
+    label: Label
+    key: str | None = None
+    y_offset: float = 0.0
+    height: float = 0.0
+
+
+@dataclass(frozen=True)
 class LogicalNode:
     id: str
     label: Label
@@ -45,6 +61,7 @@ class LogicalNode:
     lane: str | None = None  # swimlane membership
     phase: str | None = None  # swimlane phase-column membership (FR-6.3)
     show_badge: bool = True  # False = auto-number badge exempt (start/terminal pills)
+    rows: tuple[EntityRow, ...] = ()  # ER entity attribute rows (family: er)
     style: dict = field(default_factory=dict)
     # manual placement (x, y) for respectManualPositions layouts; None = engine-placed (FR-5.x)
     position: tuple[float, float] | None = None
@@ -65,6 +82,8 @@ class LogicalEdge:
     priority: int | None = None  # layered straightness bias (higher = straighter)
     preferred_direction: str | None = None  # UP|DOWN|LEFT|RIGHT exit side for the edge
     waypoints: tuple[tuple[float, float], ...] = ()  # manual interior points (post-layout splice)
+    source_port: str | None = None  # ER: attribute-row id to anchor the edge's start
+    target_port: str | None = None  # ER: attribute-row id to anchor the edge's end
 
 
 @dataclass(frozen=True)
@@ -113,6 +132,7 @@ class PositionedNode:
     shape: str
     style: dict = field(default_factory=dict)
     badge: str | None = None  # auto-number badge text (e.g. "2."); None = exempt
+    rows: tuple[EntityRow, ...] = ()  # ER entity attribute rows, with stamped row geometry
 
 
 @dataclass(frozen=True)

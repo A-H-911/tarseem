@@ -7,6 +7,7 @@ mutates the input spec.
 from __future__ import annotations
 
 from tarseem.model.ir import (
+    EntityRow,
     Label,
     LogicalEdge,
     LogicalGraph,
@@ -28,6 +29,7 @@ _DEFAULT_SHAPE: dict[str, str] = {
     "sequence": "rect",  # participant head boxes
     "state": "roundrect",  # states are rounded boxes; initial/final use marker shapes
     "deployment": "cube",  # deployment nodes are 3D boxes (devices/containers)
+    "er": "table",  # ER entities render as attribute tables
 }
 
 
@@ -54,6 +56,15 @@ def _waypoints(routing: dict | None) -> tuple[tuple[float, float], ...]:
     return tuple((float(p[0]), float(p[1])) for p in pts)
 
 
+def _rows(raw: dict) -> tuple[EntityRow, ...]:
+    """ER entity attribute rows from a node's ``attributes`` (geometry stamped at measure)."""
+    out: list[EntityRow] = []
+    for attr in raw.get("attributes") or []:
+        label = _label(attr.get("label")) or Label(text=str(attr.get("id", "")))
+        out.append(EntityRow(id=attr["id"], label=label, key=attr.get("key")))
+    return tuple(out)
+
+
 def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     """Build the logical IR from a validated spec. Run :func:`tarseem.validation.validate`
     first; this assumes structural/referential integrity."""
@@ -75,6 +86,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
                 lane=raw.get("lane"),
                 phase=raw.get("phase"),
                 show_badge=bool(raw.get("badge", True)),
+                rows=_rows(raw),
                 style=resolve_node_style(spec, raw, theme),
                 position=_position(raw.get("position")),
             )
@@ -96,6 +108,8 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
                 priority=int(priority) if priority is not None else None,
                 preferred_direction=raw.get("preferredDirection"),
                 waypoints=_waypoints(raw.get("routing")),
+                source_port=raw.get("sourcePort"),
+                target_port=raw.get("targetPort"),
             )
         )
 

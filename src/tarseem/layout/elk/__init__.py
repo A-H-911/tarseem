@@ -181,6 +181,7 @@ class ElkLayout:
                     label=src.label,
                     shape=src.shape,
                     style=src.style,
+                    rows=src.rows,  # ER entity rows (with stamped geometry) for the table writer
                 )
             )
 
@@ -205,6 +206,18 @@ class ElkLayout:
                     points[0] = _snap_to_shape(points[0], points[1], src_node)
                 if tgt_node is not None:
                     points[-1] = _snap_to_shape(points[-1], points[-2], tgt_node)
+            # ER per-row anchoring: a ported edge attaches to a specific attribute row on each
+            # entity, so replace ELK's box-to-box route with a clean orthogonal connector
+            # between the two row anchors (on the facing sides). Entities are still placed +
+            # spaced by ELK from the node-to-node edge; only the ported route is overridden.
+            if logical_edge is not None and (logical_edge.source_port or logical_edge.target_port):
+                src_node = pos_by_id.get(logical_edge.source)
+                tgt_node = pos_by_id.get(logical_edge.target)
+                if src_node is not None and tgt_node is not None:
+                    points = _row_connector(
+                        src_node, logical_edge.source_port,
+                        tgt_node, logical_edge.target_port,
+                    )
             label = logical_edge.label if logical_edge else None
             # elkjs reserves edge-label space but reports x/y=0, so place the label at
             # the geometric midpoint of the routed polyline (deterministic, spike-3 proven).
@@ -257,6 +270,35 @@ def _snap_to_shape(
             return (x + _PARALLELOGRAM_SLANT * (1.0 - frac), py)
         return (x + w - _PARALLELOGRAM_SLANT * frac, py)
     return pt
+
+
+def _row_anchor(node: PositionedNode, port_id: str | None) -> float:
+    """Vertical center of the attribute row named ``port_id`` (node center if unmatched)."""
+    if port_id:
+        for r in node.rows:
+            if r.id == port_id:
+                return node.y + r.y_offset + r.height / 2
+    return node.y + node.height / 2
+
+
+def _row_connector(
+    src: PositionedNode, src_port: str | None,
+    tgt: PositionedNode, tgt_port: str | None,
+) -> list[tuple[float, float]]:
+    """Orthogonal connector between two entity rows, attaching on the facing sides.
+
+    The source exits the side that faces the target and the target is entered from the side
+    facing the source; the horizontal run meets at the midpoint between the two facing edges,
+    so the connector is a clean 3-bend orthogonal path even when the rows differ in height."""
+    sy = _row_anchor(src, src_port)
+    ty = _row_anchor(tgt, tgt_port)
+    src_cx, tgt_cx = src.x + src.width / 2, tgt.x + tgt.width / 2
+    if src_cx <= tgt_cx:  # source on the left -> exit right, enter target's left
+        sx, tx = src.x + src.width, tgt.x
+    else:
+        sx, tx = src.x, tgt.x + tgt.width
+    mx = (sx + tx) / 2
+    return [(sx, sy), (mx, sy), (mx, ty), (tx, ty)]
 
 
 def _edge_points(ce: dict) -> list[tuple[float, float]]:

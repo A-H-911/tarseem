@@ -146,6 +146,11 @@ def render_svg(diagram: PositionedDiagram) -> str:
         from tarseem.render.sequence import render_sequence_svg
 
         return render_sequence_svg(diagram)
+    # ER entities are attribute tables -> dedicated writer
+    if diagram.diagram_type == "er":
+        from tarseem.render.er import render_er_svg
+
+        return render_er_svg(diagram)
 
     dx, dy = _MARGIN, _MARGIN
     width = diagram.width + 2 * _MARGIN
