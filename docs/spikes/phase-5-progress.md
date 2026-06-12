@@ -12,7 +12,12 @@ pushed / no PR). Exit criteria: F5 routing demonstrable **+ new families in the 
 | 2 | Benchmark corpus + CI threshold gate | ✅ done | `tests/test_routing_benchmark.py`, `tests/benchmarks/` |
 | 3 | libavoid evaluation → build | ✅ done (experimental, opt-in) | `ADR-006`, `src/tarseem/layout/libavoid/` |
 | 4 | Swimlane polish | ✅ done | vertical lanes (`f06c29e`) + nested lanes (`370a157`) |
-| 5 | New families | ⬜ **next** | `state`, `deployment`/infra, `ER`-with-ports — each with a golden sample + gallery card + per-OS baselines |
+| 5 | New families | ✅ done | state + deployment (`56fd8f2`), ER-with-ports (`ca09990`); win32 baselines (`7347e5f`) |
+
+**Phase 5 complete** (all 5 sub-stages). Branch `phase-5-routing` not yet pushed / no PR.
+Remaining ops: linux + macOS baselines for the 5 new goldens via the `regen-baselines`
+branch / `workflow_dispatch` (`.github/workflows/baselines.yml`) — the visual suite skips
+those samples per-platform until committed, so CI stays green meanwhile.
 
 ## Done — detail
 
@@ -48,6 +53,21 @@ horizontal layout (so flat/horizontal output stays byte-identical → no baselin
   horizontal-only. Example `swimlane-nested-delivery.json`. Dropped the orphan per-lane
   `orientation` schema key.
 - Tests: `tests/test_swimlane_vertical.py` (11) + `tests/test_swimlane_nested.py` (7).
+
+**5. New families** — three families added; the two cheap ones share the ELK graph path
+(only new shape vocab), ER adds a table writer + per-row port anchoring:
+- **state**: rounded-box states; `initial` (filled dot) / `final` (bullseye) pseudostate
+  markers sized as fixed squares. **deployment**: 3D `cube` node (top+right depth faces) as
+  the default shape; datastores as cylinders. Both route through ELK unchanged.
+- **ER**: entity = attribute table. A node's `attributes` compile to `EntityRow`s whose
+  vertical geometry is stamped once in measure (shared by the table writer and the layout
+  adapter). Edges carry `sourcePort`/`targetPort` (an attribute id); ELK places the entities
+  and the adapter replaces the ported edge's route with an orthogonal connector anchored to
+  the exact row on each facing side. Dedicated `render/er.py` table writer (PK/FK key tags).
+  Validation accepts attribute ids as port targets.
+- Examples: `state-order-lifecycle`, `deployment-web-stack`, `er-shop`. Tests:
+  `test_family_state_deployment.py` (8) + `test_family_er.py` (8). Benchmark budgets:
+  deployment 1, er-shop 1 (both topology-inherent, overlaps 0).
 
 ## Bans / invariants honoured
 
