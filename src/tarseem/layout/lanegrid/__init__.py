@@ -273,13 +273,14 @@ class LaneGridLayout:
         # node-free corridors just below/above every node, used to detour around obstacles
         bot_y = max((b[3] for b in boxes), default=0.0) + _ROUTE_CORRIDOR
         top_y = min((b[1] for b in boxes), default=0.0) - _ROUTE_CORRIDOR
+        entry_y = _convergence_entries(edges, geom)
         out: list[PositionedEdge] = []
         for e in edges:
             a, b = geom.get(e.source), geom.get(e.target)
             if a is None or b is None:
                 continue
             obstacles = [box for nid, box in boxes_by_id.items() if nid not in (e.source, e.target)]
-            pts = _route(a, b, obstacles, top_y, bot_y)
+            pts = _route(a, b, obstacles, top_y, bot_y, entry_y.get(e.id))
             label_xy = (
                 _label_clear_xy(pts, e.label.text, boxes) if e.label and e.label.text else None
             )
@@ -542,9 +543,38 @@ def _route_clear(points: list, boxes: list) -> bool:
     return all(_seg_clear(points[i], points[i + 1], boxes) for i in range(len(points) - 1))
 
 
+def _convergence_entries(edges: tuple, geom: dict) -> dict[str, float]:
+    """Distinct entry heights for cross-lane edges that converge on the same node side.
+
+    Without this, every edge entering a node from (say) the left rides that node's centre row,
+    so two of them overlap on the shared horizontal corridor (bug #5). Group cross-lane edges
+    by (target, entry-side); for any group of two or more, spread their entry points evenly
+    around the node's centre (clamped to the node height) in a deterministic source order."""
+    groups: dict[tuple[str, str], list[tuple[str, float, float]]] = {}
+    for e in edges:
+        a, b = geom.get(e.source), geom.get(e.target)
+        if a is None or b is None or a["lane_i"] == b["lane_i"]:
+            continue  # only cross-lane edges enter a node from a side
+        A, B = _anchors(a), _anchors(b)
+        side = "l" if B["cx"] >= A["cx"] else "r"
+        groups.setdefault((e.target, side), []).append((e.id, A["cy"], A["cx"]))
+    out: dict[str, float] = {}
+    for (tgt, _side), items in groups.items():
+        if len(items) < 2:
+            continue
+        B = _anchors(geom[tgt])
+        n = len(items)
+        spacing = min(16.0, max(6.0, (B["b"] - B["t"] - 12.0) / n))
+        items.sort(key=lambda t: (t[1], t[2]))  # by source centre y then x (deterministic)
+        for k, (eid, _cy, _cx) in enumerate(items):
+            out[eid] = B["cy"] + spacing * (k - (n - 1) / 2)
+    return out
+
+
 def _route(
     a: dict, b: dict, obstacles: list | None = None,
     top_y: float | None = None, bot_y: float | None = None,
+    entry_y: float | None = None,
 ) -> list[tuple[float, float]]:
     """Orthogonal polyline exploiting one-step-per-column; attaches to real shape sides.
 
@@ -552,7 +582,9 @@ def _route(
     When it would cross an *intervening* node — a back-edge or long edge passing over a node
     in the target's lane — it detours through a node-free corridor below (then above) all
     nodes, leaving and re-entering the endpoints vertically (south-to-south / north-to-north)
-    so the line never crosses a box."""
+    so the line never crosses a box. ``entry_y`` overrides the cross-lane entry height so
+    multiple edges converging on one node side ride distinct corridors instead of one (bug #5).
+    """
     A, B = _anchors(a), _anchors(b)
     if a["lane_i"] == b["lane_i"]:  # same lane -> straight horizontal at center y
         cy = A["cy"]
@@ -561,10 +593,11 @@ def _route(
         else:
             direct = [(_side_x(a, "l", cy), cy), (_side_x(b, "r", cy), cy)]
     else:
+        enter_y = B["cy"] if entry_y is None else entry_y
         exit_y = A["t"] if B["cy"] < A["cy"] else A["b"]  # top/bottom edges are flat -> bbox ok
         side = "l" if B["cx"] >= A["cx"] else "r"
-        enter_x = _side_x(b, side, B["cy"])
-        direct = [(A["cx"], exit_y), (A["cx"], B["cy"]), (enter_x, B["cy"])]
+        enter_x = _side_x(b, side, enter_y)
+        direct = [(A["cx"], exit_y), (A["cx"], enter_y), (enter_x, enter_y)]
 
     if not obstacles or _route_clear(direct, obstacles):
         return direct
