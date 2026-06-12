@@ -22,11 +22,15 @@ from tarseem.engine import Engine
 from tarseem.visualtest import compare_png
 
 ROOT = Path(__file__).resolve().parent.parent
-# Node-free (lane-grid/sequence) goldens incl. the RTL Arabic swimlane (Reference-2).
+# Node-free (lane-grid/sequence) goldens incl. the RTL Arabic swimlane (Reference-2)
+# and the Phase-5 vertical + nested swimlane variants.
 BASELINE_SAMPLES = ["sequence-login", "swimlane-bug-triage", "swimlane-pipeline",
-                    "swimlane-phases", "swimlane-document-rtl"]
+                    "swimlane-phases", "swimlane-document-rtl",
+                    "swimlane-vertical-release", "swimlane-nested-delivery"]
 # ELK (graph) goldens — Node-gated; the pinned elkjs makes layout deterministic per OS.
-ELK_BASELINE_SAMPLES = ["arabic-flowchart", "arabic-architecture", "arabic-mixed"]
+# Includes the Phase-5 state/deployment/ER families.
+ELK_BASELINE_SAMPLES = ["arabic-flowchart", "arabic-architecture", "arabic-mixed",
+                        "state-order-lifecycle", "deployment-web-stack", "er-shop"]
 
 
 # ---- compare_png unit tests (OS-independent) --------------------------------
