@@ -1,0 +1,112 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "LR",
+  "meta": {
+    "title": "Service Delivery"
+  },
+  "lanes": [
+    {
+      "id": "eng",
+      "label": {
+        "text": "Engineering"
+      }
+    },
+    {
+      "id": "fe",
+      "label": {
+        "text": "Frontend"
+      },
+      "parent": "eng"
+    },
+    {
+      "id": "be",
+      "label": {
+        "text": "Backend"
+      },
+      "parent": "eng"
+    },
+    {
+      "id": "qa",
+      "label": {
+        "text": "QA"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "design",
+      "lane": "fe",
+      "shape": "roundrect",
+      "label": {
+        "text": "Design UI"
+      }
+    },
+    {
+      "id": "api",
+      "lane": "be",
+      "shape": "roundrect",
+      "label": {
+        "text": "Build API"
+      }
+    },
+    {
+      "id": "wire",
+      "lane": "fe",
+      "shape": "roundrect",
+      "label": {
+        "text": "Integrate"
+      }
+    },
+    {
+      "id": "test",
+      "lane": "qa",
+      "shape": "diamond",
+      "label": {
+        "text": "Accept?"
+      }
+    },
+    {
+      "id": "ship",
+      "lane": "qa",
+      "shape": "stadium",
+      "badge": false,
+      "label": {
+        "text": "Ship"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "design",
+      "target": "api"
+    },
+    {
+      "id": "e2",
+      "source": "api",
+      "target": "wire"
+    },
+    {
+      "id": "e3",
+      "source": "wire",
+      "target": "test"
+    },
+    {
+      "id": "e4",
+      "source": "test",
+      "target": "ship",
+      "label": {
+        "text": "yes"
+      }
+    },
+    {
+      "id": "e5",
+      "source": "test",
+      "target": "wire",
+      "label": {
+        "text": "no"
+      }
+    }
+  ]
+}

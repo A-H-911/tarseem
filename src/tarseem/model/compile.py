@@ -105,7 +105,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     for i, raw in enumerate(spec.get("lanes", []) or []):
         hue = lane_palette[i % len(lane_palette)]
         label = _label(raw.get("label")) or Label(text=str(raw.get("id", "")))
-        lanes.append(LogicalLane(id=raw["id"], label=label, hue=hue))
+        lanes.append(LogicalLane(id=raw["id"], label=label, hue=hue, parent=raw.get("parent")))
 
     phases: list[LogicalPhase] = []
     for i, raw in enumerate(spec.get("phases", []) or []):

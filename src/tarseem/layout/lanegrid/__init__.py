@@ -43,6 +43,7 @@ _SIDE_PAD = 24.0
 _MARKER = 36.0
 _END_W = 80.0
 _PHASE_H = 34.0  # phase header band height (FR-6.3); 0 when no phases declared
+_GROUP_W = 34.0  # outer gutter width for a nested-lane parent group header (AM-6)
 _MARKER_BLACK = "#000000"
 _ROUTE_CORRIDOR = 16.0  # clearance below/above all nodes for back-edge detour channels
 
@@ -77,7 +78,11 @@ class LaneGridLayout:
     """Places a swimlane LogicalGraph into a PositionedDiagram (LTR; RTL in Phase 4)."""
 
     def layout(self, graph: LogicalGraph) -> PositionedDiagram:
-        lanes = graph.lanes
+        # nested lanes (best-effort, AM-6): a lane named as another lane's `parent` is a
+        # group, not a flow row. Rows are the LEAF lanes; group bands are drawn as an outer
+        # gutter in a post-pass. With no parents declared, every lane is a leaf -> unchanged.
+        parent_ids = {lane.parent for lane in graph.lanes if lane.parent}
+        lanes = tuple(lane for lane in graph.lanes if lane.id not in parent_ids)
         lane_index = {lane.id: i for i, lane in enumerate(lanes)}
         nums = _topo_numbers(graph.nodes, graph.edges)
         n_cols = max(nums.values(), default=1)
@@ -145,7 +150,9 @@ class LaneGridLayout:
             theme=graph.theme,
         )
         if graph.lane_orientation == "vertical":
-            return _to_vertical(diagram)
+            return _to_vertical(diagram)  # nested groups unsupported in vertical (documented)
+        if parent_ids:
+            return _with_lane_groups(diagram, graph)
         return diagram
 
     # -- pieces ---------------------------------------------------------------
@@ -387,6 +394,70 @@ def _to_vertical(d: PositionedDiagram) -> PositionedDiagram:
         lanes=bands,
         markers=markers,
         phases=(),  # phase bands are a horizontal-only feature (documented limitation)
+    )
+
+
+def _with_lane_groups(d: PositionedDiagram, graph: LogicalGraph) -> PositionedDiagram:
+    """Nested lanes (best-effort, AM-6): draw each parent group as an outer header gutter.
+
+    The whole diagram is translated right by one gutter width and a group band is placed at
+    the left, spanning the row-extent of its child lanes. One affine translate keeps the
+    inner layout (and its baselines) intact; only the x-origin moves. Single level only —
+    a group's children must be leaf lanes; deeper nesting is not drawn (documented limit).
+    """
+    g = _GROUP_W
+    band_by_id = {b.id: b for b in d.lanes}
+    children: dict[str, list[str]] = {}
+    for lane in graph.lanes:  # preserve declaration order of children
+        if lane.parent and lane.id in band_by_id:
+            children.setdefault(lane.parent, []).append(lane.id)
+    hue_by_id = {lane.id: lane.hue for lane in graph.lanes}
+    label_by_id = {lane.id: lane.label for lane in graph.lanes}
+
+    def sx_node(n: PositionedNode) -> PositionedNode:
+        return replace(n, x=n.x + g)
+
+    def sx_band(b: LaneBand) -> LaneBand:
+        return replace(b, x=b.x + g, width=b.width)
+
+    nodes = tuple(sx_node(n) for n in d.nodes)
+    edges = tuple(
+        replace(
+            e,
+            points=tuple((px + g, py) for px, py in e.points),
+            label_xy=((e.label_xy[0] + g, e.label_xy[1]) if e.label_xy else None),
+        )
+        for e in d.edges
+    )
+    lanes = tuple(sx_band(b) for b in d.lanes)
+    phases = tuple(replace(p, x=p.x + g) for p in d.phases)
+    markers = tuple(replace(mk, cx=mk.cx + g) for mk in d.markers)
+
+    groups: list[LaneBand] = []
+    for parent_id, child_ids in children.items():
+        kids = [band_by_id[c] for c in child_ids]
+        top = min(k.y for k in kids)
+        bottom = max(k.y + k.height for k in kids)
+        groups.append(
+            LaneBand(
+                id=parent_id,
+                label=label_by_id.get(parent_id, kids[0].label),
+                x=_M,
+                y=top,
+                width=g,
+                height=bottom - top,
+                hue=hue_by_id.get(parent_id, {}),
+            )
+        )
+    return replace(
+        d,
+        width=d.width + g,
+        nodes=nodes,
+        edges=edges,
+        lanes=lanes,
+        lane_groups=tuple(groups),
+        phases=phases,
+        markers=markers,
     )
 
 

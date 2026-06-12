@@ -81,6 +81,27 @@ Documented limitations (AM-6) of the vertical variant:
   `laneOrientation` is `"vertical"`.
 - Only top-to-bottom flow is supported (no vertical RTL / bottom-to-top mirroring yet).
 
+### Nested lanes (best-effort, AM-6)
+
+Give a lane a `parent` (the id of another lane) to nest it inside a group. The parent lane
+becomes an **outer header gutter** spanning its children; the children are the actual flow
+rows. See `examples/swimlane-nested-delivery.json`.
+
+```json
+"lanes": [
+  {"id": "eng", "label": {"text": "Engineering"}},
+  {"id": "fe", "label": {"text": "Frontend"}, "parent": "eng"},
+  {"id": "be", "label": {"text": "Backend"}, "parent": "eng"},
+  {"id": "qa", "label": {"text": "QA"}}
+]
+```
+
+Documented limitations (AM-6) of nested lanes:
+
+- **One level only.** A parent's children must be leaf lanes; deeper nesting is not drawn.
+- **Nodes attach to leaf lanes**, never to a parent group.
+- Nesting is **horizontal-only** — it is ignored when `laneOrientation` is `"vertical"`.
+
 ### Layout options
 
 Swimlane spacing and the phase-separator look are tunable per diagram under `layout` (all

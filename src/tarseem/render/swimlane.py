@@ -137,6 +137,21 @@ def _lane_band(band, width: float, rtl: bool = False, vertical: bool = False) ->
     ]
 
 
+def _lane_group_band(band) -> list[str]:
+    """Outer parent-group header for nested lanes (best-effort, AM-6): a narrow coloured
+    gutter bar to the left of the child lanes, with the group label rotated to read upward."""
+    fill = band.hue.get("label", "#37474F")  # group bar uses the accent tint
+    cx = band.x + band.width / 2
+    cy = band.y + band.height / 2
+    return [
+        f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
+        f'height="{_num(band.height)}" rx="6" fill="{fill}" opacity="0.92"/>',
+        f'<text x="{_num(cx)}" y="{_num(cy)}" font-size="12" font-weight="700" fill="#FFFFFF" '
+        f'transform="rotate(-90 {_num(cx)} {_num(cy)})" {_label_attrs(band.label)}>'
+        f"{_esc(band.label.text)}</text>",
+    ]
+
+
 def _marker_svg(m: Marker) -> str:
     cx, cy = _num(m.cx), _num(m.cy)
     if m.kind == "start":
@@ -223,6 +238,8 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
     rtl = diagram.direction == "RL"
     vertical = diagram.orientation == "vertical"
     parts.extend(_title_bar(diagram, m, title_h))
+    for group in diagram.lane_groups:  # nested-lane parent gutters (behind the lane bands)
+        parts.extend(_lane_group_band(group))
     for band in diagram.lanes:
         parts.extend(_lane_band(band, w, rtl, vertical))
 

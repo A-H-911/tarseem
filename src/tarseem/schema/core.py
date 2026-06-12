@@ -104,7 +104,7 @@ _LANE = {
     "properties": {
         "id": {"type": "string"},
         "label": _LABEL,
-        "orientation": {"enum": ["horizontal", "vertical"]},
+        "parent": {"type": "string"},  # id of an enclosing lane group (nested lanes, AM-6)
         "style": {"type": "object"},
         "hue": {"type": "string"},
         "order": {"type": "number"},

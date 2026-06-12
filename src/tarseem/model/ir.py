@@ -72,6 +72,7 @@ class LogicalLane:
     id: str
     label: Label
     hue: dict = field(default_factory=dict)  # palette entry: row/box/label tints
+    parent: str | None = None  # id of an enclosing lane group (nested lanes, best-effort AM-6)
 
 
 @dataclass(frozen=True)
@@ -177,6 +178,7 @@ class PositionedDiagram:
     orientation: str = "horizontal"  # swimlane lane axis (FR-6.1); "vertical" = transposed
     title: str | None = None
     lanes: tuple[LaneBand, ...] = ()  # swimlane band chrome
+    lane_groups: tuple[LaneBand, ...] = ()  # nested-lane parent group bands (best-effort, AM-6)
     phases: tuple[PhaseBand, ...] = ()  # swimlane phase header bands (FR-6.3)
     markers: tuple[Marker, ...] = ()  # swimlane UML markers
     activations: tuple[Activation, ...] = ()  # sequence activation bars
