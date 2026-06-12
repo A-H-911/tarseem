@@ -68,8 +68,16 @@ class SequenceLayout:
         total_h = bottom_y + _M
 
         row_of = {e.id: first_row + i * _ROW_H for i, e in enumerate(graph.edges)}
-        edges = self._route_messages(graph, lifeline_x, row_of)
-        activations = self._activations(graph, lifeline_x, row_of, bottom_y)
+        # activation spans are computed BEFORE routing so messages can attach to the bar edge
+        # (not the lifeline centre) wherever a participant is active — otherwise arrows
+        # penetrate the bar instead of touching its border.
+        spans = self._activation_spans(graph, row_of, bottom_y)
+        edges = self._route_messages(graph, lifeline_x, row_of, spans)
+        activations = tuple(
+            Activation(x=lifeline_x[pid] - _ACT_W / 2, y=y0, width=_ACT_W,
+                       height=max(0.0, y1 - y0))
+            for pid, y0, y1 in spans
+        )
 
         return PositionedDiagram(
             width=total_w,
@@ -83,7 +91,7 @@ class SequenceLayout:
             theme=graph.theme,
         )
 
-    def _route_messages(self, graph, lifeline_x, row_of) -> list[PositionedEdge]:
+    def _route_messages(self, graph, lifeline_x, row_of, spans) -> list[PositionedEdge]:
         out: list[PositionedEdge] = []
         for e in graph.edges:
             y = row_of[e.id]
@@ -91,15 +99,25 @@ class SequenceLayout:
             tx = lifeline_x.get(e.target)
             if sx is None or tx is None:
                 continue
+            # offset endpoints to the activation-bar edge wherever a participant is active, on
+            # the side facing the other end, so the message touches the bar instead of piercing
+            # it. An inactive participant attaches to the lifeline centre as before.
+            s_off = _ACT_W / 2 if _active_at(spans, e.source, y) else 0.0
+            t_off = _ACT_W / 2 if _active_at(spans, e.target, y) else 0.0
             if e.source == e.target:  # self-message: bracket out to the right and back
+                bx = sx + s_off  # leave from the right edge of the bar (the bracket side)
                 pts: tuple[tuple[float, float], ...] = (
-                    (sx, y),
-                    (sx + _SELF_W, y),
-                    (sx + _SELF_W, y + _SELF_DROP),
-                    (sx, y + _SELF_DROP),
+                    (bx, y),
+                    (bx + _SELF_W, y),
+                    (bx + _SELF_W, y + _SELF_DROP),
+                    (bx, y + _SELF_DROP),
                 )
-                label_xy = (sx + _SELF_W + 6, y + _SELF_DROP / 2)
+                label_xy = (bx + _SELF_W + 6, y + _SELF_DROP / 2)
             else:
+                if tx >= sx:  # rightward: leave source's right edge, enter target's left edge
+                    sx, tx = sx + s_off, tx - t_off
+                else:  # leftward
+                    sx, tx = sx - s_off, tx + t_off
                 pts = ((sx, y), (tx, y))
                 label_xy = ((sx + tx) / 2, y - 6)
             out.append(
@@ -111,9 +129,10 @@ class SequenceLayout:
             )
         return out
 
-    def _activations(self, graph, lifeline_x, row_of, bottom_y) -> list[Activation]:
-        """Activation bars from call/return nesting: a sync call activates its target; a
-        return deactivates its source. Unmatched activations close at the diagram bottom."""
+    def _activation_spans(self, graph, row_of, bottom_y) -> list[tuple[str, float, float]]:
+        """Activation spans (participant, y0, y1) from call/return nesting: a sync call
+        activates its target; a return deactivates its source. Unmatched activations close at
+        the diagram bottom. The bars and the message edge-attachment both derive from these."""
         open_starts: dict[str, list[float]] = {}
         spans: list[tuple[str, float, float]] = []
         for e in graph.edges:
@@ -129,8 +148,10 @@ class SequenceLayout:
         for pid, stack in open_starts.items():
             for start in stack:
                 spans.append((pid, start, bottom_y))
-        bars: list[Activation] = []
-        for pid, y0, y1 in spans:
-            x = lifeline_x[pid] - _ACT_W / 2
-            bars.append(Activation(x=x, y=y0, width=_ACT_W, height=max(0.0, y1 - y0)))
-        return bars
+        return spans
+
+
+def _active_at(spans: list[tuple[str, float, float]], pid: str, y: float) -> bool:
+    """True when participant ``pid`` is inside an activation bar at row ``y`` (inclusive of
+    the bar's top/bottom edge, where calls and returns attach)."""
+    return any(p == pid and y0 <= y <= y1 for p, y0, y1 in spans)
