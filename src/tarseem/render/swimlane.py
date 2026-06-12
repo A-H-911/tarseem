@@ -54,6 +54,8 @@ def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
         chars.update(diagram.title)
     for band in diagram.lanes:
         chars.update(band.label.text)
+    for group in diagram.lane_groups:  # nested-lane group labels (else they fall back to serif)
+        chars.update(group.label.text)
     for n in diagram.nodes:
         chars.update(n.label.text)
         if n.badge:
@@ -64,19 +66,20 @@ def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
     return frozenset(chars)
 
 
-def _title_bar(diagram: PositionedDiagram, m: float, title_h: float) -> list[str]:
+def _title_bar(
+    diagram: PositionedDiagram, x: float, y: float, width: float, title_h: float
+) -> list[str]:
     if not diagram.title:
         return []
-    w = diagram.width
     # title bar colour is a theme function (F4): default theme = #269973 (unchanged).
     title = diagram.theme.get("title") or {}
     fill = str(title.get("fill", _TITLE_FILL))
     text_color = str(title.get("text", "#FFFFFF"))
     return [
-        f'<rect x="{_num(m)}" y="{_num(m)}" width="{_num(w - 2 * m)}" height="{_num(title_h)}" '
+        f'<rect x="{_num(x)}" y="{_num(y)}" width="{_num(width)}" height="{_num(title_h)}" '
         f'rx="6" fill="{fill}"/>',
-        f'<text x="{_num(w / 2)}" y="{_num(m + title_h / 2)}" font-size="18" font-weight="700" '
-        f'fill="{text_color}" {bidi_attrs(diagram.title)}>'
+        f'<text x="{_num(x + width / 2)}" y="{_num(y + title_h / 2)}" font-size="18" '
+        f'font-weight="700" fill="{text_color}" {bidi_attrs(diagram.title)}>'
         f"{_esc(diagram.title)}</text>",
     ]
 
@@ -214,15 +217,20 @@ def _node_svg(n: PositionedNode, rtl: bool = False) -> list[str]:
 
 def render_swimlane_svg(diagram: PositionedDiagram) -> str:
     w, h = diagram.width, diagram.height
-    # geometry recovered from the band chrome (layouter owns the absolute coords). The title
-    # bar stops at the phase header when phases exist (else at the first lane) — otherwise it
-    # would swallow the phase-header band and the titles would overlap.
-    m = diagram.lanes[0].x if diagram.lanes else 20.0
+    # Title geometry recovered from band chrome (layouter owns absolute coords). The top margin
+    # is the canvas inset (height - last lane bottom), independent of the LEFT inset — which a
+    # nested-lane group gutter shifts. The bar spans the full chrome width (group gutter through
+    # the last lane's right edge) so it always reaches the swimlane's end border. It stops at
+    # the phase header when phases exist, else at the first lane, so the titles never overlap.
     if diagram.lanes:
+        title_x = min([b.x for b in diagram.lanes] + [g.x for g in diagram.lane_groups])
+        title_right = max(b.x + b.width for b in diagram.lanes)
+        title_w = title_right - title_x
+        title_top = h - (diagram.lanes[-1].y + diagram.lanes[-1].height)
         title_bottom = diagram.phases[0].y if diagram.phases else diagram.lanes[0].y
-        title_h = title_bottom - m
+        title_h = title_bottom - title_top
     else:
-        title_h = 50.0
+        title_x, title_top, title_w, title_h = 20.0, 20.0, w - 40.0, 50.0
     b64 = subset_woff2_datauri(_collect_chars(diagram))
 
     parts: list[str] = [
@@ -235,9 +243,10 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
         "</style>",
         f'<rect width="{_num(w)}" height="{_num(h)}" fill="#FFFFFF"/>',
     ]
+    m = diagram.lanes[0].x if diagram.lanes else 20.0  # lane-left, for the actor separator
     rtl = diagram.direction == "RL"
     vertical = diagram.orientation == "vertical"
-    parts.extend(_title_bar(diagram, m, title_h))
+    parts.extend(_title_bar(diagram, title_x, title_top, title_w, title_h))
     for group in diagram.lane_groups:  # nested-lane parent gutters (behind the lane bands)
         parts.extend(_lane_group_band(group))
     for band in diagram.lanes:
