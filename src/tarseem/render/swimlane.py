@@ -22,6 +22,7 @@ from tarseem.render.text import bidi_attrs
 __all__ = ["render_swimlane_svg"]
 
 _LABEL_W = 160.0  # left header-column width (matches lanegrid geometry)
+_V_HEADER = 64.0  # vertical-orientation lane header band height (MUST match lanegrid _V_HEADER)
 _TITLE_FILL = "#269973"
 _SEPARATOR = "#B0BEC5"
 _EDGE_DEFAULT = "#2E8B57"
@@ -54,6 +55,8 @@ def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
         chars.update(diagram.title)
     for band in diagram.lanes:
         chars.update(band.label.text)
+    for group in diagram.lane_groups:  # nested-lane group labels (else they fall back to serif)
+        chars.update(group.label.text)
     for n in diagram.nodes:
         chars.update(n.label.text)
         if n.badge:
@@ -64,19 +67,20 @@ def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
     return frozenset(chars)
 
 
-def _title_bar(diagram: PositionedDiagram, m: float, title_h: float) -> list[str]:
+def _title_bar(
+    diagram: PositionedDiagram, x: float, y: float, width: float, title_h: float
+) -> list[str]:
     if not diagram.title:
         return []
-    w = diagram.width
     # title bar colour is a theme function (F4): default theme = #269973 (unchanged).
     title = diagram.theme.get("title") or {}
     fill = str(title.get("fill", _TITLE_FILL))
     text_color = str(title.get("text", "#FFFFFF"))
     return [
-        f'<rect x="{_num(m)}" y="{_num(m)}" width="{_num(w - 2 * m)}" height="{_num(title_h)}" '
+        f'<rect x="{_num(x)}" y="{_num(y)}" width="{_num(width)}" height="{_num(title_h)}" '
         f'rx="6" fill="{fill}"/>',
-        f'<text x="{_num(w / 2)}" y="{_num(m + title_h / 2)}" font-size="18" font-weight="700" '
-        f'fill="{text_color}" {bidi_attrs(diagram.title)}>'
+        f'<text x="{_num(x + width / 2)}" y="{_num(y + title_h / 2)}" font-size="18" '
+        f'font-weight="700" fill="{text_color}" {bidi_attrs(diagram.title)}>'
         f"{_esc(diagram.title)}</text>",
     ]
 
@@ -108,15 +112,23 @@ def _phase_band(band, lanes_top: float, lanes_bottom: float, sep: dict) -> list[
     ]
 
 
-def _lane_band(band, width: float, rtl: bool = False) -> list[str]:
+def _lane_band(band, width: float, rtl: bool = False, vertical: bool = False) -> list[str]:
     c = band.hue
     row = c.get("row", "#EEEEEE")
     accent = c.get("label", "#333333")
-    chip_h = 56.0
-    chip_w = _LABEL_W - 16.0
-    # header pill sits on the flow-start side: left for LTR, right for RTL (analysis.md §R-2)
-    chip_x = (band.x + band.width - chip_w - 8.0) if rtl else band.x + 8.0
-    chip_y = band.y + (band.height - chip_h) / 2
+    if vertical:
+        # vertical lanes are columns -> header pill sits at the TOP of the column, centered
+        # in the header band (the actor/user area reserved above the first row).
+        chip_h = 48.0
+        chip_w = band.width - 16.0
+        chip_x = band.x + 8.0
+        chip_y = band.y + (_V_HEADER - chip_h) / 2
+    else:
+        chip_h = 56.0
+        chip_w = _LABEL_W - 16.0
+        # header pill sits on the flow-start side: left for LTR, right for RTL (analysis.md §R-2)
+        chip_x = (band.x + band.width - chip_w - 8.0) if rtl else band.x + 8.0
+        chip_y = band.y + (band.height - chip_h) / 2
     return [
         f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
         f'height="{_num(band.height)}" fill="{row}" stroke="{accent}" stroke-width="1" '
@@ -125,6 +137,21 @@ def _lane_band(band, width: float, rtl: bool = False) -> list[str]:
         f'height="{_num(chip_h)}" rx="8" fill="{accent}"/>',
         f'<text x="{_num(chip_x + chip_w / 2)}" y="{_num(chip_y + chip_h / 2)}" font-size="13" '
         f'font-weight="700" fill="#FFFFFF" {_label_attrs(band.label)}>'
+        f"{_esc(band.label.text)}</text>",
+    ]
+
+
+def _lane_group_band(band) -> list[str]:
+    """Outer parent-group header for nested lanes (best-effort, AM-6): a narrow coloured
+    gutter bar to the left of the child lanes, with the group label rotated to read upward."""
+    fill = band.hue.get("label", "#37474F")  # group bar uses the accent tint
+    cx = band.x + band.width / 2
+    cy = band.y + band.height / 2
+    return [
+        f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
+        f'height="{_num(band.height)}" rx="6" fill="{fill}" opacity="0.92"/>',
+        f'<text x="{_num(cx)}" y="{_num(cy)}" font-size="12" font-weight="700" fill="#FFFFFF" '
+        f'transform="rotate(-90 {_num(cx)} {_num(cy)})" {_label_attrs(band.label)}>'
         f"{_esc(band.label.text)}</text>",
     ]
 
@@ -191,15 +218,20 @@ def _node_svg(n: PositionedNode, rtl: bool = False) -> list[str]:
 
 def render_swimlane_svg(diagram: PositionedDiagram) -> str:
     w, h = diagram.width, diagram.height
-    # geometry recovered from the band chrome (layouter owns the absolute coords). The title
-    # bar stops at the phase header when phases exist (else at the first lane) — otherwise it
-    # would swallow the phase-header band and the titles would overlap.
-    m = diagram.lanes[0].x if diagram.lanes else 20.0
+    # Title geometry recovered from band chrome (layouter owns absolute coords). The top margin
+    # is the canvas inset (height - last lane bottom), independent of the LEFT inset — which a
+    # nested-lane group gutter shifts. The bar spans the full chrome width (group gutter through
+    # the last lane's right edge) so it always reaches the swimlane's end border. It stops at
+    # the phase header when phases exist, else at the first lane, so the titles never overlap.
     if diagram.lanes:
+        title_x = min([b.x for b in diagram.lanes] + [g.x for g in diagram.lane_groups])
+        title_right = max(b.x + b.width for b in diagram.lanes)
+        title_w = title_right - title_x
+        title_top = h - (diagram.lanes[-1].y + diagram.lanes[-1].height)
         title_bottom = diagram.phases[0].y if diagram.phases else diagram.lanes[0].y
-        title_h = title_bottom - m
+        title_h = title_bottom - title_top
     else:
-        title_h = 50.0
+        title_x, title_top, title_w, title_h = 20.0, 20.0, w - 40.0, 50.0
     b64 = subset_woff2_datauri(_collect_chars(diagram))
 
     parts: list[str] = [
@@ -212,12 +244,25 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
         "</style>",
         f'<rect width="{_num(w)}" height="{_num(h)}" fill="#FFFFFF"/>',
     ]
+    m = diagram.lanes[0].x if diagram.lanes else 20.0  # lane-left, for the actor separator
     rtl = diagram.direction == "RL"
-    parts.extend(_title_bar(diagram, m, title_h))
+    vertical = diagram.orientation == "vertical"
+    parts.extend(_title_bar(diagram, title_x, title_top, title_w, title_h))
+    for group in diagram.lane_groups:  # nested-lane parent gutters (behind the lane bands)
+        parts.extend(_lane_group_band(group))
     for band in diagram.lanes:
-        parts.extend(_lane_band(band, w, rtl))
+        parts.extend(_lane_band(band, w, rtl, vertical))
 
-    if diagram.lanes:
+    if diagram.lanes and vertical:
+        # actor/label separator runs ACROSS the columns, just below the header pills
+        sep_y = diagram.lanes[0].y + _V_HEADER
+        left = diagram.lanes[0].x
+        right = diagram.lanes[-1].x + diagram.lanes[-1].width
+        parts.append(
+            f'<line x1="{_num(left)}" y1="{_num(sep_y)}" x2="{_num(right)}" y2="{_num(sep_y)}" '
+            f'stroke="{_SEPARATOR}" stroke-width="2"/>'
+        )
+    elif diagram.lanes:
         # actor/label separator runs down the header-column side (right under RTL)
         sep_x = (w - m - _LABEL_W) if rtl else m + _LABEL_W
         top = diagram.lanes[0].y

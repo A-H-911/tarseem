@@ -25,6 +25,7 @@ __all__ = [
     "check_fonts",
     "check_arabic_shaping",
     "check_raqm",
+    "check_libavoid",
     "run_doctor",
 ]
 
@@ -192,6 +193,24 @@ def check_raqm() -> CheckResult:
     )
 
 
+def check_libavoid() -> CheckResult:
+    """Report the vendored libavoid WASM re-router (ADR-006) — *optional + experimental*.
+
+    Informational only (always ``ok``): libavoid is off by default and only used when a spec
+    sets ``layout.router: "libavoid"``. A missing bundle just disables that opt-in feature, so
+    it must never fail ``doctor``."""
+    from tarseem.layout.libavoid import _libavoid_version, libavoid_available
+
+    if libavoid_available():
+        return CheckResult(
+            "libavoid", True,
+            f"libavoid-js {_libavoid_version()} (optional re-router) vendored",
+        )
+    return CheckResult(
+        "libavoid", True, "libavoid-js not vendored; optional re-router disabled"
+    )
+
+
 def run_doctor() -> DoctorReport:
     """Run all dependency checks and return a structured report."""
     return DoctorReport(
@@ -202,5 +221,6 @@ def run_doctor() -> DoctorReport:
             check_fonts(),
             check_arabic_shaping(),
             check_raqm(),
+            check_libavoid(),
         ]
     )

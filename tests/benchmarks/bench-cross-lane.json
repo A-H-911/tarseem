@@ -1,0 +1,34 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "swimlane",
+  "direction": "LR",
+  "meta": { "title": "Cross-lane stress" },
+  "layout": { "markers": true },
+  "lanes": [
+    { "id": "intake", "label": { "text": "Intake" } },
+    { "id": "review", "label": { "text": "Review" } },
+    { "id": "approve", "label": { "text": "Approve" } },
+    { "id": "archive", "label": { "text": "Archive" } }
+  ],
+  "nodes": [
+    { "id": "submit", "lane": "intake", "shape": "parallelogram", "label": { "text": "Submit" } },
+    { "id": "triage", "lane": "intake", "shape": "roundrect", "label": { "text": "Triage" } },
+    { "id": "check", "lane": "review", "shape": "diamond", "label": { "text": "Complete?" } },
+    { "id": "assess", "lane": "review", "shape": "roundrect", "label": { "text": "Assess" } },
+    { "id": "decide", "lane": "approve", "shape": "diamond", "label": { "text": "Approve?" } },
+    { "id": "sign", "lane": "approve", "shape": "roundrect", "label": { "text": "Sign" } },
+    { "id": "store", "lane": "archive", "shape": "cylinder", "label": { "text": "Store" } },
+    { "id": "notify", "lane": "intake", "shape": "document", "label": { "text": "Notify" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "submit", "target": "triage" },
+    { "id": "e2", "source": "triage", "target": "check" },
+    { "id": "e3", "source": "check", "target": "assess", "label": { "text": "yes" } },
+    { "id": "e4", "source": "check", "target": "triage", "label": { "text": "no" } },
+    { "id": "e5", "source": "assess", "target": "decide" },
+    { "id": "e6", "source": "decide", "target": "sign", "label": { "text": "ok" } },
+    { "id": "e7", "source": "decide", "target": "assess", "label": { "text": "rework" } },
+    { "id": "e8", "source": "sign", "target": "store" },
+    { "id": "e9", "source": "store", "target": "notify" }
+  ]
+}

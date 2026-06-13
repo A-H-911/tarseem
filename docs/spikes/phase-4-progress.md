@@ -35,10 +35,11 @@ themes **default + corporate + monochrome** (D10 confirmed; Noto/IBM-Plex deferr
 - **Reference-2 + Arabic suite pixel-stable**: ✅ on **win32** (baselines committed). The
   LTR baselines were re-rendered and are **byte-identical** (no churn), confirming the RTL
   refactor is additive.
-- **3-OS matrix**: win32 done locally. **linux + macOS baselines pending** — regenerate via
-  `.github/workflows/baselines.yml` (push to `regen-baselines`), download artifacts, commit.
-  Until committed, the visual suite **skips** the new samples per-OS (no false failures);
-  functional correctness on all 3 OS is already proven by the gallery Chromium E2E.
+- **3-OS matrix**: ✅ **complete**. linux + macOS baselines were generated on the real CI
+  runners via `.github/workflows/baselines.yml` and committed in `d825e5e` (merged in PR #2,
+  `507574a`). All three OS dirs now hold 8 baselines each — incl. the 4 Arabic samples
+  (`arabic-flowchart`, `arabic-architecture`, `arabic-mixed`, `swimlane-document-rtl`) per OS.
+  The LTR baselines stayed byte-identical across the refactor (no churn).
 - Native-speaker review of the Arabic samples: **requested** (owner).
 
 ## Known limitation (surfaced, not hidden)

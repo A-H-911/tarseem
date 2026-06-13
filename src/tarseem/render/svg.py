@@ -86,6 +86,24 @@ def _shape_svg(n: PositionedNode) -> str:
             f'Q {_p(x + 3 * w / 4, y + h)} {_p(x + w / 2, y + h - wv / 2)} '
             f'T {_p(x, y + h - wv)} Z" {st}/>'
         )
+    if kind == "initial":  # state-machine start pseudostate: a solid filled dot
+        cx, cy, r = x + w / 2, y + h / 2, min(w, h) / 2
+        return f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r)}" fill="{stroke}"/>'
+    if kind == "final":  # state-machine end pseudostate: a ring around a filled dot
+        cx, cy, r = x + w / 2, y + h / 2, min(w, h) / 2
+        return (
+            f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r)}" fill="{fill}" '
+            f'stroke="{stroke}" stroke-width="{_num(sw)}"/>'
+            f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r * 0.5)}" fill="{stroke}"/>'
+        )
+    if kind == "cube":  # deployment 3D node: front face + top + right depth faces
+        d = 14.0
+        front = _rect(x, y + d, w - d, h - d, st)
+        top = _poly([(x, y + d), (x + d, y), (x + w, y), (x + w - d, y + d)], st)
+        right = _poly(
+            [(x + w - d, y + d), (x + w, y), (x + w, y + h - d), (x + w - d, y + h)], st
+        )
+        return top + right + front
     return _rect(x, y, w, h, st)
 
 
@@ -128,6 +146,11 @@ def render_svg(diagram: PositionedDiagram) -> str:
         from tarseem.render.sequence import render_sequence_svg
 
         return render_sequence_svg(diagram)
+    # ER entities are attribute tables -> dedicated writer
+    if diagram.diagram_type == "er":
+        from tarseem.render.er import render_er_svg
+
+        return render_er_svg(diagram)
 
     dx, dy = _MARGIN, _MARGIN
     width = diagram.width + 2 * _MARGIN

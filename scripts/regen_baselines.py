@@ -25,6 +25,8 @@ BASELINE_SAMPLES = [
     "swimlane-pipeline",
     "swimlane-phases",
     "swimlane-document-rtl",
+    "swimlane-vertical-release",  # Phase 5: vertical lanes
+    "swimlane-nested-delivery",   # Phase 5: nested lanes
 ]
 
 # ELK (graph) families need Node; deterministic via the pinned elkjs bundle, so they are
@@ -33,6 +35,9 @@ ELK_SAMPLES = [
     "arabic-flowchart",
     "arabic-architecture",
     "arabic-mixed",
+    "state-order-lifecycle",   # Phase 5: state family
+    "deployment-web-stack",    # Phase 5: deployment family
+    "er-shop",                 # Phase 5: ER family
 ]
 
 ROOT = Path(__file__).resolve().parent.parent

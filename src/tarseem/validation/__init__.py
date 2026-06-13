@@ -90,7 +90,10 @@ def validate(spec: dict) -> ValidationResult:
 
     node_ports: dict[str, set] = {}
     for i, n in enumerate(nodes):
-        node_ports[n.get("id")] = {p.get("id") for p in (n.get("ports") or [])}
+        # an edge may anchor to an explicit ELK port OR an ER attribute row (family: er)
+        node_ports[n.get("id")] = {p.get("id") for p in (n.get("ports") or [])} | {
+            a.get("id") for a in (n.get("attributes") or [])
+        }
         lane = n.get("lane")
         if lane is not None and lane not in lane_ids:
             errors.append(

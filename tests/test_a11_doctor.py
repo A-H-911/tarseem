@@ -22,8 +22,10 @@ requires_node = pytest.mark.skipif(
 def test_run_doctor_covers_all_dependencies():
     report = run_doctor()
     names = {c.name for c in report.checks}
-    # core runtime deps + the Phase-4 Arabic checks (shaping gate + optional raqm status)
-    assert names == {"node", "elkjs", "playwright", "fonts", "arabic-shaping", "raqm"}
+    # core runtime deps + Phase-4 Arabic checks (shaping gate + optional raqm status)
+    # + Phase-5 optional libavoid re-router status (ADR-006)
+    assert names == {"node", "elkjs", "playwright", "fonts",
+                     "arabic-shaping", "raqm", "libavoid"}
 
 
 def test_report_ok_aggregates_checks():

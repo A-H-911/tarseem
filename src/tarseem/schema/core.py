@@ -32,6 +32,41 @@ _PORT = {
     "additionalProperties": False,
 }
 
+# A manual point [x, y] (waypoints, positions). Length-2 numeric tuple.
+_POINT = {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+
+# Edge routing hints (Phase 5). `mode` picks the router; `waypoints` are manual interior
+# points spliced over the routed polyline on every render (06 §2).
+_ROUTING = {
+    "type": "object",
+    "properties": {
+        "mode": {"enum": ["orthogonal", "polyline", "curved"]},
+        "waypoints": {"type": "array", "items": _POINT},
+    },
+    "additionalProperties": True,
+}
+
+# Manual node placement (honoured under layout.respectManualPositions).
+_POSITION = {
+    "type": "object",
+    "properties": {"x": {"type": "number"}, "y": {"type": "number"}},
+    "required": ["x", "y"],
+    "additionalProperties": False,
+}
+
+# An ER entity attribute row (family: er). `key` marks a primary/foreign key. The `id` is
+# the port name an edge's sourcePort/targetPort references to anchor to this row.
+_ATTRIBUTE = {
+    "type": "object",
+    "required": ["id"],
+    "properties": {
+        "id": {"type": "string"},
+        "label": _LABEL,
+        "key": {"enum": ["PK", "FK"]},
+    },
+    "additionalProperties": False,
+}
+
 _NODE = {
     "type": "object",
     "required": ["id"],
@@ -42,11 +77,12 @@ _NODE = {
         "lane": {"type": "string"},
         "phase": {"type": "string"},
         "label": _LABEL,
+        "attributes": {"type": "array", "items": _ATTRIBUTE},  # ER entity rows (family: er)
         "styleRefs": {"type": "array", "items": {"type": "string"}},
         "style": {"type": "object"},
         "size": {"type": "object"},
         "badge": {},
-        "position": {"type": "object"},
+        "position": _POSITION,
         "ports": {"type": "array", "items": _PORT},
         "ext": {"type": "object"},
     },
@@ -64,7 +100,9 @@ _EDGE = {
         "sourcePort": {"type": "string"},
         "targetPort": {"type": "string"},
         "label": _LABEL,
-        "routing": {"type": "object"},
+        "routing": _ROUTING,
+        "priority": {"type": "integer"},  # layered straightness bias (Phase 5)
+        "preferredDirection": {"enum": ["UP", "DOWN", "LEFT", "RIGHT"]},
         "arrow": {"type": "object"},
         "style": {"type": "object"},
         "styleRefs": {"type": "array", "items": {"type": "string"}},
@@ -80,7 +118,7 @@ _LANE = {
     "properties": {
         "id": {"type": "string"},
         "label": _LABEL,
-        "orientation": {"enum": ["horizontal", "vertical"]},
+        "parent": {"type": "string"},  # id of an enclosing lane group (nested lanes, AM-6)
         "style": {"type": "object"},
         "hue": {"type": "string"},
         "order": {"type": "number"},
@@ -104,6 +142,9 @@ _LAYOUT = {
     "type": "object",
     "properties": {
         "markers": {"type": "boolean"},  # UML start/end markers
+        # lane axis (FR-6.1): "horizontal" (default; rows, flow L->R) or "vertical"
+        # (columns, flow top->bottom). Vertical is a transpose of the horizontal layout.
+        "laneOrientation": {"enum": ["horizontal", "vertical"]},
         "sidePadding": {"type": "number", "minimum": 0},  # symmetric left/right content pad
         "columnGap": {"type": "number", "minimum": 0},  # horizontal gap between step columns
         "phaseSeparator": {
@@ -115,6 +156,10 @@ _LAYOUT = {
             },
             "additionalProperties": False,
         },
+        # honour each node's manual `position` instead of engine placement (Phase 5)
+        "respectManualPositions": {"type": "boolean"},
+        # optional post-placement re-router; "elk" (default) or "libavoid" (experimental, ADR-006)
+        "router": {"enum": ["elk", "libavoid"]},
     },
     "additionalProperties": True,  # forward-compat for later routing/layout hints
 }

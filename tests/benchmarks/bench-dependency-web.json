@@ -1,0 +1,32 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "dependency",
+  "direction": "LR",
+  "meta": { "title": "Dependency web" },
+  "nodes": [
+    { "id": "api", "shape": "rect", "label": { "text": "api" } },
+    { "id": "auth", "shape": "rect", "label": { "text": "auth" } },
+    { "id": "core", "shape": "rect", "label": { "text": "core" } },
+    { "id": "db", "shape": "rect", "label": { "text": "db" } },
+    { "id": "cache", "shape": "rect", "label": { "text": "cache" } },
+    { "id": "queue", "shape": "rect", "label": { "text": "queue" } },
+    { "id": "worker", "shape": "rect", "label": { "text": "worker" } },
+    { "id": "util", "shape": "rect", "label": { "text": "util" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "api", "target": "auth" },
+    { "id": "e2", "source": "api", "target": "core" },
+    { "id": "e3", "source": "api", "target": "cache" },
+    { "id": "e4", "source": "auth", "target": "core" },
+    { "id": "e5", "source": "auth", "target": "db" },
+    { "id": "e6", "source": "core", "target": "db" },
+    { "id": "e7", "source": "core", "target": "cache" },
+    { "id": "e8", "source": "core", "target": "queue" },
+    { "id": "e9", "source": "queue", "target": "worker" },
+    { "id": "e10", "source": "worker", "target": "db" },
+    { "id": "e11", "source": "worker", "target": "util" },
+    { "id": "e12", "source": "core", "target": "util" },
+    { "id": "e13", "source": "auth", "target": "util" },
+    { "id": "e14", "source": "api", "target": "util" }
+  ]
+}

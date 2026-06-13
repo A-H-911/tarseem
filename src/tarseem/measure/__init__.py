@@ -13,7 +13,7 @@ from pathlib import Path
 
 import uharfbuzz as hb
 
-from tarseem.model.ir import LogicalGraph, LogicalNode, replace
+from tarseem.model.ir import EntityRow, LogicalGraph, LogicalNode, replace
 
 __all__ = ["TextMeasurer", "measure_graph", "default_font_path"]
 
@@ -24,6 +24,14 @@ _MIN_W = 84.0
 _MIN_H = 44.0
 _DIAMOND_SCALE = 1.6
 _DEFAULT_SIZE = 12.0
+# State-machine pseudostates are fixed-size markers, not text boxes (FR family: state).
+_STATE_MARKER = {"initial": 26.0, "final": 30.0}
+_CUBE_DEPTH = 14.0  # deployment 3D-node faces eat into the box; pad so the label still fits
+# ER entity table geometry (family: er). Title row + fixed-height attribute rows.
+_ER_TITLE_H = 30.0
+_ER_ROW_H = 24.0
+_ER_PAD_X = 14.0
+_ER_KEY_W = 30.0  # right-side room for a PK/FK tag
 
 _FONTS_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
 
@@ -56,6 +64,9 @@ class TextMeasurer:
         return advance_units / self._upem * size
 
     def node_size(self, node: LogicalNode) -> tuple[float, float]:
+        if node.shape in _STATE_MARKER:  # initial/final pseudostates: fixed-size markers
+            d = _STATE_MARKER[node.shape]
+            return d, d
         size = float((node.style.get("text") or {}).get("size", _DEFAULT_SIZE))
         text_w = self.width(node.label.text, size)
         w = max(text_w + 2 * _PAD_X, _MIN_W)
@@ -63,7 +74,30 @@ class TextMeasurer:
         if node.shape == "diamond":
             w *= _DIAMOND_SCALE
             h *= _DIAMOND_SCALE
+        elif node.shape == "cube":  # reserve room for the 3D depth faces
+            w += _CUBE_DEPTH
+            h += _CUBE_DEPTH
         return round(w, 2), round(h, 2)
+
+    def table_size(
+        self, node: LogicalNode
+    ) -> tuple[float, float, tuple[EntityRow, ...]]:
+        """Size an ER entity table and stamp each row's vertical geometry (y_offset/height).
+
+        Width fits the title and the widest attribute row (plus a key tag when any row has
+        one); height is the title row plus one fixed-height row per attribute."""
+        size = float((node.style.get("text") or {}).get("size", _DEFAULT_SIZE))
+        title_w = self.width(node.label.text, size)
+        row_w = max((self.width(r.label.text, size) for r in node.rows), default=0.0)
+        has_key = any(r.key for r in node.rows)
+        content_w = max(title_w, row_w + (_ER_KEY_W if has_key else 0.0))
+        w = max(content_w + 2 * _ER_PAD_X, _MIN_W)
+        h = _ER_TITLE_H + len(node.rows) * _ER_ROW_H
+        rows = tuple(
+            replace(r, y_offset=_ER_TITLE_H + i * _ER_ROW_H, height=_ER_ROW_H)
+            for i, r in enumerate(node.rows)
+        )
+        return round(w, 2), round(h, 2), rows
 
 
 @functools.lru_cache(maxsize=1)
@@ -79,6 +113,10 @@ def measure_graph(graph: LogicalGraph, measurer: TextMeasurer | None = None) -> 
     for node in graph.nodes:
         if node.width is not None and node.height is not None:
             sized.append(node)
+            continue
+        if node.rows:  # ER entity table: size from rows + stamp per-row geometry
+            w, h, rows = m.table_size(node)
+            sized.append(replace(node, width=w, height=h, rows=rows))
             continue
         w, h = m.node_size(node)
         sized.append(replace(node, width=w, height=h))

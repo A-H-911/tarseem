@@ -10,6 +10,7 @@ from dataclasses import dataclass, field, replace
 
 __all__ = [
     "Label",
+    "EntityRow",
     "LogicalLane",
     "LogicalPhase",
     "LogicalNode",
@@ -37,6 +38,21 @@ class Label:
 
 
 @dataclass(frozen=True)
+class EntityRow:
+    """A row in an ER entity table (family: er). ``key`` is ``"PK"`` | ``"FK"`` | None.
+
+    ``y_offset``/``height`` are the row's vertical geometry relative to the node's top edge,
+    stamped once by the measurement stage so the table writer and the layout adapter (per-row
+    edge anchoring) share one source of truth."""
+
+    id: str
+    label: Label
+    key: str | None = None
+    y_offset: float = 0.0
+    height: float = 0.0
+
+
+@dataclass(frozen=True)
 class LogicalNode:
     id: str
     label: Label
@@ -45,7 +61,10 @@ class LogicalNode:
     lane: str | None = None  # swimlane membership
     phase: str | None = None  # swimlane phase-column membership (FR-6.3)
     show_badge: bool = True  # False = auto-number badge exempt (start/terminal pills)
+    rows: tuple[EntityRow, ...] = ()  # ER entity attribute rows (family: er)
     style: dict = field(default_factory=dict)
+    # manual placement (x, y) for respectManualPositions layouts; None = engine-placed (FR-5.x)
+    position: tuple[float, float] | None = None
     # sizes are None until the measurement stage fills them (measure-before-layout)
     width: float | None = None
     height: float | None = None
@@ -58,6 +77,13 @@ class LogicalEdge:
     target: str
     label: Label | None = None
     style: dict = field(default_factory=dict)
+    # routing hints (Phase 5, FR-5.x; 06 §2). All defaults inert: an edge without hints
+    # lays out exactly as before.
+    priority: int | None = None  # layered straightness bias (higher = straighter)
+    preferred_direction: str | None = None  # UP|DOWN|LEFT|RIGHT exit side for the edge
+    waypoints: tuple[tuple[float, float], ...] = ()  # manual interior points (post-layout splice)
+    source_port: str | None = None  # ER: attribute-row id to anchor the edge's start
+    target_port: str | None = None  # ER: attribute-row id to anchor the edge's end
 
 
 @dataclass(frozen=True)
@@ -65,6 +91,7 @@ class LogicalLane:
     id: str
     label: Label
     hue: dict = field(default_factory=dict)  # palette entry: row/box/label tints
+    parent: str | None = None  # id of an enclosing lane group (nested lanes, best-effort AM-6)
 
 
 @dataclass(frozen=True)
@@ -86,7 +113,11 @@ class LogicalGraph:
     phases: tuple[LogicalPhase, ...] = ()  # swimlane phase columns (FR-6.3)
     title: str | None = None
     markers: bool = False  # UML start/end markers (swimlane)
+    # swimlane lane axis: "horizontal" (lanes = rows, flow L->R) | "vertical" (lanes =
+    # columns, flow top->bottom). FR-6.1. Vertical is a transpose of the horizontal layout.
+    lane_orientation: str = "horizontal"
     layout_options: dict = field(default_factory=dict)  # spec `layout` hints (sidePadding…)
+    respect_manual_positions: bool = False  # honour node.position via interactive placement
     theme: dict = field(default_factory=dict)
 
 
@@ -101,6 +132,7 @@ class PositionedNode:
     shape: str
     style: dict = field(default_factory=dict)
     badge: str | None = None  # auto-number badge text (e.g. "2."); None = exempt
+    rows: tuple[EntityRow, ...] = ()  # ER entity attribute rows, with stamped row geometry
 
 
 @dataclass(frozen=True)
@@ -163,8 +195,10 @@ class PositionedDiagram:
     edges: tuple[PositionedEdge, ...]
     diagram_type: str
     direction: str = "TB"
+    orientation: str = "horizontal"  # swimlane lane axis (FR-6.1); "vertical" = transposed
     title: str | None = None
     lanes: tuple[LaneBand, ...] = ()  # swimlane band chrome
+    lane_groups: tuple[LaneBand, ...] = ()  # nested-lane parent group bands (best-effort, AM-6)
     phases: tuple[PhaseBand, ...] = ()  # swimlane phase header bands (FR-6.3)
     markers: tuple[Marker, ...] = ()  # swimlane UML markers
     activations: tuple[Activation, ...] = ()  # sequence activation bars

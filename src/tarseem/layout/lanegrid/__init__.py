@@ -22,6 +22,7 @@ from tarseem.model.ir import (
     PositionedDiagram,
     PositionedEdge,
     PositionedNode,
+    replace,
 )
 
 __all__ = ["LaneGridLayout"]
@@ -42,8 +43,16 @@ _SIDE_PAD = 24.0
 _MARKER = 36.0
 _END_W = 80.0
 _PHASE_H = 34.0  # phase header band height (FR-6.3); 0 when no phases declared
+_GROUP_W = 34.0  # outer gutter width for a nested-lane parent group header (AM-6)
 _MARKER_BLACK = "#000000"
 _ROUTE_CORRIDOR = 16.0  # clearance below/above all nodes for back-edge detour channels
+# Vertical orientation (lanes = columns, flow top->bottom; landscape node shapes kept). Lane
+# columns are relaxed to the widest node + padding so shapes are NOT rotated (bug #7). _V_HEADER
+# MUST match the swimlane renderer's vertical header constant.
+_V_HEADER = 64.0  # lane header band (the actor/user area) at the top of each column
+_V_COL_PAD = 28.0  # horizontal padding inside a lane column (relaxes the width)
+_V_ROW_GAP = 60.0  # gap between flow rows
+_V_END_H = 72.0  # gutter above/below the flow for UML start/end markers
 
 
 def _topo_numbers(nodes: tuple[LogicalNode, ...], edges: tuple[LogicalEdge, ...]) -> dict[str, int]:
@@ -76,7 +85,13 @@ class LaneGridLayout:
     """Places a swimlane LogicalGraph into a PositionedDiagram (LTR; RTL in Phase 4)."""
 
     def layout(self, graph: LogicalGraph) -> PositionedDiagram:
-        lanes = graph.lanes
+        if graph.lane_orientation == "vertical":
+            return self._vertical_layout(graph)  # lanes as columns, landscape shapes (bug #7)
+        # nested lanes (best-effort, AM-6): a lane named as another lane's `parent` is a
+        # group, not a flow row. Rows are the LEAF lanes; group bands are drawn as an outer
+        # gutter in a post-pass. With no parents declared, every lane is a leaf -> unchanged.
+        parent_ids = {lane.parent for lane in graph.lanes if lane.parent}
+        lanes = tuple(lane for lane in graph.lanes if lane.id not in parent_ids)
         lane_index = {lane.id: i for i, lane in enumerate(lanes)}
         nums = _topo_numbers(graph.nodes, graph.edges)
         n_cols = max(nums.values(), default=1)
@@ -129,7 +144,7 @@ class LaneGridLayout:
         else:
             marker_objs = ()
 
-        return PositionedDiagram(
+        diagram = PositionedDiagram(
             width=total_w,
             height=total_h,
             nodes=tuple(nodes),
@@ -143,6 +158,9 @@ class LaneGridLayout:
             phase_separator=dict(opts.get("phaseSeparator") or {}),
             theme=graph.theme,
         )
+        if parent_ids:
+            return _with_lane_groups(diagram, graph)
+        return diagram
 
     # -- pieces ---------------------------------------------------------------
     def _column_x(
@@ -255,13 +273,31 @@ class LaneGridLayout:
         # node-free corridors just below/above every node, used to detour around obstacles
         bot_y = max((b[3] for b in boxes), default=0.0) + _ROUTE_CORRIDOR
         top_y = min((b[1] for b in boxes), default=0.0) - _ROUTE_CORRIDOR
-        out: list[PositionedEdge] = []
-        for e in edges:
-            a, b = geom.get(e.source), geom.get(e.target)
-            if a is None or b is None:
+        entry_y = _convergence_entries(edges, geom)
+        valid = [e for e in edges if geom.get(e.source) and geom.get(e.target)]
+        obstacles_for = {
+            e.id: [box for nid, box in boxes_by_id.items() if nid not in (e.source, e.target)]
+            for e in valid
+        }
+        routes = {
+            e.id: _route(geom[e.source], geom[e.target],
+                         obstacles_for[e.id], top_y, bot_y, entry_y.get(e.id))
+            for e in valid
+        }
+        # bug #3: a long cross-lane edge's vertical segment can cross another edge's horizontal
+        # one. Flip such an edge to the alternate L-orientation (run along its own row, then
+        # descend in the target column) when that is clear of nodes AND of the other routed
+        # edges. Only edges that actually cross are touched, so well-routed edges are unchanged.
+        for e in valid:
+            a, b = geom[e.source], geom[e.target]
+            if a["lane_i"] == b["lane_i"] or not _route_crosses_other(routes[e.id], e.id, routes):
                 continue
-            obstacles = [box for nid, box in boxes_by_id.items() if nid not in (e.source, e.target)]
-            pts = _route(a, b, obstacles, top_y, bot_y)
+            alt = _route_alt(a, b, obstacles_for[e.id])
+            if alt is not None and not _route_crosses_other(alt, e.id, routes):
+                routes[e.id] = alt
+        out: list[PositionedEdge] = []
+        for e in valid:
+            pts = routes[e.id]
             label_xy = (
                 _label_clear_xy(pts, e.label.text, boxes) if e.label and e.label.text else None
             )
@@ -313,6 +349,171 @@ class LaneGridLayout:
         ]
         return (start, end), edges
 
+    # -- vertical orientation (lanes = columns, flow top->bottom; bug #7) ------
+    def _vertical_layout(self, graph: LogicalGraph) -> PositionedDiagram:
+        """Lay swimlanes out vertically: lanes become side-by-side COLUMNS and the flow runs
+        top->bottom, while node shapes keep their landscape size (NOT rotated). Lane columns
+        are relaxed to the widest node + padding. Routing reuses the horizontal orthogonal
+        router by feeding it axis-swapped geometry (flow->x, lanes->rows) and transposing the
+        routed points back — so back-edge/cross-lane avoidance carries over unchanged."""
+        lanes = graph.lanes
+        lane_index = {lane.id: i for i, lane in enumerate(lanes)}
+        nums = _topo_numbers(graph.nodes, graph.edges)
+        n_rows = max(nums.values(), default=1)
+        markers = graph.markers
+        end_h = _V_END_H if markers else 0.0
+
+        node_w = {n.id: max(_STEP_W, n.width or _STEP_W) for n in graph.nodes}
+        lane_w: dict[str, float] = {}
+        for n in graph.nodes:
+            lane_w[n.lane or ""] = max(lane_w.get(n.lane or "", _STEP_W), node_w[n.id])
+        col_w = {lane.id: lane_w.get(lane.id, _STEP_W) + 2 * _V_COL_PAD for lane in lanes}
+
+        col_x: dict[str, float] = {}
+        cursor = _M
+        for lane in lanes:
+            col_x[lane.id] = cursor
+            cursor += col_w[lane.id]
+        total_w = cursor + _M
+
+        rows_top = _M + _TITLE_H + _V_HEADER + end_h
+        row_pitch = _STEP_H + _V_ROW_GAP
+        row_y = {r: rows_top + (r - 1) * row_pitch for r in range(1, n_rows + 1)}
+        total_h = rows_top + (n_rows - 1) * row_pitch + _STEP_H + end_h + _M
+
+        hue_by_lane = {lane.id: lane.hue for lane in lanes}
+        nodes: list[PositionedNode] = []
+        router_geom: dict[str, dict] = {}
+        for n in graph.nodes:
+            w, h = node_w[n.id], _STEP_H
+            lane_id = n.lane or ""
+            hue = hue_by_lane.get(lane_id, {})
+            x = col_x[lane_id] + (col_w[lane_id] - w) / 2
+            y = row_y[nums[n.id]]
+            style = {
+                **n.style,
+                "fill": hue.get("box", n.style.get("fill", "#FFFFFF")),
+                "border": {"color": hue.get("label", "#333333"), "width": 2, "style": "solid"},
+            }
+            badge = f"{nums[n.id]}." if n.show_badge else None
+            nodes.append(PositionedNode(id=n.id, x=x, y=y, width=w, height=h, label=n.label,
+                                        shape=n.shape, style=style, badge=badge))
+            # router frame: flow along x (= vertical y), lane axis along y (= vertical x); swap
+            # w/h so the box matches. lane_i indexes the router's "rows" (our columns).
+            router_geom[n.id] = {"x": y, "y": x, "w": h, "h": w,
+                                 "lane_i": lane_index[lane_id], "hue": hue, "shape": n.shape}
+
+        edges = [
+            replace(
+                e,
+                points=tuple((py, px) for px, py in e.points),
+                label_xy=((e.label_xy[1], e.label_xy[0]) if e.label_xy else None),
+            )
+            for e in self._route_edges(graph.edges, router_geom)
+        ]
+
+        band_top = _M + _TITLE_H
+        band_h = total_h - band_top - _M
+        bands = [LaneBand(id=lane.id, label=lane.label, x=col_x[lane.id], y=band_top,
+                          width=col_w[lane.id], height=band_h, hue=lane.hue) for lane in lanes]
+
+        if markers:
+            marker_objs, marker_edges = self._vertical_markers(nums, nodes, end_h)
+            edges = edges + list(marker_edges)
+        else:
+            marker_objs = ()
+
+        return PositionedDiagram(
+            width=total_w, height=total_h, nodes=tuple(nodes), edges=tuple(edges),
+            diagram_type=graph.diagram_type, direction=graph.direction, orientation="vertical",
+            title=graph.title, lanes=tuple(bands), markers=tuple(marker_objs), theme=graph.theme,
+        )
+
+    def _vertical_markers(self, nums, nodes, end_h):
+        """UML start/end markers in the flow-start (top) and flow-end (bottom) gutters."""
+        by_id = {n.id: n for n in nodes}
+        first = by_id[min(nums, key=lambda k: nums[k])]
+        last = by_id[max(nums, key=lambda k: nums[k])]
+        r = _MARKER / 2
+        sx = first.x + first.width / 2
+        ex = last.x + last.width / 2
+        start = Marker(kind="start", cx=sx, cy=first.y - end_h / 2, r=r)
+        end = Marker(kind="end", cx=ex, cy=last.y + last.height + end_h / 2, r=r)
+        black = {"stroke": _MARKER_BLACK, "width": 2}
+        edges = (
+            PositionedEdge(id="__marker_start__",
+                           points=((sx, start.cy + r), (sx, first.y)),
+                           label=None, label_xy=None, style=black),
+            PositionedEdge(id="__marker_end__",
+                           points=((ex, last.y + last.height), (ex, end.cy - r)),
+                           label=None, label_xy=None, style=black),
+        )
+        return (start, end), edges
+
+
+def _with_lane_groups(d: PositionedDiagram, graph: LogicalGraph) -> PositionedDiagram:
+    """Nested lanes (best-effort, AM-6): draw each parent group as an outer header gutter.
+
+    The whole diagram is translated right by one gutter width and a group band is placed at
+    the left, spanning the row-extent of its child lanes. One affine translate keeps the
+    inner layout (and its baselines) intact; only the x-origin moves. Single level only —
+    a group's children must be leaf lanes; deeper nesting is not drawn (documented limit).
+    """
+    g = _GROUP_W
+    band_by_id = {b.id: b for b in d.lanes}
+    children: dict[str, list[str]] = {}
+    for lane in graph.lanes:  # preserve declaration order of children
+        if lane.parent and lane.id in band_by_id:
+            children.setdefault(lane.parent, []).append(lane.id)
+    hue_by_id = {lane.id: lane.hue for lane in graph.lanes}
+    label_by_id = {lane.id: lane.label for lane in graph.lanes}
+
+    def sx_node(n: PositionedNode) -> PositionedNode:
+        return replace(n, x=n.x + g)
+
+    def sx_band(b: LaneBand) -> LaneBand:
+        return replace(b, x=b.x + g, width=b.width)
+
+    nodes = tuple(sx_node(n) for n in d.nodes)
+    edges = tuple(
+        replace(
+            e,
+            points=tuple((px + g, py) for px, py in e.points),
+            label_xy=((e.label_xy[0] + g, e.label_xy[1]) if e.label_xy else None),
+        )
+        for e in d.edges
+    )
+    lanes = tuple(sx_band(b) for b in d.lanes)
+    phases = tuple(replace(p, x=p.x + g) for p in d.phases)
+    markers = tuple(replace(mk, cx=mk.cx + g) for mk in d.markers)
+
+    groups: list[LaneBand] = []
+    for parent_id, child_ids in children.items():
+        kids = [band_by_id[c] for c in child_ids]
+        top = min(k.y for k in kids)
+        bottom = max(k.y + k.height for k in kids)
+        groups.append(
+            LaneBand(
+                id=parent_id,
+                label=label_by_id.get(parent_id, kids[0].label),
+                x=_M,
+                y=top,
+                width=g,
+                height=bottom - top,
+                hue=hue_by_id.get(parent_id, {}),
+            )
+        )
+    return replace(
+        d,
+        width=d.width + g,
+        nodes=nodes,
+        edges=edges,
+        lanes=lanes,
+        lane_groups=tuple(groups),
+        phases=phases,
+        markers=markers,
+    )
+
 
 _PARALLELOGRAM_SLANT = 20.0  # must match the renderer's parallelogram skew
 
@@ -359,9 +560,77 @@ def _route_clear(points: list, boxes: list) -> bool:
     return all(_seg_clear(points[i], points[i + 1], boxes) for i in range(len(points) - 1))
 
 
+def _route_alt(a: dict, b: dict, obstacles: list | None) -> list[tuple[float, float]] | None:
+    """Alternate L-orientation for a cross-lane edge: leave the source along ITS OWN row
+    (horizontal first), then descend/ascend in the TARGET's column to enter the target from
+    top/bottom. Returns None when this path is not clear of nodes. Used to dodge another edge
+    that the default (source-column-first) orientation would cross (bug #3)."""
+    A, B = _anchors(a), _anchors(b)
+    exit_x = _side_x(a, "l", A["cy"]) if B["cx"] < A["cx"] else _side_x(a, "r", A["cy"])
+    enter_y = B["b"] if A["cy"] > B["cy"] else B["t"]
+    alt = [(exit_x, A["cy"]), (B["cx"], A["cy"]), (B["cx"], enter_y)]
+    if not obstacles or _route_clear(alt, obstacles):
+        return alt
+    return None
+
+
+def _route_crosses_other(route: list, eid: str, routes: dict[str, list]) -> bool:
+    """True if a VERTICAL segment of ``route`` properly crosses a HORIZONTAL segment of any
+    OTHER edge's route (interior crossing, endpoints excluded)."""
+    eps = 1.0
+    verts = [(p, q) for p, q in _pairs(route) if abs(p[0] - q[0]) < 1e-6]
+    for oid, oroute in routes.items():
+        if oid == eid:
+            continue
+        for ha, hb in _pairs(oroute):
+            if abs(ha[1] - hb[1]) >= 1e-6:  # not horizontal
+                continue
+            hy = ha[1]
+            hx0, hx1 = sorted((ha[0], hb[0]))
+            for va, vb in verts:
+                vx = va[0]
+                vy0, vy1 = sorted((va[1], vb[1]))
+                if hx0 + eps < vx < hx1 - eps and vy0 + eps < hy < vy1 - eps:
+                    return True
+    return False
+
+
+def _pairs(points: list) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    return [(points[i], points[i + 1]) for i in range(len(points) - 1)]
+
+
+def _convergence_entries(edges: tuple, geom: dict) -> dict[str, float]:
+    """Distinct entry heights for cross-lane edges that converge on the same node side.
+
+    Without this, every edge entering a node from (say) the left rides that node's centre row,
+    so two of them overlap on the shared horizontal corridor (bug #5). Group cross-lane edges
+    by (target, entry-side); for any group of two or more, spread their entry points evenly
+    around the node's centre (clamped to the node height) in a deterministic source order."""
+    groups: dict[tuple[str, str], list[tuple[str, float, float]]] = {}
+    for e in edges:
+        a, b = geom.get(e.source), geom.get(e.target)
+        if a is None or b is None or a["lane_i"] == b["lane_i"]:
+            continue  # only cross-lane edges enter a node from a side
+        A, B = _anchors(a), _anchors(b)
+        side = "l" if B["cx"] >= A["cx"] else "r"
+        groups.setdefault((e.target, side), []).append((e.id, A["cy"], A["cx"]))
+    out: dict[str, float] = {}
+    for (tgt, _side), items in groups.items():
+        if len(items) < 2:
+            continue
+        B = _anchors(geom[tgt])
+        n = len(items)
+        spacing = min(16.0, max(6.0, (B["b"] - B["t"] - 12.0) / n))
+        items.sort(key=lambda t: (t[1], t[2]))  # by source centre y then x (deterministic)
+        for k, (eid, _cy, _cx) in enumerate(items):
+            out[eid] = B["cy"] + spacing * (k - (n - 1) / 2)
+    return out
+
+
 def _route(
     a: dict, b: dict, obstacles: list | None = None,
     top_y: float | None = None, bot_y: float | None = None,
+    entry_y: float | None = None,
 ) -> list[tuple[float, float]]:
     """Orthogonal polyline exploiting one-step-per-column; attaches to real shape sides.
 
@@ -369,7 +638,9 @@ def _route(
     When it would cross an *intervening* node — a back-edge or long edge passing over a node
     in the target's lane — it detours through a node-free corridor below (then above) all
     nodes, leaving and re-entering the endpoints vertically (south-to-south / north-to-north)
-    so the line never crosses a box."""
+    so the line never crosses a box. ``entry_y`` overrides the cross-lane entry height so
+    multiple edges converging on one node side ride distinct corridors instead of one (bug #5).
+    """
     A, B = _anchors(a), _anchors(b)
     if a["lane_i"] == b["lane_i"]:  # same lane -> straight horizontal at center y
         cy = A["cy"]
@@ -378,20 +649,30 @@ def _route(
         else:
             direct = [(_side_x(a, "l", cy), cy), (_side_x(b, "r", cy), cy)]
     else:
+        enter_y = B["cy"] if entry_y is None else entry_y
         exit_y = A["t"] if B["cy"] < A["cy"] else A["b"]  # top/bottom edges are flat -> bbox ok
         side = "l" if B["cx"] >= A["cx"] else "r"
-        enter_x = _side_x(b, side, B["cy"])
-        direct = [(A["cx"], exit_y), (A["cx"], B["cy"]), (enter_x, B["cy"])]
+        enter_x = _side_x(b, side, enter_y)
+        direct = [(A["cx"], exit_y), (A["cx"], enter_y), (enter_x, enter_y)]
 
     if not obstacles or _route_clear(direct, obstacles):
         return direct
-    # detour via a node-free corridor: exit/enter both shapes vertically (south, then north)
-    for corridor_y, a_exit, b_enter in (
-        (bot_y, A["b"], B["b"]),
-        (top_y, A["t"], B["t"]),
-    ):
-        if corridor_y is None:
-            continue
+    # detour via a node-free corridor: exit/enter both shapes vertically (south, then north).
+    # Try the NEAREST clear channel first — just below / just above the two endpoints — and
+    # only fall back to the global bottom/top corridor when those are blocked. This keeps a
+    # back-edge hugging its own rows instead of always diving to the bottom of the diagram
+    # (bug #6): a long dive looks like the edge avoids an obstacle that isn't there.
+    near_below = max(A["b"], B["b"]) + _ROUTE_CORRIDOR
+    near_above = min(A["t"], B["t"]) - _ROUTE_CORRIDOR
+    candidates = [
+        (near_below, A["b"], B["b"]),
+        (near_above, A["t"], B["t"]),
+    ]
+    if bot_y is not None:
+        candidates.append((bot_y, A["b"], B["b"]))
+    if top_y is not None:
+        candidates.append((top_y, A["t"], B["t"]))
+    for corridor_y, a_exit, b_enter in candidates:
         detour = [
             (A["cx"], a_exit), (A["cx"], corridor_y),
             (B["cx"], corridor_y), (B["cx"], b_enter),

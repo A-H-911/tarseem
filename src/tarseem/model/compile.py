@@ -7,6 +7,7 @@ mutates the input spec.
 from __future__ import annotations
 
 from tarseem.model.ir import (
+    EntityRow,
     Label,
     LogicalEdge,
     LogicalGraph,
@@ -26,6 +27,9 @@ _DEFAULT_SHAPE: dict[str, str] = {
     "dependency": "rect",
     "swimlane": "roundrect",
     "sequence": "rect",  # participant head boxes
+    "state": "roundrect",  # states are rounded boxes; initial/final use marker shapes
+    "deployment": "cube",  # deployment nodes are 3D boxes (devices/containers)
+    "er": "table",  # ER entities render as attribute tables
 }
 
 
@@ -37,6 +41,28 @@ def _label(raw: dict | None) -> Label | None:
         lang=raw.get("lang"),
         direction=raw.get("direction"),
     )
+
+
+def _position(raw: dict | None) -> tuple[float, float] | None:
+    """Manual node placement (x, y) -> tuple, or None when unset."""
+    if not raw:
+        return None
+    return (float(raw["x"]), float(raw["y"]))
+
+
+def _waypoints(routing: dict | None) -> tuple[tuple[float, float], ...]:
+    """Manual interior points from ``edge.routing.waypoints`` -> tuple of (x, y)."""
+    pts = (routing or {}).get("waypoints") or []
+    return tuple((float(p[0]), float(p[1])) for p in pts)
+
+
+def _rows(raw: dict) -> tuple[EntityRow, ...]:
+    """ER entity attribute rows from a node's ``attributes`` (geometry stamped at measure)."""
+    out: list[EntityRow] = []
+    for attr in raw.get("attributes") or []:
+        label = _label(attr.get("label")) or Label(text=str(attr.get("id", "")))
+        out.append(EntityRow(id=attr["id"], label=label, key=attr.get("key")))
+    return tuple(out)
 
 
 def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
@@ -60,7 +86,9 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
                 lane=raw.get("lane"),
                 phase=raw.get("phase"),
                 show_badge=bool(raw.get("badge", True)),
+                rows=_rows(raw),
                 style=resolve_node_style(spec, raw, theme),
+                position=_position(raw.get("position")),
             )
         )
 
@@ -69,6 +97,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         style = resolve_edge_style(spec, raw, theme)
         if raw.get("dashed"):
             style = {**style, "style": "dashed"}
+        priority = raw.get("priority")
         edges.append(
             LogicalEdge(
                 id=raw.get("id", f"{raw['source']}->{raw['target']}"),
@@ -76,6 +105,11 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
                 target=raw["target"],
                 label=_label(raw.get("label")),
                 style=style,
+                priority=int(priority) if priority is not None else None,
+                preferred_direction=raw.get("preferredDirection"),
+                waypoints=_waypoints(raw.get("routing")),
+                source_port=raw.get("sourcePort"),
+                target_port=raw.get("targetPort"),
             )
         )
 
@@ -87,7 +121,7 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     for i, raw in enumerate(spec.get("lanes", []) or []):
         hue = lane_palette[i % len(lane_palette)]
         label = _label(raw.get("label")) or Label(text=str(raw.get("id", "")))
-        lanes.append(LogicalLane(id=raw["id"], label=label, hue=hue))
+        lanes.append(LogicalLane(id=raw["id"], label=label, hue=hue, parent=raw.get("parent")))
 
     phases: list[LogicalPhase] = []
     for i, raw in enumerate(spec.get("phases", []) or []):
@@ -97,6 +131,8 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     title = (spec.get("meta") or {}).get("title")
     layout_options = dict(spec.get("layout") or {})
     markers = bool(layout_options.get("markers", False))
+    respect_manual_positions = bool(layout_options.get("respectManualPositions", False))
+    lane_orientation = str(layout_options.get("laneOrientation", "horizontal"))
 
     return LogicalGraph(
         diagram_type=diagram_type,
@@ -107,6 +143,8 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         phases=tuple(phases),
         title=title,
         markers=markers,
+        lane_orientation=lane_orientation,
         layout_options=layout_options,
+        respect_manual_positions=respect_manual_positions,
         theme=theme,
     )

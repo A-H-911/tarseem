@@ -9,8 +9,11 @@ The MVP supports four diagram families plus sequence. Every family ships a golde
 | Flowchart | `flowchart` | ELK | yes | `examples/flowchart.json` |
 | Architecture / C4 | `architecture` | ELK | yes | `examples/architecture.json` |
 | Dependency | `dependency` | ELK | yes | `examples/dependency.json` |
-| Swimlane | `swimlane` | lane-grid (pure Python) | no | `examples/swimlane-bug-triage.json`, `swimlane-pipeline.json`, `swimlane-phases.json` |
+| Swimlane | `swimlane` | lane-grid (pure Python) | no | `examples/swimlane-bug-triage.json`, `swimlane-pipeline.json`, `swimlane-phases.json`, `swimlane-vertical-release.json`, `swimlane-nested-delivery.json` |
 | Sequence | `sequence` | sequence (pure Python) | no | `examples/sequence-login.json` |
+| State | `state` | ELK | yes | `examples/state-order-lifecycle.json` |
+| Deployment | `deployment` | ELK | yes | `examples/deployment-web-stack.json` |
+| ER | `er` | ELK + per-row ports | yes | `examples/er-shop.json` |
 
 All families share the same spec vocabulary (`nodes` / `edges` / `label` / `style` …) and the
 same positioned IR; only the layouter and a few family-specific fields differ.
@@ -65,6 +68,43 @@ terminal) from numbering; `layout.markers: true` adds UML start/end markers.
 Declare top-level `phases` and set each node's `phase` to group flow columns under a header
 band (with a separator dropping through the lanes). See `examples/swimlane-phases.json`.
 
+### Vertical lanes (FR-6.1)
+
+Set `layout.laneOrientation: "vertical"` to lay lanes out as **columns** with flow running
+top-to-bottom (instead of the default horizontal rows). Lanes flip to columns — relaxed to the
+widest node — while node shapes keep the same landscape dimensions they have in a horizontal
+swimlane. The title bar stays on top and the lane header pills move to the top of each column.
+Routing reuses the orthogonal lane-grid router (back-edge / cross-lane avoidance carries over).
+See `examples/swimlane-vertical-release.json`.
+
+Documented limitations (AM-6) of the vertical variant:
+
+- **Phase columns are not drawn** in vertical orientation; `phases` are ignored when
+  `laneOrientation` is `"vertical"`.
+- **Nested lanes are not supported** with vertical orientation.
+- Only top-to-bottom flow is supported (no vertical RTL / bottom-to-top mirroring yet).
+
+### Nested lanes (best-effort, AM-6)
+
+Give a lane a `parent` (the id of another lane) to nest it inside a group. The parent lane
+becomes an **outer header gutter** spanning its children; the children are the actual flow
+rows. See `examples/swimlane-nested-delivery.json`.
+
+```json
+"lanes": [
+  {"id": "eng", "label": {"text": "Engineering"}},
+  {"id": "fe", "label": {"text": "Frontend"}, "parent": "eng"},
+  {"id": "be", "label": {"text": "Backend"}, "parent": "eng"},
+  {"id": "qa", "label": {"text": "QA"}}
+]
+```
+
+Documented limitations (AM-6) of nested lanes:
+
+- **One level only.** A parent's children must be leaf lanes; deeper nesting is not drawn.
+- **Nodes attach to leaf lanes**, never to a parent group.
+- Nesting is **horizontal-only** — it is ignored when `laneOrientation` is `"vertical"`.
+
 ### Layout options
 
 Swimlane spacing and the phase-separator look are tunable per diagram under `layout` (all
@@ -78,6 +118,7 @@ optional; defaults equal the built-in constants, so omitting them changes nothin
 | `phaseSeparator.color` | string | `#B0BEC5` | phase separator colour |
 | `phaseSeparator.width` | number | 1.5 | phase separator stroke width |
 | `markers` | boolean | false | UML start/end markers |
+| `laneOrientation` | `"horizontal"` \| `"vertical"` | `"horizontal"` | lane axis: rows (flow L→R) or columns (flow top→bottom) — see [Vertical lanes](#vertical-lanes-fr-61) |
 
 ```json
 {
@@ -112,6 +153,70 @@ order); a `dashed: true` edge is a **return** (open arrowhead), a solid edge is 
   ]
 }
 ```
+
+## State
+
+A UML-style state machine, laid out by ELK. States are rounded boxes; transitions are
+labelled edges. Two pseudostate marker shapes are available:
+
+- `shape: "initial"` — the start pseudostate (a solid filled dot, fixed size, empty label).
+- `shape: "final"` — the end pseudostate (a ring around a filled dot).
+
+```json
+{
+  "specVersion": "0.1", "diagramType": "state", "direction": "LR",
+  "nodes": [{"id": "start", "shape": "initial", "label": {"text": ""}},
+            {"id": "pending", "label": {"text": "Pending"}},
+            {"id": "done", "shape": "final", "label": {"text": ""}}],
+  "edges": [{"id": "e1", "source": "start", "target": "pending"},
+            {"id": "e2", "source": "pending", "target": "done", "label": {"text": "finish"}}]
+}
+```
+
+See `examples/state-order-lifecycle.json`.
+
+## Deployment
+
+An infrastructure / deployment topology, laid out by ELK. Nodes default to `shape: "cube"`
+(a 3D box for devices, hosts, or containers); datastores read well as `cylinder`, and any
+other shape from the graph set is available. Edges are communication paths.
+
+```json
+{
+  "specVersion": "0.1", "diagramType": "deployment", "direction": "TB",
+  "nodes": [{"id": "lb", "label": {"text": "Load Balancer"}},
+            {"id": "db", "shape": "cylinder", "label": {"text": "PostgreSQL"}}],
+  "edges": [{"id": "e1", "source": "lb", "target": "db"}]
+}
+```
+
+See `examples/deployment-web-stack.json`.
+
+## ER (entity-relationship)
+
+Each entity is a node with an `attributes` array; it renders as a **table** — a title row
+plus one row per attribute, with an optional `key` of `"PK"` or `"FK"` shown as a tag.
+Relationships are `edges`; set `sourcePort` / `targetPort` to an attribute `id` to anchor the
+connector to that exact row (typically an FK row pointing at the referenced PK row). Entities
+are placed by ELK; the per-row connectors attach on the facing sides.
+
+```json
+{
+  "specVersion": "0.1", "diagramType": "er", "direction": "LR",
+  "nodes": [
+    {"id": "customer", "label": {"text": "Customer"}, "attributes": [
+      {"id": "id", "label": {"text": "id"}, "key": "PK"},
+      {"id": "email", "label": {"text": "email"}}]},
+    {"id": "order", "label": {"text": "Order"}, "attributes": [
+      {"id": "id", "label": {"text": "id"}, "key": "PK"},
+      {"id": "customer_id", "label": {"text": "customer_id"}, "key": "FK"}]}
+  ],
+  "edges": [{"id": "r1", "source": "order", "target": "customer",
+             "sourcePort": "customer_id", "targetPort": "id", "label": {"text": "N:1"}}]
+}
+```
+
+Cardinality is conveyed with the edge `label` (e.g. `"N:1"`). See `examples/er-shop.json`.
 
 ## Capability reports, never silent drops
 
