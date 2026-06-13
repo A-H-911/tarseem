@@ -16,8 +16,9 @@ from tarseem.render.svg import (
     _label_attrs,
     _num,
     _shape_svg,
+    edge_svg_line,
 )
-from tarseem.render.text import bidi_attrs
+from tarseem.render.text import bidi_attrs, resolve_badge_side, resolve_edge_corners
 
 __all__ = ["render_swimlane_svg"]
 
@@ -27,26 +28,21 @@ _TITLE_FILL = "#269973"
 _SEPARATOR = "#B0BEC5"
 _EDGE_DEFAULT = "#2E8B57"
 _MARKER_BLACK = "#000000"
-_BADGE_INSET_X = 10.0
-_BADGE_INSET_Y = 15.0
-_CYLINDER_RY = 9.0  # matches the renderer's cylinder cap depth
-_PARALLELOGRAM_SLANT = 20.0  # matches the renderer's parallelogram skew
+_BADGE_R = 11.0  # auto-number badge corner-circle radius (MUST match export/drawio.py _BADGE_R)
 
 
-def _badge_baseline(shape: str, y: float) -> float:
-    """Badge text baseline. Nudged below curved-top shapes (cylinder) so the number
-    clears the top ellipse cap instead of sitting on the curve."""
-    if shape == "cylinder":
-        return y + _BADGE_INSET_Y + 2 * _CYLINDER_RY
-    return y + _BADGE_INSET_Y
-
-
-def _badge_x(shape: str, x: float) -> float:
-    """Badge left edge. Shifted right past the slanted top-left corner of a
-    parallelogram so the number sits inside the body, not in the cut-off corner."""
-    if shape == "parallelogram":
-        return x + _PARALLELOGRAM_SLANT + 4.0
-    return x + _BADGE_INSET_X
+def _badge_circle(n: PositionedNode, side: str, accent: str) -> list[str]:
+    """Numbered badge as a small filled circle centred on the node's top corner (top-right
+    for LTR, top-left for RTL by default; see resolve_badge_side), white number inside."""
+    cx = n.x + n.width if side == "right" else n.x
+    cy = n.y
+    num = (n.badge or "").rstrip(".")
+    return [
+        f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(_BADGE_R)}" fill="{accent}" '
+        f'stroke="#FFFFFF" stroke-width="1.5"/>',
+        f'<text x="{_num(cx)}" y="{_num(cy)}" font-size="11" font-weight="700" fill="#FFFFFF" '
+        f'text-anchor="middle" dominant-baseline="central">{_esc(num)}</text>',
+    ]
 
 
 def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
@@ -168,15 +164,11 @@ def _marker_svg(m: Marker) -> str:
     )
 
 
-def _edge_svg(e: PositionedEdge) -> list[str]:
+def _edge_svg(e: PositionedEdge, curved: bool = True) -> list[str]:
     color = str(e.style.get("stroke", _EDGE_DEFAULT))
     sw = float(e.style.get("width", 2) or 2)
     dash = ' stroke-dasharray="6 4"' if e.style.get("style") == "dashed" else ""
-    poly = " ".join(f"{_num(px)},{_num(py)}" for px, py in e.points)
-    out = [
-        f'<polyline points="{poly}" fill="none" stroke="{color}" '
-        f'stroke-width="{_num(sw)}"{dash}/>'
-    ]
+    out = [edge_svg_line(list(e.points), color, sw, dash, curved)]
     if len(e.points) >= 2:
         out.append(_arrowhead(e.points[-2], e.points[-1], color))
     if e.label and e.label_xy:
@@ -193,22 +185,11 @@ def _edge_svg(e: PositionedEdge) -> list[str]:
     return out
 
 
-def _node_svg(n: PositionedNode, rtl: bool = False) -> list[str]:
+def _node_svg(n: PositionedNode, rtl: bool = False, badge_side: str = "right") -> list[str]:
     out = [_shape_svg(n)]
     accent = str((n.style.get("border") or {}).get("color", "#333333"))
     if n.badge:
-        by = _badge_baseline(n.shape, n.y)
-        # badge corner mirrors under RTL: top-right (anchor end) instead of top-left
-        if rtl:
-            bx = n.x + n.width - _BADGE_INSET_X
-            anchor = "end"
-        else:
-            bx = _badge_x(n.shape, n.x)
-            anchor = "start"
-        out.append(
-            f'<text x="{_num(bx)}" y="{_num(by)}" font-size="12" font-weight="700" '
-            f'fill="{accent}" text-anchor="{anchor}">{_esc(n.badge)}</text>'
-        )
+        out.extend(_badge_circle(n, badge_side, accent))
     out.append(
         f'<text x="{_num(n.x + n.width / 2)}" y="{_num(n.y + n.height / 2)}" font-size="12" '
         f'fill="#14281D" {_label_attrs(n.label)}>{_esc(n.label.text)}</text>'
@@ -282,12 +263,14 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
                 f'y2="{_num(bottom)}" {_phase_sep_attrs(sep)}/>'
             )
 
+    badge_side = resolve_badge_side(rtl, diagram.theme)
+    edge_curved = resolve_edge_corners(diagram.theme)
     for e in diagram.edges:  # edges under nodes so arrowheads tuck at borders
-        parts.extend(_edge_svg(e))
+        parts.extend(_edge_svg(e, edge_curved))
     for marker in diagram.markers:
         parts.append(_marker_svg(marker))
     for n in diagram.nodes:
-        parts.extend(_node_svg(n, rtl))
+        parts.extend(_node_svg(n, rtl, badge_side))
 
     parts.append("</svg>")
     return "\n".join(parts)

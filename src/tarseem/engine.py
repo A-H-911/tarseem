@@ -25,11 +25,12 @@ from tarseem.layout.lanegrid import LaneGridLayout
 from tarseem.layout.sequence import SequenceLayout
 from tarseem.measure import measure_graph
 from tarseem.model import PositionedDiagram, compile_spec
+from tarseem.model.ir import LogicalGraph
 from tarseem.render import render_svg
 from tarseem.validation import validate
 
 if TYPE_CHECKING:
-    from tarseem.report import RenderReport
+    from tarseem.report import CapabilityReport, RenderReport
 
 __all__ = ["Engine", "RenderResult"]
 
@@ -52,6 +53,11 @@ class RenderResult:
     versions: dict = field(default_factory=dict)
     layout_ms: float | None = None
     export_opts: dict = field(default_factory=dict)  # resolved spec.export.svg options
+    # Logical IR is retained so source writers (Mermaid/PlantUML, 08 §4) can traverse the
+    # pre-layout graph — positions are dropped by design for those targets.
+    graph: LogicalGraph | None = None
+    # CapabilityReport per format, populated by export() (invariant 6).
+    reports: dict[str, CapabilityReport] = field(default_factory=dict)
     _svg: str | None = field(default=None, repr=False)
 
     @property
@@ -98,9 +104,33 @@ class RenderResult:
                 from tarseem.export import svg_to_png
 
                 written["png"] = svg_to_png(svg_text, out / f"{name}.png")
+            elif fmt == "drawio":
+                written["drawio"] = self._export_writer(fmt, out / f"{name}.drawio")
             else:
-                raise ValueError(f"unsupported export format: {fmt!r} (have: svg, png)")
+                raise ValueError(
+                    f"unsupported export format: {fmt!r} (have: svg, png, drawio)"
+                )
         return written
+
+    def _export_writer(self, fmt: str, path: Path) -> Path:
+        """Run an IR writer, record its CapabilityReport, and sidecar a ``.report.json`` when
+        the export is lossy so a downstream tool sees exactly what was dropped (invariant 6)."""
+        from tarseem.export import write_drawio
+        from tarseem.export.metadata import provenance
+
+        meta = provenance(self)
+        if fmt == "drawio":
+            result = write_drawio(self.diagram, path, meta)
+        else:  # pragma: no cover - guarded by export()
+            raise ValueError(f"no writer for {fmt!r}")
+        self.reports[fmt] = result.report
+        if result.report.lossy:
+            sidecar = path.with_suffix(path.suffix + ".report.json")
+            sidecar.write_text(
+                json.dumps(result.report.to_dict(), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        return result.path
 
 
 class Engine:
@@ -141,4 +171,5 @@ class Engine:
             versions=versions,
             layout_ms=layout_ms,
             export_opts=(spec.get("export") or {}).get("svg") or {},
+            graph=graph,
         )

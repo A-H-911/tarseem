@@ -50,6 +50,12 @@ def _cmd_export(args: argparse.Namespace) -> int:
     written = result.export(formats, args.out, name=args.name)
     for fmt, path in written.items():
         print(f"{fmt}: {path}")
+    for fmt, report in result.reports.items():
+        if report.lossy:
+            print(f"  [{fmt}] capability report: {len(report.warnings)} note(s)")
+            for w in report.warnings:
+                where = f" ({w.element})" if w.element else ""
+                print(f"    - {w.feature}: {w.message}{where}")
     return 0
 
 
@@ -110,7 +116,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_exp = sub.add_parser("export", help="export a spec to one or more formats")
     p_exp.add_argument("spec")
-    p_exp.add_argument("-f", "--formats", default="svg", help="comma list: svg,png")
+    p_exp.add_argument("-f", "--formats", default="svg", help="comma list: svg,png,drawio")
     p_exp.add_argument("-o", "--out", default=".", help="output directory")
     p_exp.add_argument("-n", "--name", default="diagram", help="output basename")
     p_exp.add_argument("--node", default="node", help="Node.js executable (graph families)")

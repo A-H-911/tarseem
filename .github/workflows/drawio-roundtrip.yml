@@ -1,0 +1,42 @@
+name: drawio-roundtrip
+
+# Validation-only (08 §3, R-18): the headless draw.io desktop CLI must be able to OPEN and
+# re-EXPORT the .drawio files this engine writes. This proves the XML we emit is real,
+# loadable mxGraph — not a render-path dependency (draw.io is never invoked at render time).
+on:
+  pull_request:
+    paths:
+      - "src/tarseem/export/drawio.py"
+      - "tests/test_export_drawio.py"
+      - ".github/workflows/drawio-roundtrip.yml"
+  workflow_dispatch:
+
+jobs:
+  roundtrip:
+    name: headless draw.io open + re-export
+    runs-on: ubuntu-latest
+    # rlespinasse/drawio-desktop-headless wraps drawio-desktop in xvfb so the Electron CLI
+    # runs without a display. Pinned by digest-able tag for determinism (invariant 7).
+    container:
+      image: rlespinasse/drawio-desktop-headless:1.5.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node (ELK layout - ADR-002)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Install package + dev tooling
+        run: python -m pip install -e ".[dev]"
+
+      - name: Locate the bundled headless drawio CLI
+        run: echo "TARSEEM_DRAWIO_CLI=$(command -v drawio)" >> "$GITHUB_ENV"
+
+      - name: Round-trip test (writer output re-exports via draw.io CLI)
+        run: pytest tests/test_export_drawio.py -q -k drawio_cli

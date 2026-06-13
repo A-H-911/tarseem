@@ -71,6 +71,10 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     theme_ref = spec.get("theme") or {}
     # accept either `theme.ref` (schema-preferred) or `theme.name`; ref wins
     theme = theme or get_theme(theme_ref.get("ref") or theme_ref.get("name"))
+    # carry presentation-only theme keys the renderers read off diagram.theme.
+    for key in ("badgeCorner", "edgeCorners", "entityCorners"):
+        if theme_ref.get(key) is not None:
+            theme = {**theme, key: theme_ref[key]}
     diagram_type = spec.get("diagramType", "flowchart")
     default_shape = _DEFAULT_SHAPE.get(diagram_type, "rect")
 

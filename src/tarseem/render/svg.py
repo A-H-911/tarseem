@@ -10,6 +10,7 @@ from __future__ import annotations
 from tarseem.model.ir import Label, PositionedDiagram, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
 from tarseem.render.text import label_attrs as _resolve_label_attrs
+from tarseem.render.text import resolve_edge_corners
 
 __all__ = ["render_svg"]
 
@@ -119,6 +120,50 @@ def _arrowhead(p1: tuple[float, float], p2: tuple[float, float], color: str) -> 
     return _poly(tip, f'fill="{color}"')
 
 
+_EDGE_RADIUS = 8.0
+
+
+def _toward(b: tuple[float, float], a: tuple[float, float], r: float) -> tuple[float, float]:
+    """Point ``r`` from ``b`` toward ``a`` (clamped to half the segment)."""
+    dx, dy = a[0] - b[0], a[1] - b[1]
+    dist = (dx * dx + dy * dy) ** 0.5 or 1.0
+    rr = min(r, dist / 2)
+    return b[0] + dx / dist * rr, b[1] + dy / dist * rr
+
+
+def edge_svg_line(
+    points: list[tuple[float, float]], stroke: str, sw: float, dash: str, curved: bool
+) -> str:
+    """One edge line — rounded-corner ``<path>`` when ``curved`` (default), else ``<polyline>``.
+    Shared by every edge writer so engine and draw.io agree (theme.edgeCorners)."""
+    if curved and len(points) > 2:
+        d = [f"M {_p(*points[0])}"]
+        for i in range(1, len(points) - 1):
+            a, b, c = points[i - 1], points[i], points[i + 1]
+            d.append(f"L {_p(*_toward(b, a, _EDGE_RADIUS))}")
+            d.append(f"Q {_p(*b)} {_p(*_toward(b, c, _EDGE_RADIUS))}")
+        d.append(f"L {_p(*points[-1])}")
+        path = " ".join(d)
+        return (
+            f'<path d="{path}" fill="none" stroke="{stroke}" '
+            f'stroke-width="{_num(sw)}"{dash}/>'
+        )
+    poly = " ".join(_p(px, py) for px, py in points)
+    return (
+        f'<polyline points="{poly}" fill="none" stroke="{stroke}" '
+        f'stroke-width="{_num(sw)}"{dash}/>'
+    )
+
+
+def _label_center(n: PositionedNode) -> tuple[float, float]:
+    """Centre point for a node's label. A cube reserves depth at top+right, so its label
+    centres on the FRONT face, not the bbox (bug: deployment label off-centre)."""
+    if n.shape == "cube":
+        d = 14.0  # MUST match _shape_svg cube depth + measure._CUBE_DEPTH
+        return n.x + (n.width - d) / 2, n.y + d + (n.height - d) / 2
+    return n.x + n.width / 2, n.y + n.height / 2
+
+
 def _label_attrs(label: Label) -> str:
     """Anchoring + bidi (direction/xml:lang) for a label. Auto-detects Arabic so RTL
     text renders naturally; LTR labels keep their pre-Phase-4 attribute bytes (07 §2)."""
@@ -170,15 +215,12 @@ def render_svg(diagram: PositionedDiagram) -> str:
     ]
 
     # edges first so node shapes sit on top of arrowheads tucked at borders
+    curved = resolve_edge_corners(diagram.theme)
     for e in diagram.edges:
         color = str(e.style.get("stroke", _DEFAULT_EDGE))
         sw = float(e.style.get("width", 1) or 1)
         dash = ' stroke-dasharray="6 4"' if e.style.get("style") == "dashed" else ""
-        poly = " ".join(f"{_num(px)},{_num(py)}" for px, py in e.points)
-        parts.append(
-            f'<polyline points="{poly}" fill="none" stroke="{color}" '
-            f'stroke-width="{_num(sw)}"{dash}/>'
-        )
+        parts.append(edge_svg_line(list(e.points), color, sw, dash, curved))
         if len(e.points) >= 2:
             parts.append(_arrowhead(e.points[-2], e.points[-1], color))
         if e.label and e.label_xy:
@@ -198,8 +240,9 @@ def render_svg(diagram: PositionedDiagram) -> str:
         parts.append(_shape_svg(n))
         text_color = str((n.style.get("text") or {}).get("color", _DEFAULT_TEXT))
         size = float((n.style.get("text") or {}).get("size", 12))
+        lcx, lcy = _label_center(n)
         parts.append(
-            f'<text x="{_num(n.x + n.width / 2)}" y="{_num(n.y + n.height / 2)}" '
+            f'<text x="{_num(lcx)}" y="{_num(lcy)}" '
             f'font-size="{_num(size)}" fill="{text_color}" {_label_attrs(n.label)}>'
             f"{_esc(n.label.text)}</text>"
         )

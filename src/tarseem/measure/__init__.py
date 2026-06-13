@@ -107,7 +107,10 @@ def _shared_measurer() -> TextMeasurer:
 
 def measure_graph(graph: LogicalGraph, measurer: TextMeasurer | None = None) -> LogicalGraph:
     """Return a new graph whose nodes carry measured width/height. Pure: the input
-    graph is left unchanged (its nodes keep ``width``/``height`` = None)."""
+    graph is left unchanged (its nodes keep ``width``/``height`` = None).
+
+    Opt-in ``layout.uniformNodeSize`` then snaps box nodes to a common size (so e.g. two
+    result boxes render identically). Off by default — output is unchanged."""
     m = measurer or _shared_measurer()
     sized: list[LogicalNode] = []
     for node in graph.nodes:
@@ -120,4 +123,49 @@ def measure_graph(graph: LogicalGraph, measurer: TextMeasurer | None = None) -> 
             continue
         w, h = m.node_size(node)
         sized.append(replace(node, width=w, height=h))
-    return replace(graph, nodes=tuple(sized))
+    graph = replace(graph, nodes=tuple(sized))
+    uniform = graph.layout_options.get("uniformNodeSize")
+    if uniform:
+        graph = _apply_uniform_size(graph, uniform)
+    return graph
+
+
+def _apply_uniform_size(graph: LogicalGraph, uniform: bool | str | dict) -> LogicalGraph:
+    """Snap box nodes to a uniform size (FR-5.x, opt-in). ``uniformNodeSize`` may be ``true``
+    (all eligible nodes share max W x max H), ``"byShape"`` (uniform within each shape), or
+    ``{scope, width?, height?}`` for explicit dims. ER tables and fixed pseudostate markers
+    are exempt (their size is content/semantics-driven)."""
+    if isinstance(uniform, dict):
+        scope = str(uniform.get("scope", "all"))
+        fixed_w, fixed_h = uniform.get("width"), uniform.get("height")
+    else:
+        scope = "byShape" if uniform == "byShape" else "all"
+        fixed_w = fixed_h = None
+    eligible = [
+        n for n in graph.nodes
+        if not n.rows and n.shape not in _STATE_MARKER and n.width is not None
+    ]
+    if not eligible:
+        return graph
+    elig_ids = {n.id for n in eligible}
+    global_w = max(n.width for n in eligible if n.width is not None)
+    global_h = max(n.height for n in eligible if n.height is not None)
+    shape_max: dict[str, tuple[float, float]] = {}
+    for n in eligible:
+        pw, ph = shape_max.get(n.shape, (0.0, 0.0))
+        shape_max[n.shape] = (max(pw, n.width or 0.0), max(ph, n.height or 0.0))
+    out: list[LogicalNode] = []
+    for n in graph.nodes:
+        if n.id not in elig_ids:
+            out.append(n)
+            continue
+        if scope == "byShape":
+            w, h = shape_max[n.shape]
+        else:
+            w, h = global_w, global_h
+        if fixed_w is not None:
+            w = float(fixed_w)
+        if fixed_h is not None:
+            h = float(fixed_h)
+        out.append(replace(n, width=round(w, 2), height=round(h, 2)))
+    return replace(graph, nodes=tuple(out))

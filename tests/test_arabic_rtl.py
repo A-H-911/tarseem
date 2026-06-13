@@ -96,10 +96,13 @@ def test_rl_swimlane_mirrors_flow_header_and_badges():
     # first step (badge exempt 'submit') is right-most, last step is left-most => right→left
     assert by_x[-1].id == "submit" and by_x[0].id == "receive"
     svg = Engine().render(_ex("swimlane-document-rtl")).svg
-    # header chip + separator on the right half; badges anchored to the right (end)
+    # header chip + separator on the right half (RTL); badge circles flip to the LEFT corner.
     chip = re.search(r'<rect x="([\d.]+)"[^>]*rx="8" fill', svg)
     assert chip and float(chip.group(1)) > d.width / 2
-    assert 'text-anchor="end"' in svg
+    badge_circles = [
+        float(m) for m in re.findall(r'<circle cx="([\d.]+)" cy="[\d.]+" r="11"', svg)
+    ]
+    assert badge_circles and min(badge_circles) < d.width / 2  # a badge sits on the left
 
 
 def test_ltr_swimlane_keeps_left_header():

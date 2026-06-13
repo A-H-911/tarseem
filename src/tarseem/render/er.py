@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from tarseem.model.ir import PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
-from tarseem.render.svg import _arrowhead, _esc, _num
-from tarseem.render.text import label_attrs
+from tarseem.render.svg import _arrowhead, _esc, _num, edge_svg_line
+from tarseem.render.text import label_attrs, resolve_edge_corners, resolve_entity_corners
 
 __all__ = ["render_er_svg"]
 
@@ -51,21 +51,31 @@ def _key_tag(key: str, x_right: float, cy: float) -> list[str]:
     ]
 
 
-def _entity(n: PositionedNode) -> list[str]:
+def _entity(n: PositionedNode, radius: float = 6.0) -> list[str]:
     x, y, w, h = n.x, n.y, n.width, n.height
     title_h = n.rows[0].y_offset if n.rows else h
+    rad = radius
     parts = [
-        f'<rect x="{_num(x)}" y="{_num(y)}" width="{_num(w)}" height="{_num(h)}" rx="6" '
+        f'<rect x="{_num(x)}" y="{_num(y)}" width="{_num(w)}" height="{_num(h)}" rx="{_num(rad)}" '
         f'fill="{_ROW_FILL}" stroke="{_BORDER}" stroke-width="1.5"/>',
-        # title bar (clip the rounded top by overdrawing a filled rect with rounded top only)
-        f'<path d="M {_num(x)} {_num(y + title_h)} L {_num(x)} {_num(y + 6)} '
-        f'Q {_num(x)} {_num(y)} {_num(x + 6)} {_num(y)} L {_num(x + w - 6)} {_num(y)} '
-        f'Q {_num(x + w)} {_num(y)} {_num(x + w)} {_num(y + 6)} '
-        f'L {_num(x + w)} {_num(y + title_h)} Z" fill="{_TITLE_FILL}"/>',
+    ]
+    if rad > 0:  # title with rounded top corners only, square bottom (matches the container)
+        parts.append(
+            f'<path d="M {_num(x)} {_num(y + title_h)} L {_num(x)} {_num(y + rad)} '
+            f'Q {_num(x)} {_num(y)} {_num(x + rad)} {_num(y)} L {_num(x + w - rad)} {_num(y)} '
+            f'Q {_num(x + w)} {_num(y)} {_num(x + w)} {_num(y + rad)} '
+            f'L {_num(x + w)} {_num(y + title_h)} Z" fill="{_TITLE_FILL}"/>'
+        )
+    else:  # square entity: a plain title rect
+        parts.append(
+            f'<rect x="{_num(x)}" y="{_num(y)}" width="{_num(w)}" height="{_num(title_h)}" '
+            f'fill="{_TITLE_FILL}"/>'
+        )
+    parts.append(
         f'<text x="{_num(x + w / 2)}" y="{_num(y + title_h / 2)}" font-size="13" '
         f'font-weight="700" fill="{_TITLE_TEXT}" {label_attrs(n.label)}>'
-        f"{_esc(n.label.text)}</text>",
-    ]
+        f"{_esc(n.label.text)}</text>"
+    )
     for r in n.rows:
         ry = y + r.y_offset
         cy = ry + r.height / 2
@@ -82,15 +92,11 @@ def _entity(n: PositionedNode) -> list[str]:
     return parts
 
 
-def _edge_svg(e: PositionedEdge) -> list[str]:
+def _edge_svg(e: PositionedEdge, curved: bool = True) -> list[str]:
     color = str(e.style.get("stroke", _EDGE_DEFAULT))
     sw = float(e.style.get("width", 1.5) or 1.5)
     dash = ' stroke-dasharray="6 4"' if e.style.get("style") == "dashed" else ""
-    poly = " ".join(f"{_num(px)},{_num(py)}" for px, py in e.points)
-    out = [
-        f'<polyline points="{poly}" fill="none" stroke="{color}" '
-        f'stroke-width="{_num(sw)}"{dash}/>'
-    ]
+    out = [edge_svg_line(list(e.points), color, sw, dash, curved)]
     if len(e.points) >= 2:
         out.append(_arrowhead(e.points[-2], e.points[-1], color))
     if e.label and e.label_xy:
@@ -122,10 +128,12 @@ def render_er_svg(diagram: PositionedDiagram) -> str:
         f'<rect width="{_num(w)}" height="{_num(h)}" fill="#FFFFFF"/>',
         f'<g transform="translate({_num(_MARGIN)},{_num(_MARGIN)})">',
     ]
+    curved = resolve_edge_corners(diagram.theme)
+    radius = 6.0 if resolve_entity_corners(diagram.theme) == "rounded" else 0.0
     for e in diagram.edges:  # connectors under entities so arrowheads tuck at the border
-        parts.extend(_edge_svg(e))
+        parts.extend(_edge_svg(e, curved))
     for n in diagram.nodes:
-        parts.extend(_entity(n))
+        parts.extend(_entity(n, radius))
     parts.append("</g>")
     parts.append("</svg>")
     return "\n".join(parts)

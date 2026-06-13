@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from tarseem.model.ir import PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
-from tarseem.render.svg import _arrowhead, _esc, _label_attrs, _num, _shape_svg
-from tarseem.render.text import bidi_attrs
+from tarseem.render.svg import _arrowhead, _esc, _label_attrs, _num, _shape_svg, edge_svg_line
+from tarseem.render.text import bidi_attrs, resolve_edge_corners
 
 __all__ = ["render_sequence_svg"]
 
@@ -54,16 +54,12 @@ def _stem_svg(n: PositionedNode, bottom_y: float) -> str:
     )
 
 
-def _message_svg(e: PositionedEdge) -> list[str]:
+def _message_svg(e: PositionedEdge, curved: bool = True) -> list[str]:
     color = str(e.style.get("stroke", _EDGE_DEFAULT))
     sw = float(e.style.get("width", 1.5) or 1.5)
     is_return = e.style.get("style") == "dashed"
     dash = ' stroke-dasharray="6 4"' if is_return else ""
-    poly = " ".join(f"{_num(px)},{_num(py)}" for px, py in e.points)
-    out = [
-        f'<polyline points="{poly}" fill="none" stroke="{color}" '
-        f'stroke-width="{_num(sw)}"{dash}/>'
-    ]
+    out = [edge_svg_line(list(e.points), color, sw, dash, curved)]
     if len(e.points) >= 2:
         head = _open_arrowhead if is_return else _arrowhead
         out.append(head(e.points[-2], e.points[-1], color))
@@ -106,8 +102,9 @@ def render_sequence_svg(diagram: PositionedDiagram) -> str:
             f'height="{_num(a.height)}" fill="{_ACT_FILL}" stroke="{_ACT_BORDER}" '
             f'stroke-width="1.5"/>'
         )
+    curved = resolve_edge_corners(diagram.theme)
     for e in diagram.edges:
-        parts.extend(_message_svg(e))
+        parts.extend(_message_svg(e, curved))
     for n in diagram.nodes:  # participant heads on top
         parts.append(_shape_svg(n))
         parts.append(
