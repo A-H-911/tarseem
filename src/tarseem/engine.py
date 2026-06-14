@@ -104,13 +104,17 @@ class RenderResult:
                 from tarseem.export import svg_to_png
 
                 written["png"] = svg_to_png(svg_text, out / f"{name}.png")
+            elif fmt == "pdf":
+                from tarseem.export import svg_to_pdf
+
+                written["pdf"] = svg_to_pdf(svg_text, out / f"{name}.pdf")
             elif fmt == "drawio":
                 written["drawio"] = self._export_writer(fmt, out / f"{name}.drawio")
             elif fmt == "pptx":
                 written["pptx"] = self._export_writer(fmt, out / f"{name}.pptx")
             else:
                 raise ValueError(
-                    f"unsupported export format: {fmt!r} (have: svg, png, drawio, pptx)"
+                    f"unsupported export format: {fmt!r} (have: svg, png, pdf, drawio, pptx)"
                 )
         return written
 

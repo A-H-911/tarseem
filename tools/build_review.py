@@ -6,13 +6,15 @@ Layout under the output dir (default `out/`):
     README.md                  describes this structure
     svg/<name>.svg             engine canonical render (the source of truth)
     png/<name>.png             engine render rasterized (the visual reference)
+    pdf/<name>.pdf             vector PDF (Chromium print of the canonical SVG)
     drawio/<name>.drawio       editable draw.io file
     drawio/<name>.png          how draw.io itself renders it (embedded Cairo)
     drawio/<name>.drawio.report.json
     pptx/<name>.pptx           native PowerPoint deck
     pptx/<name>.pptx.report.json
 
-PPTX has no headless renderer, so it shows as a download tile (open in PowerPoint).
+PDF previews inline (browsers render it); PPTX has no headless renderer, so it shows as a
+download tile (open in PowerPoint).
 
 Usage:
     python tools/build_review.py examples/*.json
@@ -32,7 +34,7 @@ from verify_drawio import VIEWER_JS, render_to_png  # noqa: E402
 from tarseem import Engine  # noqa: E402
 from tarseem.export import svg_to_png  # noqa: E402
 
-_FORMATS = ("svg", "png", "drawio", "pptx")
+_FORMATS = ("svg", "png", "pdf", "drawio", "pptx")
 
 
 def _safe(fn, label: str) -> str | None:
@@ -57,6 +59,7 @@ def _build_one(spec_path: Path, out: Path, engine: Engine) -> dict:
     _safe(lambda: (out / "svg" / f"{name}.svg").write_text(svg_text, encoding="utf-8"),
           f"{name}.svg")
     _safe(lambda: svg_to_png(svg_text, out / "png" / f"{name}.png"), f"{name}.png")
+    _safe(lambda: result.export(["pdf"], out / "pdf", name=name), f"{name}.pdf")
 
     if _safe(lambda: result.export(["drawio"], out / "drawio", name=name),
              f"{name}.drawio") is None:
@@ -81,6 +84,12 @@ def _tile(name: str, fmt: str, entry: dict) -> str:
         return (f'<figure><figcaption>engine (source of truth)</figcaption>'
                 f'<img src="png/{name}.png" loading="lazy" alt="{name} engine">'
                 f'<nav><a href="svg/{name}.svg">svg</a></nav></figure>')
+    if fmt == "pdf":
+        # browsers render PDF inline — a real preview (unlike pptx). Link is the fallback.
+        iframe = (f'<iframe class="pdf" src="pdf/{name}.pdf" loading="lazy" '
+                  f'title="{name} pdf"></iframe>')
+        return (f'<figure><figcaption>PDF (vector)</figcaption>{iframe}'
+                f'<nav><a href="pdf/{name}.pdf">open .pdf</a></nav></figure>')
     if fmt == "drawio":
         img = (f'<img src="drawio/{name}.png" loading="lazy" alt="{name} draw.io">'
                if entry["drawio_png"] else '<div class="na">no render</div>')
@@ -99,8 +108,8 @@ def _tile(name: str, fmt: str, entry: dict) -> str:
 def _index_html(entries: list[dict]) -> str:
     cards = "".join(
         f'<section class="card"><h2>{e["name"]} <span class="tag">{e["type"]}</span></h2>'
-        f'<div class="grid">{_tile(e["name"], "png", e)}{_tile(e["name"], "drawio", e)}'
-        f'{_tile(e["name"], "pptx", e)}</div></section>'
+        f'<div class="grid">{_tile(e["name"], "png", e)}{_tile(e["name"], "pdf", e)}'
+        f'{_tile(e["name"], "drawio", e)}{_tile(e["name"], "pptx", e)}</div></section>'
         for e in entries
     )
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -117,9 +126,11 @@ main {{ padding:22px; display:grid; gap:22px; }}
 .card h2 {{ margin:0 0 12px; font-size:16px; }}
 .tag {{ font-size:11px; color:#8b97a7; border:1px solid #2c3644; border-radius:999px;
   padding:2px 9px; margin-left:6px; }}
-.grid {{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }}
+.grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }}
 figure {{ margin:0; }} figcaption {{ font-size:12px; color:#8b97a7; margin-bottom:6px; }}
 img {{ width:100%; height:auto; background:#fff; border-radius:8px; display:block; }}
+iframe.pdf {{ width:100%; height:220px; border:1px solid #2c3644; border-radius:8px;
+  background:#fff; display:block; }}
 .na, .dl {{ display:grid; place-items:center; height:150px; border:1px dashed #2c3644;
   border-radius:8px; color:#8b97a7; text-decoration:none; }}
 .dl {{ color:#5aa0ff; font-weight:600; }} .dl:hover {{ background:#1b2230; }}
@@ -145,6 +156,7 @@ the source of truth; other formats are compared against it.
 | `index.html` | **open this** — every diagram across every format, side by side |
 | `svg/<name>.svg` | engine canonical render (source of truth) |
 | `png/<name>.png` | engine render rasterized (visual reference) |
+| `pdf/<name>.pdf` | vector PDF (Chromium print of the canonical SVG) — previews inline |
 | `drawio/<name>.drawio` | editable draw.io file (open in diagrams.net) |
 | `drawio/<name>.png` | how draw.io itself renders it |
 | `drawio/<name>.drawio.report.json` | draw.io CapabilityReport (only when lossy) |

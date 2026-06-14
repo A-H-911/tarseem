@@ -27,7 +27,7 @@ One positioned IR, many writers (ADR-001). New shared infra this phase: **Capabi
 
 Verification is the **viewer** (Option A), not yet the Desktop editor (Option B) — those can differ; Option B is the final sign-off before human review.
 | 2 | **PPTX writer** — python-pptx native shapes/connectors from IR in EMUs, `rtl="1"` lxml patch, deterministic zip, manual PowerPoint checklist | ✅ done (writer + tests); manual PPT review pending | `export/pptx.py`, `tests/test_export_pptx.py`, `docs/pptx-manual-checklist.md` |
-| 3 | **PDF** via Chromium CDP (print-to-PDF, mirrors `png.py`) | ⏳ | — |
+| 3 | **PDF** via Chromium CDP (print-to-PDF, mirrors `png.py`) | ✅ done; visually verified vs canonical PNG (incl. Arabic) | `export/pdf.py`, `tests/test_export_pdf.py` |
 | 4 | **Mermaid + PlantUML** source writers (logical IR) with CapabilityReports | ⏳ | — |
 | 5 | Export metadata embedded in **all** artifacts (SVG already; PNG tEXt, PDF XMP, PPTX core-props, drawio done) | ◑ partial | drawio done |
 | 6 | **class + mindmap** profiles (family/layout workstream; mindmap needs a non-layered ELK tree/radial algo — the real risk) | ⏳ | — |
@@ -313,6 +313,39 @@ format, side by side; PPTX as a download tile since it has no headless render) a
 
 SVG-default changes (rounded sequence heads + cylinder label) → win32 baselines regenerated;
 linux/macOS at PR time. Tests added. Full gate green.
+
+## PDF writer (2026-06-14) — Chromium print, branch `phase-6-pptx`
+
+`src/tarseem/export/pdf.py`: a thin Chromium print-to-PDF of the **canonical SVG** (mirrors
+`png.py`). Like PNG it renders the source-of-truth SVG, so it drops nothing relative to the SVG
+and carries **no CapabilityReport** (a faithful render has nothing to report; PNG is the same —
+note: the earlier PPTX-track option text mentioned a PDF report, deliberately dropped after
+review as it would be all-`full` ceremony — if uniform per-format reports are wanted, the
+consistent fix is reports for png **and** pdf, not pdf alone). Wired into `engine.export(["pdf"])`
++ the CLI + the review bundle (`out/pdf/`, previews inline in `index.html`).
+
+The two parts of "mirror png.py" that do **not** transfer (a PDF is a paginated document, not a
+bitmap), both handled + tested:
+- **Page sizing.** `page.pdf` paginates; an inline `<svg>` adds a line-box descender that spills a
+  hairline 2nd page. Fixed with `svg{display:block}` + `ceil`'d page dims (no clip on fractional
+  extents). Asserted single-page on a **tall** (sequence) and **wide** (vertical swimlane) sample.
+- **Determinism (invariant 7).** Chromium stamps the Info dict with wall-clock `/CreationDate` +
+  `/ModDate` (14-digit, fixed-length, plaintext; **no `/ID`**). `_normalize_pdf_dates` overwrites
+  the digits with a constant of equal length → byte offsets (and the xref) untouched, no PDF dep.
+  A determinism test is load-bearing: a future Chromium that changes the date format / adds `/ID` /
+  moves dates into a compressed stream fails loudly.
+
+**Fidelity ceiling (visually verified here by rendering the PDF vs the canonical PNG — the Read
+tool renders PDFs; no separate headless PDF renderer needed):**
+
+| Aspect | Level | Note |
+|---|---|---|
+| visual fidelity | full | shapes/lanes/badges/markers/edges/colors match the SVG; **Arabic shaped + joined + RTL correctly** |
+| fonts | self-contained | Skia carries Cairo glyphs as **Type3 vector procedures** (renders with zero fonts installed) — not a TrueType embed |
+| text layer | partial | extractable/searchable text is clean for Latin but **garbled for Arabic** (Type3 has no reliable Unicode); the *picture* is correct |
+| raster | minor | some compositing (e.g. semi-transparent lane fills) flattens to a small `/Image` — **not visible** at the rendered size |
+| metadata | none | provenance not embedded yet (PDF XMP = sub-stage 5, "where practical") |
+| determinism | full | same spec ⇒ byte-identical (dates pinned) |
 
 ## Deferred / future tasks
 
