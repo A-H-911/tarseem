@@ -6,9 +6,10 @@ structure/determinism/RTL, but **glyph shaping and on-canvas appearance can only
 PowerPoint** — there is no headless PPTX renderer in CI. Run this checklist after any change to the
 writer.
 
-Generate the decks: `python -c "from pathlib import Path,...; "` (or) the artifacts are written to
-`out/pptx/*.pptx` by the snippet in the progress notes. Open each in **Microsoft PowerPoint**
-(not only the web/Keynote — bidi + cube/can shapes differ).
+Generate the bundle: `python tools/build_review.py examples/*.json`. Decks land in `out/pptx/*.pptx`
+(and `out/index.html` links them per diagram alongside every other format). Open each `.pptx` in
+**Microsoft PowerPoint** (not only the web/Keynote — bidi + cube/can shapes differ).
+See `out/README.md` for the full `out/` layout.
 
 ## Per-deck checks
 
@@ -46,6 +47,6 @@ The `.report.json` sidecar records `fonts_embedded: none`. If exact glyphs matte
 
 ## Reporting issues
 
-For any mismatch, note the **deck + element**, compare against `out/review/<sample>.engine.png`
+For any mismatch, note the **deck + element**, compare against `out/png/<sample>.png`
 (the canonical SVG = source of truth), and file it the same way as the draw.io review rounds:
 minimal repro, fix in `pptx.py`, regression test in `tests/test_export_pptx.py`.

@@ -289,6 +289,12 @@ mixed bidi spacing (review #3) — improved via rtl + cs font, may need another 
 SVG-default changes (rounded rects + label positions) → all 13 win32 baselines regenerated;
 linux/macOS at PR time. Tests updated. Full gate green.
 
+**Review bundle reorganized (owner request):** `tools/build_review.py` now writes one folder per
+format — `out/{svg,png,drawio,pptx}/` — plus a single `out/index.html` (every diagram across every
+format, side by side; PPTX as a download tile since it has no headless render) and a generated
+`out/README.md`. Locked files (an open `.pptx`/`.drawio`) are skipped with a `[locked]` log.
+`out/index.html` is the one sign-off surface.
+
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
 ✅ **Option A** (draw.io viewer / mxGraph) **and ✅ Option B** (draw.io **Desktop** engine,

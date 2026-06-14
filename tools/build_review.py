@@ -1,18 +1,22 @@
-"""Build a single, clean sign-off bundle for diagram review (answers "which folder?").
+"""Build the review bundle: every diagram in every format, organized per format type.
 
-For each spec it writes, into ONE folder (`out/review/` by default):
-  <name>.engine.svg / <name>.engine.png   canonical engine render (the source of truth)
-  <name>.drawio                            editable file — open in diagrams.net
-  <name>.drawio.png                        how draw.io renders that file (Option-A viewer)
-  <name>.report.json                       fidelity / CapabilityReport
-plus index.html — engine vs draw.io side-by-side for every diagram, with download links.
+Layout under the output dir (default `out/`):
 
-`out/` is gitignored scratch; `examples/` is the committed spec corpus. THIS bundle
-(`out/review/index.html`) is the thing to open for visual sign-off.
+    index.html                 one page — every diagram across every format, side by side
+    README.md                  describes this structure
+    svg/<name>.svg             engine canonical render (the source of truth)
+    png/<name>.png             engine render rasterized (the visual reference)
+    drawio/<name>.drawio       editable draw.io file
+    drawio/<name>.png          how draw.io itself renders it (embedded Cairo)
+    drawio/<name>.drawio.report.json
+    pptx/<name>.pptx           native PowerPoint deck
+    pptx/<name>.pptx.report.json
+
+PPTX has no headless renderer, so it shows as a download tile (open in PowerPoint).
 
 Usage:
-    python tools/build_review.py examples/swimlane-pipeline.json examples/er-shop.json
-    python tools/build_review.py examples/*.json -o out/review
+    python tools/build_review.py examples/*.json
+    python tools/build_review.py examples/*.json -o out
 """
 from __future__ import annotations
 
@@ -26,101 +30,140 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from verify_drawio import VIEWER_JS, render_to_png  # noqa: E402
 
 from tarseem import Engine  # noqa: E402
+from tarseem.export import svg_to_png  # noqa: E402
 
-# Every built-in family now has a draw.io writer (sequence draws lifelines + activations).
-_DRAWIO_FAMILIES_SKIP: set[str] = set()
+_FORMATS = ("svg", "png", "drawio", "pptx")
 
 
-def _build_one(spec_path: Path, out_dir: Path, engine: Engine) -> dict:
-    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+def _safe(fn, label: str) -> str | None:
+    """Run a write step; on a locked file (PowerPoint open) or render error, skip + report."""
+    try:
+        fn()
+        return None
+    except PermissionError:
+        print(f"[locked] {label} (file open elsewhere — skipped)")
+        return "locked"
+    except Exception as exc:  # render is best-effort for the bundle
+        print(f"[warn]  {label}: {exc}")
+        return str(exc)
+
+
+def _build_one(spec_path: Path, out: Path, engine: Engine) -> dict:
     name = spec_path.stem
-    result = engine.render(spec)
-    entry: dict = {"name": name, "type": result.diagram.diagram_type, "drawio": False}
+    result = engine.render(json.loads(spec_path.read_text(encoding="utf-8")))
+    entry: dict = {"name": name, "type": result.diagram.diagram_type, "drawio_png": False}
+    svg_text = result.to_svg(provenance=True)
 
-    (out_dir / f"{name}.engine.svg").write_text(result.to_svg(provenance=True), encoding="utf-8")
-    from tarseem.export import svg_to_png
+    _safe(lambda: (out / "svg" / f"{name}.svg").write_text(svg_text, encoding="utf-8"), f"{name}.svg")
+    _safe(lambda: svg_to_png(svg_text, out / "png" / f"{name}.png"), f"{name}.png")
 
-    svg_to_png(result.to_svg(provenance=True), out_dir / f"{name}.engine.png")
+    if _safe(lambda: result.export(["drawio"], out / "drawio", name=name), f"{name}.drawio") is None:
+        if _safe(
+            lambda: render_to_png(
+                out / "drawio" / f"{name}.drawio", out / "drawio" / f"{name}.png",
+                Path(VIEWER_JS), inject_font=False,
+            ),
+            f"{name}.drawio.png",
+        ) is None:
+            entry["drawio_png"] = True
+    _safe(lambda: result.export(["pptx"], out / "pptx", name=name), f"{name}.pptx")
 
-    if result.diagram.diagram_type not in _DRAWIO_FAMILIES_SKIP:
-        result.export(["drawio"], out_dir, name=name)
-        drawio_path = out_dir / f"{name}.drawio"
-        try:
-            # inject_font=False: the .drawio embeds its own Cairo subset, so this shows the
-            # self-contained file exactly as draw.io renders it (no dev-tool font help).
-            render_to_png(
-                drawio_path, out_dir / f"{name}.drawio.png", Path(VIEWER_JS), inject_font=False
-            )
-            entry["drawio"] = True
-        except Exception as exc:  # render is best-effort for the bundle
-            entry["drawio_error"] = str(exc)
-        report = result.reports.get("drawio")
-        if report is not None:
-            (out_dir / f"{name}.report.json").write_text(
-                json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-            entry["lossy"] = report.lossy
+    rep = result.reports
+    entry["drawio_lossy"] = bool(rep.get("drawio") and rep["drawio"].lossy)
+    entry["pptx_lossy"] = bool(rep.get("pptx") and rep["pptx"].lossy)
     return entry
 
 
+def _tile(name: str, fmt: str, entry: dict) -> str:
+    if fmt == "png":
+        return (f'<figure><figcaption>engine (source of truth)</figcaption>'
+                f'<img src="png/{name}.png" loading="lazy" alt="{name} engine">'
+                f'<nav><a href="svg/{name}.svg">svg</a></nav></figure>')
+    if fmt == "drawio":
+        img = (f'<img src="drawio/{name}.png" loading="lazy" alt="{name} draw.io">'
+               if entry["drawio_png"] else '<div class="na">no render</div>')
+        rep = (f' · <a href="drawio/{name}.drawio.report.json">report ⚠</a>'
+               if entry["drawio_lossy"] else "")
+        return (f'<figure><figcaption>draw.io</figcaption>{img}'
+                f'<nav><a href="drawio/{name}.drawio">open .drawio</a>{rep}</nav></figure>')
+    # pptx — no preview; download tile
+    rep = (f' · <a href="pptx/{name}.pptx.report.json">report ⚠</a>'
+           if entry["pptx_lossy"] else "")
+    return (f'<figure><figcaption>PowerPoint</figcaption>'
+            f'<a class="dl" href="pptx/{name}.pptx">⬇ open {name}.pptx</a>'
+            f'<nav>open in PowerPoint{rep}</nav></figure>')
+
+
 def _index_html(entries: list[dict]) -> str:
-    cards = []
-    for e in entries:
-        name = e["name"]
-        drawio_col = (
-            f'<figure><figcaption>draw.io</figcaption>'
-            f'<img src="{name}.drawio.png" loading="lazy" alt="{name} draw.io"></figure>'
-            if e.get("drawio")
-            else '<figure class="na"><figcaption>draw.io</figcaption>'
-            '<div class="na-box">engine-only family</div></figure>'
-        )
-        links = [f'<a href="{name}.engine.svg">engine.svg</a>']
-        if e.get("drawio"):
-            links.append(f'<a href="{name}.drawio">open .drawio</a>')
-        if "lossy" in e:
-            links.append(f'<a href="{name}.report.json">report{" ⚠" if e["lossy"] else ""}</a>')
-        cards.append(
-            f'<section class="card"><h2>{name} <span class="tag">{e["type"]}</span></h2>'
-            f'<div class="pair"><figure><figcaption>engine (canonical)</figcaption>'
-            f'<img src="{name}.engine.png" loading="lazy" alt="{name} engine"></figure>'
-            f'{drawio_col}</div><nav>{" · ".join(links)}</nav></section>'
-        )
+    cards = "".join(
+        f'<section class="card"><h2>{e["name"]} <span class="tag">{e["type"]}</span></h2>'
+        f'<div class="grid">{_tile(e["name"], "png", e)}{_tile(e["name"], "drawio", e)}'
+        f'{_tile(e["name"], "pptx", e)}</div></section>'
+        for e in entries
+    )
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tarseem — diagram review</title>
+<title>Tarseem — review (all diagrams × all formats)</title>
 <style>
 :root {{ color-scheme: dark; }}
 body {{ margin:0; font:15px/1.5 system-ui,sans-serif; background:#11151c; color:#e6edf3; }}
-header {{ padding:20px 28px; border-bottom:1px solid #232b36; position:sticky; top:0;
+header {{ padding:18px 26px; border-bottom:1px solid #232b36; position:sticky; top:0;
   background:#11151cdd; backdrop-filter:blur(6px); }}
 header h1 {{ margin:0; font-size:18px; }} header p {{ margin:4px 0 0; color:#8b97a7; }}
-main {{ padding:24px; display:grid; gap:24px; }}
-.card {{ background:#161b23; border:1px solid #232b36; border-radius:12px; padding:18px 20px; }}
-.card h2 {{ margin:0 0 14px; font-size:16px; }}
+main {{ padding:22px; display:grid; gap:22px; }}
+.card {{ background:#161b23; border:1px solid #232b36; border-radius:12px; padding:16px 18px; }}
+.card h2 {{ margin:0 0 12px; font-size:16px; }}
 .tag {{ font-size:11px; color:#8b97a7; border:1px solid #2c3644; border-radius:999px;
-  padding:2px 9px; margin-left:6px; vertical-align:middle; }}
-.pair {{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }}
+  padding:2px 9px; margin-left:6px; }}
+.grid {{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }}
 figure {{ margin:0; }} figcaption {{ font-size:12px; color:#8b97a7; margin-bottom:6px; }}
 img {{ width:100%; height:auto; background:#fff; border-radius:8px; display:block; }}
-.na-box {{ display:grid; place-items:center; height:140px; color:#5c6675;
-  border:1px dashed #2c3644; border-radius:8px; }}
-nav {{ margin-top:12px; font-size:13px; }}
+.na, .dl {{ display:grid; place-items:center; height:150px; border:1px dashed #2c3644;
+  border-radius:8px; color:#8b97a7; text-decoration:none; }}
+.dl {{ color:#5aa0ff; font-weight:600; }} .dl:hover {{ background:#1b2230; }}
+nav {{ margin-top:8px; font-size:13px; color:#8b97a7; }}
 nav a {{ color:#5aa0ff; text-decoration:none; }} nav a:hover {{ text-decoration:underline; }}
-@media (max-width:820px) {{ .pair {{ grid-template-columns:1fr; }} }}
+@media (max-width:900px) {{ .grid {{ grid-template-columns:1fr; }} }}
 </style></head><body>
-<header><h1>Tarseem — diagram review</h1>
-<p>Engine (canonical) vs draw.io, per diagram.
-Open any <code>.drawio</code> in diagrams.net.</p></header>
-<main>{"".join(cards)}</main></body></html>"""
+<header><h1>Tarseem — review</h1>
+<p>Every diagram across every format. Engine (SVG→PNG) is the source of truth; draw.io and PPTX
+are compared against it.</p></header>
+<main>{cards}</main></body></html>"""
+
+
+_README = """# `out/` — review bundle (generated, gitignored)
+
+All generated; regenerate with `python tools/build_review.py examples/*.json`. The engine SVG is
+the source of truth; other formats are compared against it.
+
+## Structure — one folder per format
+
+| Path | Format |
+|------|--------|
+| `index.html` | **open this** — every diagram across every format, side by side |
+| `svg/<name>.svg` | engine canonical render (source of truth) |
+| `png/<name>.png` | engine render rasterized (visual reference) |
+| `drawio/<name>.drawio` | editable draw.io file (open in diagrams.net) |
+| `drawio/<name>.png` | how draw.io itself renders it |
+| `drawio/<name>.drawio.report.json` | draw.io CapabilityReport (only when lossy) |
+| `pptx/<name>.pptx` | native PowerPoint deck (open in Microsoft PowerPoint) |
+| `pptx/<name>.pptx.report.json` | PPTX CapabilityReport (only when lossy) |
+
+PPTX has no headless renderer, so `index.html` shows it as a download tile — open the `.pptx`
+in PowerPoint (see `docs/pptx-manual-checklist.md`).
+
+Close any open `.pptx`/`.drawio` before regenerating, or the rebuild logs `[locked]` and skips it.
+"""
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build the diagram review bundle.")
+    parser = argparse.ArgumentParser(description="Build the per-format review bundle.")
     parser.add_argument("specs", nargs="+", help="spec .json files")
-    parser.add_argument("-o", "--out", default="out/review", help="output dir")
+    parser.add_argument("-o", "--out", default="out", help="output dir (default: out)")
     args = parser.parse_args(argv)
-    out_dir = Path(args.out)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out = Path(args.out)
+    for fmt in _FORMATS:
+        (out / fmt).mkdir(parents=True, exist_ok=True)
     engine = Engine()
     entries: list[dict] = []
     for raw in args.specs:
@@ -129,12 +172,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[skip] {path}")
             continue
         try:
-            entries.append(_build_one(path, out_dir, engine))
+            entries.append(_build_one(path, out, engine))
             print(f"[ok]   {path.name}")
         except Exception as exc:
             print(f"[FAIL] {path.name}: {exc}")
-    (out_dir / "index.html").write_text(_index_html(entries), encoding="utf-8")
-    print(f"\nreview bundle: {out_dir / 'index.html'}  ({len(entries)} diagrams)")
+    (out / "index.html").write_text(_index_html(entries), encoding="utf-8")
+    (out / "README.md").write_text(_README, encoding="utf-8")
+    print(f"\nreview bundle: {out / 'index.html'}  ({len(entries)} diagrams)")
     return 0
 
 
