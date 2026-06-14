@@ -164,11 +164,27 @@ different font. Both addressed (draw.io + dev-tool only — no SVG change, no ba
   into the render page, so the **review bundle reflects draw.io WITH Cairo** (as draw.io Desktop
   does once the bundled OFL Cairo is installed). Badge digits now match the SVG in the review.
   *Residual ceiling:* a draw.io install WITHOUT Cairo still falls back to sans; zero-dependency
-  parity would require embedding the font in the file (one hidden `fontSource` cell) — deferred,
-  owner's call on the file-size trade.
+  parity would require embedding the font in the file — done in round 7 below.
 
 Tests: `tests/test_review_fixes.py` (now 22). Also wrapped a pre-existing >100-col line in
 `tools/build_review.py` that the configured ruff scope flags. Full gate green.
+
+## Review round 7 (2026-06-14) — embedded font + full-corpus sign-off bundle
+
+- **Font embedding (raises the fonts ceiling none → full).** `_embed_font` puts the bundled
+  Cairo subset INTO the .drawio as a single registering cell's `fontSource` (a self-contained,
+  URL-encoded `data:` URI). mxGraph turns that into a global `@font-face` for `Cairo`, so every
+  `fontFamily=Cairo` cell renders Cairo with **zero setup** — no install, no network. **Verified
+  in the viewer with font injection OFF** (`inject_font=False`): the file renders Cairo on its
+  own, across LTR, **RTL/Arabic** (shaping intact), and themed/phase diagrams. Deterministic
+  (timestamp-free, codepoint-sorted subset; first-text-cell registrar) → byte-identical per spec.
+  Subset is small: swimlane-pipeline .drawio ≈ 38 KB. `build_review` now renders with
+  `inject_font=False` so the bundle shows the true self-contained file.
+- **Full-corpus review** rebuilt for owner sign-off: all 17 `examples/*.json` →
+  `out/review/index.html` (engine vs draw.io side-by-side).
+
+Tests: `tests/test_review_fixes.py` (now 24, +embed presence +determinism). No SVG change → no
+baseline regen. Full gate green.
 
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
@@ -195,7 +211,7 @@ warning into the `.report.json` sidecar (never a silent drop).
 | curved_edges | none | orthogonal only. |
 | ports | none | ER attribute rows folded into entity label (no native table ports). |
 | gradients | none | flat fills only. |
-| fonts_embedded | none | draw.io references fonts by name; no embedding. |
+| fonts_embedded | full | bundled Cairo subset embedded via a single `fontSource` data: URI (one registrar cell, global `@font-face`); renders in Cairo with zero setup (round 7). |
 | rtl_shaping | partial | `writingDirection=rtl` set; bidi shaping delegated to diagrams.net's renderer. |
 | theme_fidelity | partial | fill/stroke/font colours + lane hue carried; tints approximate, no gradients. |
 | metadata | full | provenance as an XML file comment. |

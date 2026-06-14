@@ -55,7 +55,9 @@ def _cairo_font_face() -> str:
     return f"@font-face{{font-family:'Cairo';src:url(data:font/ttf;base64,{data});}}"
 
 
-def render_to_png(drawio_path: Path, out_png: Path, viewer_js: Path) -> Path:
+def render_to_png(
+    drawio_path: Path, out_png: Path, viewer_js: Path, inject_font: bool = True
+) -> Path:
     from playwright.sync_api import sync_playwright
 
     cfg = {
@@ -72,7 +74,8 @@ def render_to_png(drawio_path: Path, out_png: Path, viewer_js: Path) -> Path:
         try:
             page = browser.new_page(device_scale_factor=2)
             page.set_content("<!doctype html><meta charset='utf-8'><body style='margin:0'></body>")
-            page.add_style_tag(content=_cairo_font_face())
+            if inject_font:  # show draw.io WITH Cairo; set False to test a file's embedded font
+                page.add_style_tag(content=_cairo_font_face())
             page.add_script_tag(path=str(viewer_js))
             page.evaluate(_RENDER_JS, cfg)
             page.wait_for_selector(".mxgraph svg", timeout=15000)

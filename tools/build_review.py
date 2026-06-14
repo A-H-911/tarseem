@@ -46,7 +46,11 @@ def _build_one(spec_path: Path, out_dir: Path, engine: Engine) -> dict:
         result.export(["drawio"], out_dir, name=name)
         drawio_path = out_dir / f"{name}.drawio"
         try:
-            render_to_png(drawio_path, out_dir / f"{name}.drawio.png", Path(VIEWER_JS))
+            # inject_font=False: the .drawio embeds its own Cairo subset, so this shows the
+            # self-contained file exactly as draw.io renders it (no dev-tool font help).
+            render_to_png(
+                drawio_path, out_dir / f"{name}.drawio.png", Path(VIEWER_JS), inject_font=False
+            )
             entry["drawio"] = True
         except Exception as exc:  # render is best-effort for the bundle
             entry["drawio_error"] = str(exc)

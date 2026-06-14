@@ -179,6 +179,54 @@ def _label_text(node: PositionedNode) -> str:
     return node.label.text
 
 
+def _all_chars(diagram: PositionedDiagram) -> frozenset[str]:
+    """Every glyph the diagram renders — for the embedded-font subset."""
+    chars: set[str] = set("0123456789.PKF")  # badge digits + ER key tags
+    if diagram.title:
+        chars.update(diagram.title)
+    for n in diagram.nodes:
+        chars.update(n.label.text)
+        if n.badge:
+            chars.update(n.badge)
+        for r in n.rows:
+            chars.update(r.label.text)
+    for e in diagram.edges:
+        if e.label:
+            chars.update(e.label.text)
+    for band in diagram.lanes:
+        chars.update(band.label.text)
+    for group in diagram.lane_groups:
+        chars.update(group.label.text)
+    for phase in diagram.phases:
+        chars.update(phase.label.text)
+    return frozenset(chars)
+
+
+def _embed_font(root: etree._Element, diagram: PositionedDiagram) -> None:
+    """Embed the bundled Cairo subset INTO the file so the .drawio renders in Cairo with zero
+    setup (raises the fonts ceiling). mxGraph turns a cell's ``fontSource`` (a URL-encoded font
+    URL — a self-contained data: URI here) into a global ``@font-face`` for ``fontFamily``, so a
+    single registering cell makes every ``fontFamily=Cairo`` cell use it — no per-cell bloat.
+    Deterministic: the subset is timestamp-free + codepoint-sorted, the registering cell is the
+    first text cell in document order."""
+    import urllib.parse
+
+    from tarseem.render.fonts import subset_woff2_datauri
+
+    chars = _all_chars(diagram)
+    if not chars:
+        return
+    src = urllib.parse.quote(f"data:font/woff2;base64,{subset_woff2_datauri(chars)}", safe="")
+    # pure family name (no fallback) so the @font-face registers for "Cairo"; other cells keep
+    # "Cairo,sans-serif" and resolve to this now-defined face.
+    register = f"fontFamily=Cairo;fontSource={src};"
+    for cell in root.iter("mxCell"):
+        style = cell.get("style") or ""
+        if cell.get("value") and _FONT in style:
+            cell.set("style", style.replace(_FONT, register, 1))
+            return
+
+
 def to_drawio_xml(diagram: PositionedDiagram, meta: dict[str, str] | None = None) -> str:
     """Serialize ``diagram`` to an uncompressed .drawio XML string (provenance-commented)."""
     mxfile = etree.Element("mxfile", host="tarseem", type="device")
@@ -239,6 +287,7 @@ def to_drawio_xml(diagram: PositionedDiagram, meta: dict[str, str] | None = None
     for i, edge in enumerate(diagram.edges):
         _emit_edge(root, edge, i, curved, edge_w, label_above)
 
+    _embed_font(root, diagram)  # self-contained Cairo subset → renders in Cairo with zero setup
     xml = etree.tostring(mxfile, pretty_print=True, encoding="unicode")
     if meta:
         from tarseem.export.metadata import as_comment

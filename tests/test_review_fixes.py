@@ -199,3 +199,17 @@ def test_drawio_fill_only_chrome_has_no_black_border():
 def test_drawio_er_title_has_no_black_border():
     cells = _cellmap(to_drawio_xml(_render("er-shop").diagram))
     assert "strokeColor=none" in cells["ertitle_order"].get("style", "")
+
+
+def test_drawio_embeds_cairo_font_subset():
+    # one registering cell carries fontSource (a data: URI) so the file renders in Cairo with no
+    # install — zero-dependency parity, raising the fonts ceiling.
+    xml = to_drawio_xml(_render("swimlane-pipeline").diagram)
+    assert "fontSource=" in xml and "data%3Afont%2Fwoff2" in xml
+
+
+def test_drawio_embedded_font_is_deterministic():
+    # same spec -> byte-identical XML (subset is timestamp-free + codepoint-sorted) (A3).
+    a = to_drawio_xml(_render("swimlane-pipeline").diagram)
+    b = to_drawio_xml(_render("swimlane-pipeline").diagram)
+    assert a == b
