@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from tarseem.model.ir import PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
-from tarseem.render.svg import _arrowhead, _esc, _num, edge_svg_line
+from tarseem.render.svg import _arrowhead, _edge_label_bg, _esc, _num, edge_svg_line
 from tarseem.render.text import label_attrs, resolve_edge_corners, resolve_entity_corners
 
 __all__ = ["render_er_svg"]
@@ -101,11 +101,7 @@ def _edge_svg(e: PositionedEdge, curved: bool = True) -> list[str]:
         out.append(_arrowhead(e.points[-2], e.points[-1], color))
     if e.label and e.label_xy:
         lx, ly = e.label_xy
-        half = max(10.0, len(e.label.text) * 3.6)
-        out.append(
-            f'<rect x="{_num(lx - half)}" y="{_num(ly - 9)}" width="{_num(2 * half)}" '
-            f'height="18" fill="#FFFFFF" opacity="0.9"/>'
-        )
+        out.append(_edge_label_bg(lx, ly, e.label.text))
         out.append(
             f'<text x="{_num(lx)}" y="{_num(ly)}" font-size="11" fill="{color}" '
             f'{label_attrs(e.label)}>{_esc(e.label.text)}</text>'

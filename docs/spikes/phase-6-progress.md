@@ -200,6 +200,17 @@ baseline regen. Full gate green.
 
 Tests: `tests/test_review_fixes.py` (now 26). Full gate green.
 
+## Review round 9 (2026-06-14) — tighter edge-label halo
+
+Owner (state-order-lifecycle "deliver"): the white box behind edge labels is too much; draw.io
+(no box) is cleaner. The SVG halo was an oversized 18px-tall / `len*3.5*2`-wide box (text is
+`dominant-baseline=central`, so ~3px of slab on every side, crowding the adjacent bullseye).
+Shared `_edge_label_bg` now hugs the text (`height=15`, `half=max(7,len*3+1)`, opacity 0.85) and
+is reused by the generic, swimlane, and ER writers (was three near-duplicate inline boxes).
+
+SVG-default change → 12 win32 baselines regenerated (every edge-labelled sample). **linux/macOS
+pending.** Tests: `tests/test_review_fixes.py` (now 27). Full gate green.
+
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
 ✅ **Option A** (draw.io viewer / mxGraph) **and ✅ Option B** (draw.io **Desktop** engine,

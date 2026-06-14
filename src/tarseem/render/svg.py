@@ -155,6 +155,17 @@ def edge_svg_line(
     )
 
 
+def _edge_label_bg(lx: float, ly: float, text: str) -> str:
+    """Tight white halo behind an edge label so it stays legible over lines without slabbing over
+    nearby shapes. Text is ``dominant-baseline=central`` on ``ly`` so the box hugs it symmetrically
+    (was an oversized 18px box — owner: 'too much white'; draw.io is cleaner)."""
+    half = max(7.0, len(text) * 3.0 + 1.0)
+    return (
+        f'<rect x="{_num(lx - half)}" y="{_num(ly - 7.5)}" width="{_num(2 * half)}" '
+        f'height="15" fill="#FFFFFF" opacity="0.85"/>'
+    )
+
+
 def _label_center(n: PositionedNode) -> tuple[float, float]:
     """Centre point for a node's label. A cube reserves depth at top+right, so its label
     centres on the FRONT face, not the bbox (bug: deployment label off-centre)."""
@@ -225,11 +236,7 @@ def render_svg(diagram: PositionedDiagram) -> str:
             parts.append(_arrowhead(e.points[-2], e.points[-1], color))
         if e.label and e.label_xy:
             lx, ly = e.label_xy
-            half = max(8.0, len(e.label.text) * 3.5)
-            parts.append(
-                f'<rect x="{_num(lx - half)}" y="{_num(ly - 9)}" width="{_num(2 * half)}" '
-                f'height="18" fill="#FFFFFF" opacity="0.9"/>'
-            )
+            parts.append(_edge_label_bg(lx, ly, e.label.text))
             parts.append(
                 f'<text x="{_num(lx)}" y="{_num(ly)}" font-size="12" fill="{color}" '
                 f'{_label_attrs(e.label)}>{_esc(e.label.text)}</text>'

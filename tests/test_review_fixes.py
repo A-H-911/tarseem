@@ -235,3 +235,12 @@ def test_chrome_radius_unified_and_crisp():
         _render("swimlane-nested-delivery").diagram
     )
     assert 'rx="3"' in _render("swimlane-phases").svg  # SVG phase band uses the same crisp radius
+
+
+def test_edge_label_bg_hugs_text():
+    # tight halo (owner: 'too much white'): 7 chars -> half=22 -> width 44, height 15
+    # (was an 18px-tall, len*3.5*2=49px box).
+    from tarseem.render.svg import _edge_label_bg
+
+    bg = _edge_label_bg(100.0, 50.0, "deliver")
+    assert 'height="15"' in bg and 'width="44"' in bg
