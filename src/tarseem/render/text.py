@@ -15,7 +15,37 @@ from __future__ import annotations
 
 from tarseem.model.ir import Label
 
-__all__ = ["has_rtl", "resolve_direction", "resolve_lang", "bidi_attrs", "label_attrs"]
+__all__ = [
+    "has_rtl",
+    "resolve_direction",
+    "resolve_lang",
+    "bidi_attrs",
+    "label_attrs",
+    "resolve_badge_side",
+    "resolve_edge_corners",
+]
+
+
+def resolve_entity_corners(theme: dict | None = None) -> str:
+    """ER entity corner style: ``"rounded"`` (default, matches the SVG) or ``"square"``.
+    Spec override: ``theme.entityCorners``."""
+    corner = str((theme or {}).get("entityCorners") or "rounded").lower()
+    return "square" if corner == "square" else "rounded"
+
+
+def resolve_edge_corners(theme: dict | None = None) -> bool:
+    """True when edge bends are drawn curved (rounded) — the default. Spec
+    ``theme.edgeCorners`` = ``"straight"`` switches every edge to sharp corners."""
+    return str((theme or {}).get("edgeCorners") or "curved").lower() != "straight"
+
+
+def resolve_badge_side(rtl: bool, theme: dict | None = None) -> str:
+    """Corner the auto-number badge sits on. Default: LTR -> right, RTL -> left. Overridable
+    per spec via ``theme.badgeCorner`` = ``"left"`` | ``"right"`` (``"auto"`` keeps the default)."""
+    corner = str((theme or {}).get("badgeCorner") or "auto").lower()
+    if corner in ("left", "right"):
+        return corner
+    return "left" if rtl else "right"
 
 # Strong-RTL Unicode blocks: Hebrew, Arabic (+ Supplement, Extended-A), Thaana,
 # and the Arabic Presentation Forms. Membership of any code point flips a label to RTL

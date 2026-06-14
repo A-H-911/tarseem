@@ -1,0 +1,53 @@
+name: drawio-roundtrip
+
+# Validation-only (08 §3, R-18): the headless draw.io desktop CLI must be able to OPEN and
+# re-EXPORT the .drawio files this engine writes. This proves the XML we emit is real,
+# loadable mxGraph — not a render-path dependency (draw.io is never invoked at render time).
+on:
+  pull_request:
+    paths:
+      - "src/tarseem/export/drawio.py"
+      - "tests/test_export_drawio.py"
+      - ".github/workflows/drawio-roundtrip.yml"
+  workflow_dispatch:
+
+jobs:
+  roundtrip:
+    name: headless draw.io open + re-export
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Python/Node run on the HOST. We do NOT run inside the draw.io image: its base glibc is
+      # older than the interpreter actions/setup-python installs, so `python` won't start there.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node (ELK layout - ADR-002)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Install package + dev tooling
+        run: python -m pip install -e ".[dev]"
+
+      # draw.io is provided as a Docker-backed shim: the test calls $TARSEEM_DRAWIO_CLI like a
+      # binary; this runs the headless Electron CLI in its own container (xvfb-wrapped) with the
+      # workspace bind-mounted at the same path, so the absolute tmp paths the test passes resolve
+      # identically inside. Pinned image tag keeps it deterministic (invariant 7).
+      - name: Provide a Docker-backed draw.io CLI
+        run: |
+          WRAP="$RUNNER_TEMP/drawio"
+          cat > "$WRAP" <<SH
+          #!/usr/bin/env bash
+          exec docker run --rm -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" \
+            rlespinasse/drawio-desktop-headless:1.5.0 "\$@"
+          SH
+          chmod +x "$WRAP"
+          echo "TARSEEM_DRAWIO_CLI=$WRAP" >> "$GITHUB_ENV"
+
+      - name: Round-trip test (writer output re-exports via draw.io CLI)
+        # --basetemp keeps pytest's tmp files inside the bind-mounted workspace so the container sees them.
+        run: pytest tests/test_export_drawio.py -q -k drawio_cli --basetemp="$GITHUB_WORKSPACE/.pytmp"

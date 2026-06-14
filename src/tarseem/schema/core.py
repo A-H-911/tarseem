@@ -158,6 +158,22 @@ _LAYOUT = {
         },
         # honour each node's manual `position` instead of engine placement (Phase 5)
         "respectManualPositions": {"type": "boolean"},
+        # opt-in uniform node sizing: true (all share max WxH) | "byShape" | {scope,width,height}
+        "uniformNodeSize": {
+            "anyOf": [
+                {"type": "boolean"},
+                {"enum": ["all", "byShape"]},
+                {
+                    "type": "object",
+                    "properties": {
+                        "scope": {"enum": ["all", "byShape"]},
+                        "width": {"type": "number", "minimum": 0},
+                        "height": {"type": "number", "minimum": 0},
+                    },
+                    "additionalProperties": False,
+                },
+            ]
+        },
         # optional post-placement re-router; "elk" (default) or "libavoid" (experimental, ADR-006)
         "router": {"enum": ["elk", "libavoid"]},
     },
@@ -206,7 +222,16 @@ CORE_SCHEMA: dict = {
         "meta": {"type": "object"},
         "theme": {
             "type": "object",
-            "properties": {"ref": {"type": "string"}, "overrides": {"type": "object"}},
+            "properties": {
+                "ref": {"type": "string"},
+                "overrides": {"type": "object"},
+                # auto-number badge corner: "auto" (LTR->right, RTL->left) | "left" | "right"
+                "badgeCorner": {"enum": ["auto", "left", "right"]},
+                # edge bend corners across all writers: "curved" (default) | "straight"
+                "edgeCorners": {"enum": ["curved", "straight"]},
+                # ER entity corners across all writers: "rounded" (default) | "square"
+                "entityCorners": {"enum": ["rounded", "square"]},
+            },
             "additionalProperties": True,
         },
         "direction": {"enum": ["LR", "RL", "TB", "BT"]},

@@ -185,20 +185,21 @@ def test_dashed_edge_renders_dashed():
     assert "stroke-dasharray" in svg
 
 
-def test_cylinder_badge_clears_the_top_cap():
-    from tarseem.render.swimlane import _badge_baseline
+def test_badge_renders_as_corner_circle():
+    # Badge is now a circle centred on the node's top corner (note #5): right for the default
+    # LTR side, left when forced — with the number (dot stripped) inside.
+    from tarseem.model.ir import Label, PositionedNode
+    from tarseem.render.swimlane import _badge_circle
 
-    # cylinder badge sits below its ellipse cap; flat-top shapes use the base inset
-    assert _badge_baseline("cylinder", 100.0) > _badge_baseline("roundrect", 100.0)
-    assert _badge_baseline("roundrect", 100.0) == _badge_baseline("diamond", 100.0)
-
-
-def test_parallelogram_badge_clears_the_slanted_corner():
-    from tarseem.render.swimlane import _badge_x
-
-    # parallelogram top-left is cut by the skew; badge must shift right into the body
-    assert _badge_x("parallelogram", 100.0) > _badge_x("roundrect", 100.0)
-    assert _badge_x("roundrect", 100.0) == _badge_x("document", 100.0)
+    n = PositionedNode(
+        id="x", x=100.0, y=50.0, width=80.0, height=40.0,
+        label=Label(text="Step"), shape="roundrect", badge="2.",
+    )
+    right = "".join(_badge_circle(n, "right", "#333333"))
+    assert "<circle" in right and 'cx="180"' in right and 'cy="50"' in right  # top-right
+    assert ">2<" in right  # number, dot stripped
+    left = "".join(_badge_circle(n, "left", "#333333"))
+    assert 'cx="100"' in left  # top-left corner
 
 
 def test_rendered_svg_is_wellformed_xml():

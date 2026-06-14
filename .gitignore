@@ -32,6 +32,9 @@ artifacts/
 gallery-dist/
 *.local.*
 
+# Dev verification cache (draw.io viewer lib for the render-fidelity loop; not packaged)
+.cache/
+
 # OS / editors
 .DS_Store
 Thumbs.db

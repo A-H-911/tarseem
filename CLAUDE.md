@@ -20,7 +20,7 @@ Schema-driven Python diagram engine: validated JSON specs → architecture-grade
    - SVG: per-label `direction="rtl"`, `xml:lang`; default font **Cairo** (bundled, OFL) + Noto pair fallback; embed subset WOFF2 by default.
    - RTL mirroring (direction: RL) = geometry only: ELK `direction=LEFT`, lane headers flip to right, number badges flip corner, arrows reverse. Theme stays invariant.
    - PPTX RTL: `<a:pPr rtl="1"/>` via lxml patch (python-pptx has no API for it).
-5. **Editable exports are writers, not conversions**: own mxGraph/.drawio XML writer (native `swimlane` pool/lane shapes, `writingDirection=rtl`, uncompressed XML, documented style-key subset only) + python-pptx native shapes/connectors (EMU coords from positioned IR). No EMF, no SVG-ungroup automation.
+5. **Editable exports are writers, not conversions**: own mxGraph/.drawio XML writer (**amended by ADR-007**: explicit cells matching the SVG — incl. RTL right-side headers + phase bands — not native `swimlane` shapes; `writingDirection=rtl`, uncompressed XML, documented style-key subset only) + python-pptx native shapes/connectors (EMU coords from positioned IR). No EMF, no SVG-ungroup automation.
 6. **Capability reports, never silent drops**: every adapter declares `supports`; unsupported spec features produce machine-readable warnings in RenderReport/CapabilityReport.
 7. **Determinism**: pinned elkjs + Chromium versions; same spec ⇒ identical output; artifacts embed spec hash + engine versions; visual-regression baseline changes only via explicit PR.
 8. **Extension model**: diagram types are plugins (schema extension + compiler + layout/render profiles) registered via entry points. Built-ins use the same mechanism.
