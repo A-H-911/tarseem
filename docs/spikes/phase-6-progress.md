@@ -186,6 +186,20 @@ Tests: `tests/test_review_fixes.py` (now 22). Also wrapped a pre-existing >100-c
 Tests: `tests/test_review_fixes.py` (now 24, +embed presence +determinism). No SVG change → no
 baseline regen. Full gate green.
 
+## Review round 8 (2026-06-14) — state pseudostates + crisp chrome corners
+
+- **State initial/final pseudostates.** They have no `_SHAPE_STYLE` entry, so draw.io drew plain
+  white boxes. `_emit_pseudostate` now renders them as ellipses matching `render/svg.py`: initial =
+  a solid dot filled with the stroke colour; final = a bullseye (outer ring + inner dot). Verified
+  on `state-order-lifecycle`.
+- **Crisp corner radius (owner-preferred style → new default, both writers).** Phase bands and
+  nested-lane group gutters used a softer 5–6px (SVG) / percentage `arcSize` (draw.io). Now a
+  shared crisp `_CHROME_RADIUS=3` absolute in both (`swimlane.py` rx, draw.io `absoluteArcSize`).
+  SVG-default change → win32 baselines regenerated: `swimlane-phases.png`,
+  `swimlane-nested-delivery.png` (others byte-identical / sub-tolerance). **linux/macOS pending.**
+
+Tests: `tests/test_review_fixes.py` (now 26). Full gate green.
+
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
 ✅ **Option A** (draw.io viewer / mxGraph) **and ✅ Option B** (draw.io **Desktop** engine,

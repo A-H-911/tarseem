@@ -86,6 +86,7 @@ _LANE_ROW_DEFAULT = "#EEEEEE"
 _LANE_ACCENT_DEFAULT = "#333333"
 _MARKER_BLACK = "#000000"  # MUST match render/swimlane.py _MARKER_BLACK
 _BADGE_R = 11.0  # numbered-badge corner-circle radius
+_CHROME_RADIUS = 3.0  # crisp corner for phase bands + lane-group gutters — MUST match swimlane.py
 
 # ER entity table colours — MUST match render/er.py (so the .drawio matches out/er-shop.png).
 _ER_TITLE_FILL = "#37474F"
@@ -262,6 +263,9 @@ def to_drawio_xml(diagram: PositionedDiagram, meta: dict[str, str] | None = None
         if node.rows:  # ER entity → explicit table cells matching render/er.py (bug #2)
             _emit_entity(root, node, rtl, entity_round)
             continue
+        if node.shape in ("initial", "final"):  # state pseudostates → ellipses, not a plain box
+            _emit_pseudostate(root, node)
+            continue
         is_cube = node.shape == "cube"
         cell = etree.SubElement(
             root,
@@ -341,8 +345,8 @@ def _emit_swimlane_chrome(root: etree._Element, diagram: PositionedDiagram) -> N
             root,
             _cell_id("lanegroup", group.id),
             (group.x, group.y, group.width, group.height),
-            f"rounded=1;arcSize=6;html=1;fillColor={fill};strokeColor=none;fontColor=#FFFFFF;"
-            f"fontStyle=1;opacity=92;horizontal=0;{_FONT}",  # horizontal=0 reads the label upward
+            f"rounded=1;absoluteArcSize=1;arcSize={_fmt(_CHROME_RADIUS)};html=1;fillColor={fill};"
+            f"strokeColor=none;fontColor=#FFFFFF;fontStyle=1;opacity=92;horizontal=0;{_FONT}",
             group.label.text,
         )
 
@@ -432,8 +436,9 @@ def _emit_separators(
             _cell_id("phase", phase.id),
             (phase.x, phase.y, phase.width, phase.height),
             _style(
-                f"rounded=1;arcSize=5;html=1;fillColor={_PHASE_FILL};strokeColor=none;"
-                "fontColor=#FFFFFF;fontStyle=1;fontSize=13;opacity=92;",
+                f"rounded=1;absoluteArcSize=1;arcSize={_fmt(_CHROME_RADIUS)};html=1;"
+                f"fillColor={_PHASE_FILL};strokeColor=none;fontColor=#FFFFFF;fontStyle=1;"
+                "fontSize=13;opacity=92;",
                 phase.label,
             ),
             phase.label.text,
@@ -499,6 +504,32 @@ def _emit_marker(root: etree._Element, marker: Marker) -> None:
         root, _cell_id("markerdot", mid),
         (marker.cx - ir, marker.cy - ir, 2 * ir, 2 * ir),
         f"ellipse;html=1;fillColor={_MARKER_BLACK};strokeColor=none;",
+    )
+
+
+def _emit_pseudostate(root: etree._Element, node: PositionedNode) -> None:
+    """State-machine initial/final pseudostates as ellipses matching render/svg.py (they have no
+    entry in _SHAPE_STYLE, so they'd otherwise fall back to a plain white box). initial = a solid
+    dot filled with the stroke colour; final = a bullseye (outer ring + inner solid dot)."""
+    stroke = _stroke(node.style)
+    r = min(node.width, node.height) / 2
+    cx, cy = node.x + node.width / 2, node.y + node.height / 2
+    if node.shape == "initial":
+        _rect_cell(
+            root, _cell_id("state", node.id), (cx - r, cy - r, 2 * r, 2 * r),
+            f"ellipse;html=1;fillColor={stroke};strokeColor=none;",
+        )
+        return
+    sw = _stroke_w(node.style)
+    _rect_cell(
+        root, _cell_id("state", node.id), (cx - r, cy - r, 2 * r, 2 * r),
+        f"ellipse;html=1;fillColor={_fill(node.style)};strokeColor={stroke};"
+        f"strokeWidth={_fmt(sw)};",
+    )
+    ir = r * 0.5  # inner dot radius — MUST match render/svg.py final pseudostate
+    _rect_cell(
+        root, _cell_id("statedot", node.id), (cx - ir, cy - ir, 2 * ir, 2 * ir),
+        f"ellipse;html=1;fillColor={stroke};strokeColor=none;",
     )
 
 

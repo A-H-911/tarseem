@@ -213,3 +213,25 @@ def test_drawio_embedded_font_is_deterministic():
     a = to_drawio_xml(_render("swimlane-pipeline").diagram)
     b = to_drawio_xml(_render("swimlane-pipeline").diagram)
     assert a == b
+
+
+# --- review round 8 (owner-reported) --------------------------------------------------
+
+def test_drawio_state_pseudostates_render_as_ellipses():
+    # initial/final have no _SHAPE_STYLE entry -> were plain white boxes; now ellipses like the SVG.
+    cells = _cellmap(to_drawio_xml(_render("state-order-lifecycle").diagram))
+    assert "ellipse" in cells["state_start"].get("style", "")
+    assert "ellipse" in cells["state_done"].get("style", "")
+    assert "statedot_done" in cells  # final bullseye inner dot
+
+
+def test_chrome_radius_unified_and_crisp():
+    from tarseem.export.drawio import _CHROME_RADIUS as D_R
+    from tarseem.render.swimlane import _CHROME_RADIUS as S_R
+
+    assert S_R == D_R == 3.0
+    assert "absoluteArcSize=1;arcSize=3" in to_drawio_xml(_render("swimlane-phases").diagram)
+    assert "absoluteArcSize=1;arcSize=3" in to_drawio_xml(
+        _render("swimlane-nested-delivery").diagram
+    )
+    assert 'rx="3"' in _render("swimlane-phases").svg  # SVG phase band uses the same crisp radius

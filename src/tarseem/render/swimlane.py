@@ -29,6 +29,9 @@ _SEPARATOR = "#B0BEC5"
 _EDGE_DEFAULT = "#2E8B57"
 _MARKER_BLACK = "#000000"
 _BADGE_R = 11.0  # auto-number badge corner-circle radius (MUST match export/drawio.py _BADGE_R)
+# Crisp/pointy corner for phase bands + nested-lane group gutters (owner-preferred style; was a
+# softer 5–6px). MUST match export/drawio.py _CHROME_RADIUS (emitted there as absoluteArcSize).
+_CHROME_RADIUS = 3.0
 
 
 def _badge_circle(n: PositionedNode, side: str, accent: str) -> list[str]:
@@ -101,7 +104,7 @@ def _phase_band(band, lanes_top: float, lanes_bottom: float, sep: dict) -> list[
         f'<line x1="{_num(band.x)}" y1="{_num(lanes_top)}" x2="{_num(band.x)}" '
         f'y2="{_num(lanes_bottom)}" {_phase_sep_attrs(sep)}/>',
         f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
-        f'height="{_num(band.height)}" rx="5" fill="#37474F" opacity="0.92"/>',
+        f'height="{_num(band.height)}" rx="{_num(_CHROME_RADIUS)}" fill="#37474F" opacity="0.92"/>',
         f'<text x="{_num(cx)}" y="{_num(band.y + band.height / 2)}" font-size="13" '
         f'font-weight="700" fill="#FFFFFF" {_label_attrs(band.label)}>'
         f"{_esc(band.label.text)}</text>",
@@ -145,7 +148,7 @@ def _lane_group_band(band) -> list[str]:
     cy = band.y + band.height / 2
     return [
         f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
-        f'height="{_num(band.height)}" rx="6" fill="{fill}" opacity="0.92"/>',
+        f'height="{_num(band.height)}" rx="{_num(_CHROME_RADIUS)}" fill="{fill}" opacity="0.92"/>',
         f'<text x="{_num(cx)}" y="{_num(cy)}" font-size="12" font-weight="700" fill="#FFFFFF" '
         f'transform="rotate(-90 {_num(cx)} {_num(cy)})" {_label_attrs(band.label)}>'
         f"{_esc(band.label.text)}</text>",
