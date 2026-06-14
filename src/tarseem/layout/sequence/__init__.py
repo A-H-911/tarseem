@@ -55,7 +55,7 @@ class SequenceLayout:
             heads.append(
                 PositionedNode(
                     id=n.id, x=x, y=head_y, width=w, height=_HEAD_H,
-                    label=n.label, shape="rect",
+                    label=n.label, shape=n.shape,  # honor compiled shape (nodeCorners default)
                     style={"fill": "#EAF2EF", "border": {"color": "#2E8B57", "width": 2}},
                 )
             )

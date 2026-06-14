@@ -19,6 +19,7 @@ _DEFAULT_FILL = "#FFFFFF"
 _DEFAULT_STROKE = "#333333"
 _DEFAULT_TEXT = "#14281D"
 _DEFAULT_EDGE = "#333333"
+_CYL_CAP = 6.0  # cylinder label drop (px) so text centres on the body, below the top ellipse cap
 # Subtle drop shadow for 3-D shapes (cube/cylinder) — owner-preferred; mirrored in draw.io/pptx.
 SHADOW_DEF = (
     '<filter id="tarseem-shadow" x="-20%" y="-20%" width="140%" height="140%">'
@@ -168,6 +169,8 @@ def _label_center(n: PositionedNode) -> tuple[float, float]:
     if n.shape == "cube":
         d = 14.0  # MUST match _shape_svg cube depth + measure._CUBE_DEPTH
         return n.x + (n.width - d) / 2, n.y + d + (n.height - d) / 2
+    if n.shape == "cylinder":  # drop below the top cap so text centres on the body (PPTX CAN look)
+        return n.x + n.width / 2, n.y + n.height / 2 + _CYL_CAP
     return n.x + n.width / 2, n.y + n.height / 2
 
 

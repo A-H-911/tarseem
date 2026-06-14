@@ -94,6 +94,14 @@ def test_pptx_separators_are_connectors_not_freeforms():
     assert "<p:cxnSp>" in prs.slides[0]._element.xml
 
 
+def test_pptx_embeds_the_cairo_font():
+    import zipfile
+
+    z = zipfile.ZipFile(io.BytesIO(to_pptx_bytes(_render("arabic-flowchart").diagram)))
+    assert "ppt/fonts/font1.fntdata" in z.namelist()
+    assert "embeddedFontLst" in z.read("ppt/presentation.xml").decode("utf-8")
+
+
 def test_pptx_lane_group_label_is_vertical():
     prs = Presentation(io.BytesIO(to_pptx_bytes(_render("swimlane-nested-delivery").diagram)))
     assert 'vert="vert270"' in prs.slides[0]._element.xml

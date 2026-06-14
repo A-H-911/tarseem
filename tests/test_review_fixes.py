@@ -196,6 +196,20 @@ def test_edge_labels_offset_off_line_and_idempotent():
         assert perp >= 8.0
 
 
+def test_sequence_heads_are_rounded_by_default():
+    # the sequence layouter must honor the compiled (rounded) shape, not hardcode rect.
+    assert 'rx="10"' in _render("sequence-login").svg
+
+
+def test_cylinder_label_drops_below_the_cap():
+    from tarseem.model.ir import Label, PositionedNode
+    from tarseem.render.svg import _CYL_CAP, _label_center
+
+    n = PositionedNode(id="c", x=0.0, y=0.0, width=100.0, height=60.0,
+                       label=Label(text="db"), shape="cylinder")
+    assert _label_center(n) == (50.0, 30.0 + _CYL_CAP)
+
+
 def test_node_corners_rounded_by_default_and_opt_out():
     # owner directive: rect shapes render rounded by default; theme.nodeCorners="sharp" opts out.
     spec = _spec("architecture")

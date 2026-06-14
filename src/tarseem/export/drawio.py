@@ -151,6 +151,8 @@ def _font_color(style: dict) -> str | None:
 def _node_style(node: PositionedNode) -> str:
     base = _SHAPE_STYLE.get(node.shape, "")
     tokens = f"{base}html=1;whiteSpace=wrap;fillColor={_fill(node.style)};"
+    if node.shape == "cylinder":  # drop text onto the body, below the top cap (≈ svg _CYL_CAP*2)
+        tokens += "verticalAlign=middle;spacingTop=12;"
     tokens += f"strokeColor={_stroke(node.style)};strokeWidth={_fmt(_stroke_w(node.style))};"
     # default to the engine's label colour (#14281D) when the spec sets none — mxGraph would
     # otherwise fall back to black, diverging from the SVG (cube label already defaults the same).

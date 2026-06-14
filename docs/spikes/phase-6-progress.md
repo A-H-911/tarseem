@@ -295,6 +295,26 @@ format, side by side; PPTX as a download tile since it has no headless render) a
 `out/README.md`. Locked files (an open `.pptx`/`.drawio`) are skipped with a `[locked]` log.
 `out/index.html` is the one sign-off surface.
 
+## PPTX review round 3 (2026-06-14)
+
+- **PPTX font embedded (Arabic fix, #2; fonts ceiling none→full).** The bundled `Cairo-VF.ttf` is
+  instanced to a static regular TTF and embedded in the package via OPC surgery (font part +
+  content-type + relationship + `embeddedFontLst` + `embedTrueTypeFonts="1"`) — PowerPoint now
+  renders Cairo (incl. Arabic from the `a:cs` slot) without the font installed. Deterministic
+  (static instance, no wall-clock). *Unverified in PowerPoint here — open `arabic-flowchart.pptx`
+  first to confirm no repair prompt.*
+- **Sequence actors rounded (#3).** `SequenceLayout` hardcoded `shape="rect"` for participant
+  heads, ignoring the compiled (rounded) shape — now uses `n.shape`, so `nodeCorners` applies.
+- **Cylinder label centring (#4).** SVG/draw.io centred the label on the bbox; now dropped onto
+  the body below the top cap (`_CYL_CAP`; draw.io `spacingTop`) to match PPTX's CAN. swimlane now
+  uses the shared `_label_center`.
+- **PPTX ER header (#1).** The container's default rounded-rect radius was large; pinned both the
+  container and the `ROUND_2_SAME_RECTANGLE` title to ~6px so the title's rounded top aligns with
+  the container (no poke-out).
+
+SVG-default changes (rounded sequence heads + cylinder label) → win32 baselines regenerated;
+linux/macOS at PR time. Tests added. Full gate green.
+
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
 ✅ **Option A** (draw.io viewer / mxGraph) **and ✅ Option B** (draw.io **Desktop** engine,

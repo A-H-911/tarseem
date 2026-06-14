@@ -15,6 +15,7 @@ from tarseem.render.svg import (
     _arrowhead,
     _esc,
     _label_attrs,
+    _label_center,
     _num,
     _shape_svg,
     edge_svg_line,
@@ -189,8 +190,9 @@ def _node_svg(n: PositionedNode, rtl: bool = False, badge_side: str = "right") -
     accent = str((n.style.get("border") or {}).get("color", "#333333"))
     if n.badge:
         out.extend(_badge_circle(n, badge_side, accent))
+    lcx, lcy = _label_center(n)  # cube/cylinder-aware vertical centring
     out.append(
-        f'<text x="{_num(n.x + n.width / 2)}" y="{_num(n.y + n.height / 2)}" font-size="12" '
+        f'<text x="{_num(lcx)}" y="{_num(lcy)}" font-size="12" '
         f'fill="#14281D" {_label_attrs(n.label)}>{_esc(n.label.text)}</text>'
     )
     return out
