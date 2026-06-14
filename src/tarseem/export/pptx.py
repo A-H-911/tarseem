@@ -17,9 +17,7 @@ Constraints honoured:
 """
 from __future__ import annotations
 
-import functools
 import io
-import re
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -510,67 +508,17 @@ def _build(diagram: PositionedDiagram) -> _Prs:
     return b.prs
 
 
-_FONT_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/font"
-
-
-@functools.lru_cache(maxsize=1)
-def _embedded_font() -> bytes:
-    """The bundled Cairo, instanced to a STATIC regular TTF (PowerPoint embeds static TTFs more
-    reliably than variable). Deterministic: recalcTimestamp=False keeps the font's fixed dates."""
-    from fontTools.ttLib import TTFont
-    from fontTools.varLib import instancer
-
-    from tarseem.measure import default_font_path
-
-    vf = TTFont(str(default_font_path()), recalcTimestamp=False)
-    instancer.instantiateVariableFont(vf, {"wght": 400}, inplace=True)
-    buf = io.BytesIO()
-    vf.save(buf)
-    return buf.getvalue()
-
-
-def _finalize(raw: bytes) -> bytes:
-    """Embed the Cairo TTF into the .pptx so it renders without the font installed (fonts ceiling),
-    then re-emit the zip with constant mtimes for byte-determinism (invariant 7). python-pptx has no
-    font-embedding API, so this is OPC surgery: add the font part + content-type + relationship and
-    declare it in presentation.xml (embeddedFontLst)."""
+def _normalize_zip(raw: bytes) -> bytes:
+    """Re-emit the .pptx zip with constant mtimes so the same spec is byte-identical (invariant 7).
+    python-pptx stamps each entry with wall-clock time; preserve order + content, fix the rest."""
     src = zipfile.ZipFile(io.BytesIO(raw))
-    names = src.namelist()
-    parts = {n: src.read(n) for n in names}
-    parts["ppt/fonts/font1.fntdata"] = _embedded_font()
-
-    ct = parts["[Content_Types].xml"].decode("utf-8")
-    if "fntdata" not in ct:
-        ct = ct.replace(
-            "<Default ",
-            '<Default Extension="fntdata" ContentType="application/x-fontdata"/><Default ', 1,
-        )
-        parts["[Content_Types].xml"] = ct.encode("utf-8")
-
-    rn = "ppt/_rels/presentation.xml.rels"
-    parts[rn] = parts[rn].decode("utf-8").replace(
-        "</Relationships>",
-        f'<Relationship Id="rIdFont1" Type="{_FONT_REL}" Target="fonts/font1.fntdata"/>'
-        "</Relationships>",
-    ).encode("utf-8")
-
-    pres = parts["ppt/presentation.xml"].decode("utf-8")
-    pres = re.sub(r"<p:presentation\b", '<p:presentation embedTrueTypeFonts="1"', pres, count=1)
-    flst = ('<p:embeddedFontLst><p:embeddedFont><p:font typeface="Cairo"/>'
-            '<p:regular r:id="rIdFont1"/></p:embeddedFont></p:embeddedFontLst>')
-    if "<p:defaultTextStyle" in pres:  # embeddedFontLst precedes defaultTextStyle in the schema
-        pres = pres.replace("<p:defaultTextStyle", flst + "<p:defaultTextStyle", 1)
-    else:
-        pres = pres.replace("</p:presentation>", flst + "</p:presentation>")
-    parts["ppt/presentation.xml"] = pres.encode("utf-8")
-
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name in [*names, "ppt/fonts/font1.fntdata"]:
+        for name in src.namelist():
             zi = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             zi.compress_type = zipfile.ZIP_DEFLATED
             zi.external_attr = 0o600 << 16
-            zf.writestr(zi, parts[name])
+            zf.writestr(zi, src.read(name))
     return out.getvalue()
 
 
@@ -585,7 +533,7 @@ def to_pptx_bytes(diagram: PositionedDiagram, meta: dict[str, str] | None = None
         cp.comments = "; ".join(f"{k}={v}" for k, v in sorted(meta.items()))
     buf = io.BytesIO()
     prs.save(buf)
-    return _finalize(buf.getvalue())
+    return _normalize_zip(buf.getvalue())
 
 
 def write_pptx(
@@ -612,7 +560,7 @@ def _report(diagram: PositionedDiagram):
         "curved_edges": "partial",  # rounded corners approximated by sampled segments
         "ports": "partial" if any(n.rows for n in diagram.nodes) else "none",
         "gradients": "none",
-        "fonts_embedded": "full",  # Cairo TTF embedded in the package (renders without install)
+        "fonts_embedded": "none",  # names Cairo (a:cs); PowerPoint substitutes if not installed
         "rtl_shaping": "partial",  # pPr rtl=1 + cs font set; shaping delegated to PowerPoint
         "theme_fidelity": "partial",  # flat fills/strokes/text colours; no gradients/tints
         "metadata": "full",  # provenance in core properties
@@ -630,4 +578,6 @@ def _report(diagram: PositionedDiagram):
     if any(_rtl_label(n.label) for n in diagram.nodes):
         warnings.append(CapabilityWarning("feature-approximated", "rtl_shaping",
                         "a:pPr rtl=1 + a:cs=Cairo set; bidi shaping delegated to PowerPoint"))
+    warnings.append(CapabilityWarning("feature-dropped", "fonts_embedded",
+                    "PPTX names Cairo; embedding caused PowerPoint repair prompts (reverted)"))
     return build_capability_report("pptx", supports, warnings)

@@ -297,12 +297,13 @@ format, side by side; PPTX as a download tile since it has no headless render) a
 
 ## PPTX review round 3 (2026-06-14)
 
-- **PPTX font embedded (Arabic fix, #2; fonts ceiling none→full).** The bundled `Cairo-VF.ttf` is
-  instanced to a static regular TTF and embedded in the package via OPC surgery (font part +
-  content-type + relationship + `embeddedFontLst` + `embedTrueTypeFonts="1"`) — PowerPoint now
-  renders Cairo (incl. Arabic from the `a:cs` slot) without the font installed. Deterministic
-  (static instance, no wall-clock). *Unverified in PowerPoint here — open `arabic-flowchart.pptx`
-  first to confirm no repair prompt.*
+- **PPTX font embedding ATTEMPTED then REVERTED (Arabic #2).** Embedded a static-instanced Cairo
+  via OPC surgery; structurally valid + deterministic + reopened in python-pptx, but **PowerPoint
+  flagged the file for repair** (I have no PowerPoint to validate against, so blind iteration was
+  futile). Reverted to the named-`a:cs`-Cairo approach (fonts ceiling = `none`): PowerPoint renders
+  Arabic in Cairo only if Cairo is installed (bundled at `src/tarseem/assets/fonts/Cairo-VF.ttf`).
+  Revisit embedding only with a PowerPoint-validation loop (likely needs the OOXML font-obfuscation
+  PowerPoint expects, or a different `embeddedFontLst` placement).
 - **Sequence actors rounded (#3).** `SequenceLayout` hardcoded `shape="rect"` for participant
   heads, ignoring the compiled (rounded) shape — now uses `n.shape`, so `nodeCorners` applies.
 - **Cylinder label centring (#4).** SVG/draw.io centred the label on the bbox; now dropped onto
