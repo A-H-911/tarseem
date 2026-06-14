@@ -49,17 +49,27 @@ _SHAPE_STYLE: dict[str, str] = {
     # stray property and silently falls back to a rectangle — caught by the draw.io round-trip).
     "diamond": "shape=rhombus;perimeter=rhombusPerimeter;",
     "parallelogram": "shape=parallelogram;perimeter=parallelogramPerimeter;",
-    "cylinder": "shape=cylinder3;",
+    # size=9 MUST match render/svg.py cylinder ry (shallow cap = engine's tall-can look; the
+    # cylinder3 default cap is deeper and reads as a shorter cylinder).
+    "cylinder": "shape=cylinder3;size=9;",
     "document": "shape=document;",
-    # cube depth = 14 (MUST match render/svg.py + measure._CUBE_DEPTH). draw.io's cube centres
-    # its own label on the bbox and ignores spacing, so the label is emitted as a SEPARATE text
-    # cell over the front face (see _emit_cube_label) — matching the engine.
-    "cube": "shape=cube;size=14;",
+    # cube depth = 14 (MUST match render/svg.py + measure._CUBE_DEPTH). draw.io's cube extrudes
+    # depth at top+LEFT (front face bottom-right) — the MIRROR of the engine (top+right); flipH=1
+    # mirrors it back so the 3D faces and the bottom-left front face match the SVG. draw.io centres
+    # its own cube label on the bbox + ignores depth, so the label is a SEPARATE front-face text
+    # cell (see _emit_cube_label) which flipH leaves untouched.
+    "cube": "shape=cube;size=14;flipH=1;",
     "table": "",  # ER entity → plain box; attribute rows folded into label (reported partial)
 }
 
 _DEFAULT_FILL = "#FFFFFF"
 _DEFAULT_STROKE = "#333333"
+_DEFAULT_TEXT = "#14281D"  # MUST match render/svg.py _DEFAULT_TEXT (engine label colour)
+# Name the SVG's underlying font family so draw.io references the same face, with a sans-serif
+# fallback. draw.io can't embed fonts (fonts ceiling): exact glyphs match only where Cairo is
+# installed (e.g. draw.io Desktop); elsewhere the fallback keeps text SANS (matching Cairo's
+# style), never the browser's serif default that a bare `fontFamily=Cairo` would trigger.
+_FONT = "fontFamily=Cairo,sans-serif;"
 
 # Swimlane chrome geometry — MUST match render/swimlane.py (we draw lanes as plain rects +
 # header chips, NOT draw.io native swimlanes, per ADR-007, so the .drawio matches the canonical
@@ -87,6 +97,7 @@ _ER_KEY_FILL = {"PK": "#C49000", "FK": "#3B7DD8"}
 _SEQ_MARGIN = 24.0
 _SEQ_STEM = "#9AA8A2"
 _SEQ_ACT_BORDER = "#2E8B57"
+_SEQ_LABEL_GAP = 4.0  # px lift of a message label above its line — MUST match sequence._LABEL_LIFT
 _CUBE_DEPTH = 14.0  # MUST match render/svg.py + measure._CUBE_DEPTH
 # Default edge stroke width per family — MUST match each SVG edge writer's default so a spec's
 # edge.style.width controls both writers identically.
@@ -109,7 +120,7 @@ def _style(tokens: str, label: Label | None, *, rtl_ok: bool = True) -> str:
     # RTL controls bidi base direction only (writingDirection); block alignment stays the
     # draw.io vertex default (centered), matching the SVG (text-anchor=middle). Forcing
     # align=right here was the "RTL text not horizontally centered" bug.
-    style = tokens
+    style = tokens + _FONT
     if rtl_ok and _rtl(label):
         style += "writingDirection=rtl;"
     return style
@@ -141,9 +152,9 @@ def _node_style(node: PositionedNode) -> str:
     base = _SHAPE_STYLE.get(node.shape, "")
     tokens = f"{base}html=1;whiteSpace=wrap;fillColor={_fill(node.style)};"
     tokens += f"strokeColor={_stroke(node.style)};strokeWidth={_fmt(_stroke_w(node.style))};"
-    fc = _font_color(node.style)
-    if fc:
-        tokens += f"fontColor={fc};"
+    # default to the engine's label colour (#14281D) when the spec sets none — mxGraph would
+    # otherwise fall back to black, diverging from the SVG (cube label already defaults the same).
+    tokens += f"fontColor={_font_color(node.style) or _DEFAULT_TEXT};"
     return _style(tokens, node.label)
 
 
@@ -282,7 +293,7 @@ def _emit_swimlane_chrome(root: etree._Element, diagram: PositionedDiagram) -> N
             _cell_id("lanegroup", group.id),
             (group.x, group.y, group.width, group.height),
             f"rounded=1;arcSize=6;html=1;fillColor={fill};fontColor=#FFFFFF;fontStyle=1;"
-            "opacity=92;horizontal=0;",  # horizontal=0 rotates the label to read upward
+            f"opacity=92;horizontal=0;{_FONT}",  # horizontal=0 rotates the label to read upward
             group.label.text,
         )
 
@@ -384,7 +395,21 @@ def _emit_separators(
 
 def _emit_sequence_chrome(root: etree._Element, diagram: PositionedDiagram) -> None:
     """Sequence lifelines + activation bars matching render/sequence.py (note #4): a dashed
-    stem descends from each participant head; activation bars are white rects on the stems."""
+    stem descends from each participant head; activation bars are white rects on the stems.
+    Also the centered diagram title — the engine renders titles for sequence (and swimlane);
+    only swimlane had one in draw.io before, so non-lane sequence titles were dropped."""
+    if diagram.title:  # centered title in the top margin band — MUST match render/sequence.py
+        _rect_cell(
+            root,
+            "title",
+            (0.0, 0.0, diagram.width, _SEQ_MARGIN),
+            _style(
+                "text;html=1;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;"
+                f"fontColor={_DEFAULT_TEXT};",
+                Label(text=diagram.title),
+            ),
+            diagram.title,
+        )
     bottom_y = diagram.height - _SEQ_MARGIN
     for node in diagram.nodes:
         cx = node.x + node.width / 2
@@ -437,7 +462,7 @@ def _emit_badge(root: etree._Element, node: PositionedNode, side: str) -> None:
         _cell_id("badge", node.id),
         (cx - _BADGE_R, node.y - _BADGE_R, 2 * _BADGE_R, 2 * _BADGE_R),
         f"ellipse;html=1;fillColor={accent};strokeColor=#FFFFFF;fontColor=#FFFFFF;"
-        "fontStyle=1;fontSize=11;",
+        f"fontStyle=1;fontSize=11;{_FONT}",
         num,
     )
 
@@ -495,7 +520,8 @@ def _emit_entity(
             root,
             _cell_id("erattr", rid),
             (x + _ER_PAD_X, ry, w - 2 * _ER_PAD_X, r.height),
-            f"text;html=1;align={align};verticalAlign=middle;fontColor=#14281D;fontSize=12;{wd}",
+            f"text;html=1;align={align};verticalAlign=middle;fontColor={_DEFAULT_TEXT};"
+            f"fontSize=12;{wd}{_FONT}",
             r.label.text,
         )
         if r.key:
@@ -506,8 +532,9 @@ def _emit_entity(
                 root,
                 _cell_id("erkey", rid),
                 (x + w - _ER_PAD_X - tw, ky - 8, tw, 16),
-                f"rounded=1;arcSize=30;html=1;fillColor={fill};fontColor=#FFFFFF;fontStyle=1;"
-                "fontSize=10;",
+                # absolute 3px radius MUST match render/er.py _key_tag rx=3 (was a 30% pill).
+                f"rounded=1;absoluteArcSize=1;arcSize=3;html=1;fillColor={fill};fontColor=#FFFFFF;"
+                f"fontStyle=1;fontSize=10;{_FONT}",
                 r.key,
             )
 
@@ -534,10 +561,12 @@ def _emit_edge(
     )
     if dashed:
         style += "dashed=1;"
-    if label_above:  # raise the label off the line (sequence messages), matching the SVG
-        style += "verticalAlign=bottom;"
-    if edge.label is not None and _rtl(edge.label):
-        style += "writingDirection=rtl;"
+    if label_above:  # raise the label off the line (sequence messages), matching the SVG gap
+        style += f"verticalAlign=bottom;spacingBottom={_fmt(_SEQ_LABEL_GAP)};"
+    if edge.label is not None:
+        style += _FONT
+        if _rtl(edge.label):
+            style += "writingDirection=rtl;"
     cell = etree.SubElement(
         root,
         "mxCell",

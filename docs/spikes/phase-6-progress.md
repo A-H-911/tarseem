@@ -123,6 +123,33 @@ fidelity fixes (draw.io → match SVG).
 All draw.io-only except the (default-unchanged) ER renderer → **no baseline regen**. Tests:
 `tests/test_review_fixes.py` (now 13). Full gate green; coverage 92.47%.
 
+## Review round 5 (2026-06-14) — pixel pass on engine vs draw.io
+
+Systematic engine↔draw.io comparison (Option-A viewer) of swimlane-pipeline, er-shop,
+sequence-login, deployment-web-stack, arabic-flowchart. Confirmed all round 1–4 items hold;
+fixed the remaining divergences (all draw.io-only except the sequence label lift). Method: a
+shape probe (`out/probe.drawio`) rendered through draw.io's viewer settled the cube/cylinder
+style keys empirically before coding.
+
+| # | Issue (owner-reported unless noted) | Root cause | Fix |
+|---|---|---|---|
+| 1 | cube **facing** mirrored (draw.io right, SVG left) **and** front-face label off | draw.io `shape=cube` extrudes depth top-**left**; the engine top-right | `flipH=1` on the cube cell → front face bottom-left like the SVG; the separate label cell then lands on it |
+| 2 | cylinder **height** less in draw.io | `cylinder3` default cap is deep (squat look) | `shape=cylinder3;size=9` — cap == engine `ry=9` |
+| 3 | sequence message label **gap** to line unequal | no shared lift | one constant: SVG `sequence._LABEL_LIFT=4` + draw.io `spacingBottom=4` (=`_SEQ_LABEL_GAP`) |
+| 4 | swimlane badge **font** differs | no `fontFamily` → draw.io default ≠ SVG Cairo | `fontFamily=Cairo,sans-serif` on all text cells (sans fallback; never serif) |
+| 5 (mine) | sequence diagram **title** dropped | draw.io emitted titles only for swimlanes | emit a centered title cell for sequence (engine renders titles for swimlane+sequence only) |
+| 6 (mine) | plain-node label **colour** black | mxGraph default vs engine `#14281D` | default `fontColor=#14281D` in `_node_style` |
+| 7 (mine) | ER PK/FK **pill** over-rounded | `arcSize=30` (30%) | `absoluteArcSize=1;arcSize=3` == SVG `rx=3` |
+
+**Fonts ceiling (note):** draw.io can't embed fonts. `fontFamily=Cairo,sans-serif` names the
+SVG's face (matches in a Cairo-equipped draw.io Desktop) and falls back to **sans** elsewhere —
+the viewer (no Cairo) renders a generic sans, close to Cairo but not glyph-identical. A bare
+`fontFamily=Cairo` was rejected: the viewer fell back to **serif**, worse than the default.
+
+Tests: `tests/test_review_fixes.py` (now 20). Only SVG change = sequence label lift → win32
+`sequence-login.png` baseline regenerated (others byte-identical, determinism confirmed);
+**linux/macOS baselines still pending** via `baselines.yml`. Full gate green.
+
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
 ✅ **Option A** (draw.io viewer / mxGraph) **and ✅ Option B** (draw.io **Desktop** engine,

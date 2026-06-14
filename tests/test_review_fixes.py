@@ -132,3 +132,54 @@ def test_drawio_cube_label_is_separate_front_face_cell():
 
 def test_drawio_sequence_label_raised_above_line():
     assert "verticalAlign=bottom" in to_drawio_xml(_render("sequence-login").diagram)
+
+
+# --- review round 5 (owner-reported) --------------------------------------------------
+
+def test_drawio_cube_flips_to_match_engine_facing():
+    # draw.io's cube extrudes depth top-LEFT (mirror of the engine); flipH=1 mirrors it so the
+    # front face is bottom-left like the SVG (and the separate label cell then sits on it).
+    style = _cellmap(to_drawio_xml(_render("deployment-web-stack").diagram))["n_browser"].get(
+        "style", ""
+    )
+    assert "shape=cube" in style and "flipH=1" in style
+
+
+def test_drawio_cylinder_cap_matches_engine_ry():
+    # size=9 == render/svg.py cylinder ry → shallow cap (engine's tall-can look), not the deep
+    # default cap that reads as a shorter cylinder.
+    cells = _cellmap(to_drawio_xml(_render("deployment-web-stack").diagram))
+    assert "shape=cylinder3;size=9" in cells["n_db"].get("style", "")
+
+
+def test_drawio_node_label_defaults_to_engine_text_color():
+    # a node with no spec text colour gets the engine default #14281D, not mxGraph black.
+    style = _cellmap(to_drawio_xml(_render("deployment-web-stack").diagram))["n_browser"].get(
+        "style", ""
+    )
+    assert "fontColor=#14281D" in style
+
+
+def test_drawio_sequence_emits_centered_title():
+    cell = _cellmap(to_drawio_xml(_render("sequence-login").diagram)).get("title")
+    assert cell is not None and cell.get("value") == "Login"
+    assert "align=center" in cell.get("style", "")
+
+
+def test_drawio_names_cairo_with_sans_fallback():
+    # references the SVG's font; sans-serif fallback keeps text sans (never browser serif) where
+    # Cairo isn't installed — fonts-embedded ceiling.
+    assert "fontFamily=Cairo,sans-serif" in to_drawio_xml(_render("swimlane-pipeline").diagram)
+
+
+def test_drawio_er_key_pill_radius_matches_svg():
+    assert "absoluteArcSize=1;arcSize=3" in to_drawio_xml(_render("er-shop").diagram)
+
+
+def test_sequence_label_gap_unified_across_writers():
+    # the message-label lift is one shared constant so SVG and draw.io keep the same gap.
+    from tarseem.export.drawio import _SEQ_LABEL_GAP
+    from tarseem.render.sequence import _LABEL_LIFT
+
+    assert _LABEL_LIFT == _SEQ_LABEL_GAP
+    assert "spacingBottom=4" in to_drawio_xml(_render("sequence-login").diagram)
