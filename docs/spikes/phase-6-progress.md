@@ -26,7 +26,7 @@ One positioned IR, many writers (ADR-001). New shared infra this phase: **Capabi
 - Minor: diamond label slightly overflows the rhombus outline (a diamond has ~half its bbox area). Cosmetic.
 
 Verification is the **viewer** (Option A), not yet the Desktop editor (Option B) — those can differ; Option B is the final sign-off before human review.
-| 2 | **PPTX writer** — python-pptx shapes/connectors/groups from IR in EMUs, `rtl="1"` lxml patch, manual PowerPoint checklist | ⏳ next | — |
+| 2 | **PPTX writer** — python-pptx native shapes/connectors from IR in EMUs, `rtl="1"` lxml patch, deterministic zip, manual PowerPoint checklist | ✅ done (writer + tests); manual PPT review pending | `export/pptx.py`, `tests/test_export_pptx.py`, `docs/pptx-manual-checklist.md` |
 | 3 | **PDF** via Chromium CDP (print-to-PDF, mirrors `png.py`) | ⏳ | — |
 | 4 | **Mermaid + PlantUML** source writers (logical IR) with CapabilityReports | ⏳ | — |
 | 5 | Export metadata embedded in **all** artifacts (SVG already; PNG tEXt, PDF XMP, PPTX core-props, drawio done) | ◑ partial | drawio done |
@@ -210,6 +210,39 @@ is reused by the generic, swimlane, and ER writers (was three near-duplicate inl
 
 SVG-default change → 12 win32 baselines regenerated (every edge-labelled sample). **linux/macOS
 pending.** Tests: `tests/test_review_fixes.py` (now 27). Full gate green.
+
+## PPTX writer (2026-06-14) — native shapes, branch `phase-6-pptx`
+
+`src/tarseem/export/pptx.py`: python-pptx **native** autoshapes + freeform connectors + text from
+the positioned IR (invariant 5 — no image, no SVG ungroup). IR px → EMU (9525/px); slide margin
+matches the SVG framing per family (generic/ER +24px, swimlane/sequence absolute). Edges are
+freeform polylines with an XML-patched `a:tailEnd` arrowhead; RTL labels get `a:pPr rtl="1"`
+(no python-pptx API). All families covered: shape vocab + state pseudostates, swimlane chrome
+(bands/chips/title/phases/groups/separators), sequence lifelines+activations, ER table cells,
+markers, badges. Wired into `engine.export(["pptx"])` + `.report.json` sidecars.
+
+**Determinism (invariant 7):** a .pptx is a zip python-pptx stamps with wall-clock mtimes +
+core-prop timestamps. Core props pinned to a constant; the zip is re-emitted with normalized
+`ZipInfo` → byte-identical per spec (tested across 7 families).
+
+**Verification:** structure/determinism/EMU-scaling/RTL/report tested (`tests/test_export_pptx.py`,
+20 tests). No headless PPTX renderer exists, so on-canvas appearance is an owner step — decks at
+`out/pptx/*.pptx`, checklist at `docs/pptx-manual-checklist.md`.
+
+| Feature | Level | Notes |
+|---|---|---|
+| shapes | full* | rect/roundrect/stadium/diamond/parallelogram/can/document/cube + state dot/bullseye. *unknown → rect + warning |
+| lanes / phases | full | explicit rects + chips + phase bands (matches the SVG/ADR-007 chrome) |
+| badges / markers | full | corner-circle ovals; start dot + end bullseye |
+| edge_routes | full | exact IR polyline as a freeform connector (floating, not shape-bound) |
+| edge_labels | full | textbox with a tight white halo |
+| curved_edges | none | straight segments only |
+| ports | partial | ER rows are explicit cells, not native table ports |
+| gradients | none | flat fills |
+| fonts_embedded | none | names Cairo; python-pptx can't embed — PowerPoint substitutes if absent |
+| rtl_shaping | partial | `a:pPr rtl=1`; shaping delegated to PowerPoint |
+| theme_fidelity | partial | flat fills/strokes/text colours; no gradients/tints |
+| metadata | full | provenance in core properties (no wall-clock) |
 
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 

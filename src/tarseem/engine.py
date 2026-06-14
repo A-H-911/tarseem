@@ -106,21 +106,25 @@ class RenderResult:
                 written["png"] = svg_to_png(svg_text, out / f"{name}.png")
             elif fmt == "drawio":
                 written["drawio"] = self._export_writer(fmt, out / f"{name}.drawio")
+            elif fmt == "pptx":
+                written["pptx"] = self._export_writer(fmt, out / f"{name}.pptx")
             else:
                 raise ValueError(
-                    f"unsupported export format: {fmt!r} (have: svg, png, drawio)"
+                    f"unsupported export format: {fmt!r} (have: svg, png, drawio, pptx)"
                 )
         return written
 
     def _export_writer(self, fmt: str, path: Path) -> Path:
         """Run an IR writer, record its CapabilityReport, and sidecar a ``.report.json`` when
         the export is lossy so a downstream tool sees exactly what was dropped (invariant 6)."""
-        from tarseem.export import write_drawio
+        from tarseem.export import write_drawio, write_pptx
         from tarseem.export.metadata import provenance
 
         meta = provenance(self)
         if fmt == "drawio":
             result = write_drawio(self.diagram, path, meta)
+        elif fmt == "pptx":
+            result = write_pptx(self.diagram, path, meta)
         else:  # pragma: no cover - guarded by export()
             raise ValueError(f"no writer for {fmt!r}")
         self.reports[fmt] = result.report
