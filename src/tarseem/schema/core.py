@@ -231,6 +231,8 @@ CORE_SCHEMA: dict = {
                 "edgeCorners": {"enum": ["curved", "straight"]},
                 # ER entity corners across all writers: "rounded" (default) | "square"
                 "entityCorners": {"enum": ["rounded", "square"]},
+                # node rectangle corners across all writers: "rounded" (default) | "sharp"
+                "nodeCorners": {"enum": ["rounded", "sharp"]},
             },
             "additionalProperties": True,
         },

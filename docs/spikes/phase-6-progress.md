@@ -268,6 +268,27 @@ pending** (CI at PR time). Tests: `tests/test_export_pptx.py` (24), `tests/test_
 (+SVG slab/shadow). Full gate green. **Open / still to verify in PowerPoint:** Arabic/English
 mixed bidi spacing (review #3) — improved via rtl + cs font, may need another pass.
 
+## PPTX review round 2 (2026-06-14) — labels off the line + rounded-by-default
+
+- **Edge labels off the line (all writers).** New post-layout transform `offset_edge_labels`
+  (`model/edge_labels.py`, run in `engine.render`) nudges each `label_xy` perpendicular off its
+  nearest segment — above a horizontal segment, beside a vertical one (right LTR / left RTL) — so
+  the line never passes through the text. SVG/PPTX read the corrected point; draw.io now emits the
+  label as a **separate text cell** at `label_xy` (it otherwise centres an edge value on the line).
+  Removed the per-writer label hacks (`_LABEL_LIFT`, `verticalAlign=bottom`/`spacingBottom`,
+  pptx `label_above`). Idempotent (offset measured from the line).
+- **Rounded corners by default (all writers, all types).** `theme.nodeCorners` (new schema enum,
+  default `rounded`); `compile` maps `rect → roundrect` so every writer renders rounded with no
+  writer change. Opt out globally with `nodeCorners="sharp"`.
+- **PPTX ER title** → `ROUND_2_SAME_RECTANGLE` (rounded top, square bottom — matches the SVG;
+  the plain rounded rect rounded the bottom too).
+- **PPTX Arabic mixed (review #2)** — set each run's `lang` (+ existing `rtl`/`cs` font) so
+  PowerPoint applies bidi; **single-run only — mixed Arabic/Latin spacing may still need
+  per-script run-splitting (unverifiable without PowerPoint; flagged for re-check).**
+
+SVG-default changes (rounded rects + label positions) → all 13 win32 baselines regenerated;
+linux/macOS at PR time. Tests updated. Full gate green.
+
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
 ✅ **Option A** (draw.io viewer / mxGraph) **and ✅ Option B** (draw.io **Desktop** engine,

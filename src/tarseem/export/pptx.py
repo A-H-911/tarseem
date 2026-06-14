@@ -257,8 +257,13 @@ class _Builder:
         run.font.bold = bold
         _set_run_font(run, _FONT)
         run.font.color.rgb = _rgb(color)
-        if not isinstance(label, str) and _rtl_label(label):
-            p._p.get_or_add_pPr().set("rtl", "1")  # no python-pptx API (invariant 4)
+        if not isinstance(label, str):
+            rtl = _rtl_label(label)
+            # tag the run's language so PowerPoint applies the right bidi/shaping (helps mixed
+            # Arabic/English spacing); set the paragraph base direction for RTL labels.
+            run._r.get_or_add_rPr().set("lang", label.lang or ("ar-SA" if rtl else "en-US"))
+            if rtl:
+                p._p.get_or_add_pPr().set("rtl", "1")  # no python-pptx API (invariant 4)
 
     def textbox(self, x: float, y: float, w: float, h: float, label, **kw):
         tb = self.shapes.add_textbox(*self._box(x, y, w, h))
@@ -422,10 +427,11 @@ def _emit_entity(b: _Builder, node: PNode) -> None:
     x, y, w, h = node.x, node.y, node.width, node.height
     title_h = node.rows[0].y_offset if node.rows else h
     b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h, "#FFFFFF", _ER_BORDER, 1.5)
-    # rounded-rect title so its top corners follow the container (square corners poked out)
-    title = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, title_h, _ER_TITLE_FILL, None)
+    # ROUND_2_SAME rounds only the TOP two corners (square bottom) -> matches the SVG header
+    # (a plain rounded rect rounded the bottom too, leaving notches at the title/rows seam).
+    title = b.rect(MSO_SHAPE.ROUND_2_SAME_RECTANGLE, x, y, w, title_h, _ER_TITLE_FILL, None)
     try:
-        title.adjustments[0] = 6.0 / min(w, title_h)  # ~6px radius
+        title.adjustments[0] = 6.0 / min(w, title_h)  # ~6px top radius
     except (IndexError, ValueError, ZeroDivisionError):  # pragma: no cover
         pass
     b.text_in(title, node.label, size=13, color="#FFFFFF", bold=True)
@@ -443,17 +449,15 @@ def _emit_entity(b: _Builder, node: PNode) -> None:
             b.text_in(pill, r.key, size=10, color="#FFFFFF", bold=True)
 
 
-def _emit_edge(b: _Builder, edge: PositionedEdge, default_w: float, label_above: bool,
-               curved: bool) -> None:
+def _emit_edge(b: _Builder, edge: PositionedEdge, default_w: float, curved: bool) -> None:
     color = str(edge.style.get("stroke", _DEFAULT_EDGE))
     width = float(edge.style.get("width", default_w) or default_w)
     dashed = edge.style.get("style") == "dashed"
     _freeform(b, _rounded_points(list(edge.points), curved), color, width, dashed=dashed)
-    if edge.label and edge.label_xy:
+    if edge.label and edge.label_xy:  # label_xy is already off the line (offset_edge_labels)
         lx, ly = edge.label_xy
-        dy = -7.5 if label_above else 0.0
         w = max(40.0, len(edge.label.text) * 7.0)  # ~text width; transparent (no white slab)
-        b.textbox(lx - w / 2, ly - 8 + dy, w, 16.0, edge.label, size=12, color=color, wrap=False)
+        b.textbox(lx - w / 2, ly - 8, w, 16.0, edge.label, size=12, color=color, wrap=False)
 
 
 def _freeform(b: _Builder, pts: list[tuple[float, float]], color: str, width: float,
@@ -486,10 +490,9 @@ def _build(diagram: PositionedDiagram) -> _Prs:
         _emit_sequence_chrome(b, diagram)
     badge_side = resolve_badge_side(diagram.direction == "RL", diagram.theme)
     default_w = _EDGE_WIDTH_DEFAULT.get(diagram.diagram_type, 1.0)
-    label_above = diagram.diagram_type == "sequence"
     curved = resolve_edge_corners(diagram.theme)
     for edge in diagram.edges:  # edges first, shapes on top (arrowheads tuck at borders)
-        _emit_edge(b, edge, default_w, label_above, curved)
+        _emit_edge(b, edge, default_w, curved)
     for node in diagram.nodes:
         if node.rows:
             _emit_entity(b, node)

@@ -72,20 +72,27 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     # accept either `theme.ref` (schema-preferred) or `theme.name`; ref wins
     theme = theme or get_theme(theme_ref.get("ref") or theme_ref.get("name"))
     # carry presentation-only theme keys the renderers read off diagram.theme.
-    for key in ("badgeCorner", "edgeCorners", "entityCorners"):
+    for key in ("badgeCorner", "edgeCorners", "entityCorners", "nodeCorners"):
         if theme_ref.get(key) is not None:
             theme = {**theme, key: theme_ref[key]}
     diagram_type = spec.get("diagramType", "flowchart")
     default_shape = _DEFAULT_SHAPE.get(diagram_type, "rect")
+    # Rounded rectangle corners are the default across all node shapes (owner directive); opt out
+    # globally with theme.nodeCorners="sharp". Mapping rect->roundrect here means every writer
+    # renders the rounded shape with no per-writer change (one positioned IR, many writers).
+    node_corners = str(theme_ref.get("nodeCorners") or "rounded")
 
     nodes: list[LogicalNode] = []
     for raw in spec.get("nodes", []) or []:
         label = _label(raw.get("label")) or Label(text=str(raw.get("id", "")))
+        shape = raw.get("shape", default_shape)
+        if node_corners == "rounded" and shape == "rect":
+            shape = "roundrect"
         nodes.append(
             LogicalNode(
                 id=raw["id"],
                 label=label,
-                shape=raw.get("shape", default_shape),
+                shape=shape,
                 kind=raw.get("kind"),
                 lane=raw.get("lane"),
                 phase=raw.get("phase"),

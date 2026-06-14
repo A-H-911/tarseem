@@ -168,6 +168,10 @@ class Engine:
             with LibavoidRouter(node=self._node) as router:
                 diagram = router.reroute(graph, diagram)
                 versions["libavoid-js"] = router.capabilities()["version"]
+        # nudge edge labels off their lines so text never overlaps the route (all writers read it)
+        from tarseem.model.edge_labels import offset_edge_labels
+
+        diagram = offset_edge_labels(diagram)
         layout_ms = (time.perf_counter() - start) * 1000.0
         return RenderResult(
             diagram=diagram,

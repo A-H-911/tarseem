@@ -98,7 +98,6 @@ _ER_KEY_FILL = {"PK": "#C49000", "FK": "#3B7DD8"}
 _SEQ_MARGIN = 24.0
 _SEQ_STEM = "#9AA8A2"
 _SEQ_ACT_BORDER = "#2E8B57"
-_SEQ_LABEL_GAP = 4.0  # px lift of a message label above its line — MUST match sequence._LABEL_LIFT
 _CUBE_DEPTH = 14.0  # MUST match render/svg.py + measure._CUBE_DEPTH
 # Default edge stroke width per family — MUST match each SVG edge writer's default so a spec's
 # edge.style.width controls both writers identically.
@@ -287,9 +286,8 @@ def to_drawio_xml(diagram: PositionedDiagram, meta: dict[str, str] | None = None
 
     curved = resolve_edge_corners(diagram.theme)
     edge_w = _EDGE_WIDTH_DEFAULT.get(diagram.diagram_type, 1.0)
-    label_above = diagram.diagram_type == "sequence"  # SVG puts message labels above the line
     for i, edge in enumerate(diagram.edges):
-        _emit_edge(root, edge, i, curved, edge_w, label_above)
+        _emit_edge(root, edge, i, curved, edge_w)
 
     _embed_font(root, diagram)  # self-contained Cairo subset → renders in Cairo with zero setup
     xml = etree.tostring(mxfile, pretty_print=True, encoding="unicode")
@@ -623,8 +621,7 @@ def _emit_entity(
 
 
 def _emit_edge(
-    root: etree._Element, edge, index: int, curved: bool = True,
-    width: float = 1.0, label_above: bool = False,
+    root: etree._Element, edge, index: int, curved: bool = True, width: float = 1.0,
 ) -> None:
     from tarseem.model.ir import PositionedEdge
 
@@ -638,26 +635,12 @@ def _emit_edge(
     # edges trade live node-reconnection for guaranteed geometry — the route is the contract.
     # rounded=1 (curved corners) is the default, matching the engine SVG (theme.edgeCorners).
     rounded = "1" if curved else "0"
-    style = (
-        f"edgeStyle=none;rounded={rounded};html=1;strokeColor={stroke};"
-        f"strokeWidth={_fmt(sw)};"
-    )
+    style = f"edgeStyle=none;rounded={rounded};html=1;strokeColor={stroke};strokeWidth={_fmt(sw)};"
     if dashed:
         style += "dashed=1;"
-    if label_above:  # raise the label off the line (sequence messages), matching the SVG gap
-        style += f"verticalAlign=bottom;spacingBottom={_fmt(_SEQ_LABEL_GAP)};"
-    if edge.label is not None:
-        style += _FONT
-        if _rtl(edge.label):
-            style += "writingDirection=rtl;"
     cell = etree.SubElement(
-        root,
-        "mxCell",
-        id=_cell_id("e", edge.id or f"edge{index}"),
-        value=edge.label.text if edge.label else "",
-        style=style,
-        edge="1",
-        parent="1",
+        root, "mxCell", id=_cell_id("e", edge.id or f"edge{index}"), value="", style=style,
+        edge="1", parent="1",
     )
     geo = etree.SubElement(cell, "mxGeometry", relative="1")
     geo.set("as", "geometry")
@@ -670,6 +653,20 @@ def _emit_edge(
         arr = etree.SubElement(geo, "Array", {"as": "points"})
         for px, py in interior:
             etree.SubElement(arr, "mxPoint", x=_fmt(px), y=_fmt(py))
+    # Label as a SEPARATE text cell at the (already off-line) label_xy — draw.io would otherwise
+    # centre an edge value ON the line, ignoring our offset. Matches the SVG/PPTX placement.
+    if edge.label is not None and edge.label_xy is not None:
+        lx, ly = edge.label_xy
+        lw = max(40.0, len(edge.label.text) * 7.0)
+        _rect_cell(
+            root,
+            _cell_id("elabel", edge.id or f"edge{index}"),
+            (lx - lw / 2, ly - 8.0, lw, 16.0),
+            _style(
+                f"text;html=1;align=center;verticalAlign=middle;fontColor={stroke};", edge.label
+            ),
+            edge.label.text,
+        )
 
 
 def _point(geo: etree._Element, xy: tuple[float, float], role: str) -> None:
