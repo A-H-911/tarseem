@@ -54,10 +54,12 @@ def _build_one(spec_path: Path, out: Path, engine: Engine) -> dict:
     entry: dict = {"name": name, "type": result.diagram.diagram_type, "drawio_png": False}
     svg_text = result.to_svg(provenance=True)
 
-    _safe(lambda: (out / "svg" / f"{name}.svg").write_text(svg_text, encoding="utf-8"), f"{name}.svg")
+    _safe(lambda: (out / "svg" / f"{name}.svg").write_text(svg_text, encoding="utf-8"),
+          f"{name}.svg")
     _safe(lambda: svg_to_png(svg_text, out / "png" / f"{name}.png"), f"{name}.png")
 
-    if _safe(lambda: result.export(["drawio"], out / "drawio", name=name), f"{name}.drawio") is None:
+    if _safe(lambda: result.export(["drawio"], out / "drawio", name=name),
+             f"{name}.drawio") is None:
         if _safe(
             lambda: render_to_png(
                 out / "drawio" / f"{name}.drawio", out / "drawio" / f"{name}.png",
