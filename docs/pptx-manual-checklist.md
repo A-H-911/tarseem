@@ -39,11 +39,19 @@ For every `out/pptx/<sample>.pptx`:
 - [ ] **Determinism** — re-exporting the same spec yields a byte-identical `.pptx` (tested; spot-check if curious).
 - [ ] **Provenance** — File ▸ Info ▸ Properties shows the spec hash / engine versions in Comments; no real date.
 
-## Fonts note (known ceiling)
+## Fonts (install Cairo)
 
-PPTX cannot embed fonts via python-pptx, so cells **name** `Cairo`; PowerPoint renders Cairo if
-installed (bundled with the repo under the font path) and otherwise substitutes a default sans.
-The `.report.json` sidecar records `fonts_embedded: none`. If exact glyphs matter, install Cairo.
+PPTX cells **name** `Cairo` (incl. the complex-script `a:cs` slot, so Arabic uses it). Fonts are
+**not embedded** in the `.pptx` — so **Cairo must be installed** for correct rendering, especially
+Arabic. **Verified:** with Cairo installed, PowerPoint renders Latin + Arabic correctly; without
+it, PowerPoint substitutes a default font.
+
+Install Cairo from Google Fonts (<https://fonts.google.com/specimen/Cairo>) or instance the bundled
+`src/tarseem/assets/fonts/Cairo-VF.ttf`. The `.report.json` sidecar records `fonts_embedded: none`.
+
+Zero-install font **embedding is deferred** (see the future task in `docs/spikes/phase-6-progress.md`):
+a plain OPC embed made PowerPoint flag the file for repair; it likely needs PowerPoint's font
+obfuscation and must be done as an iterative loop with a PowerPoint to validate against.
 
 ## Reporting issues
 

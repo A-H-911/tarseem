@@ -579,5 +579,6 @@ def _report(diagram: PositionedDiagram):
         warnings.append(CapabilityWarning("feature-approximated", "rtl_shaping",
                         "a:pPr rtl=1 + a:cs=Cairo set; bidi shaping delegated to PowerPoint"))
     warnings.append(CapabilityWarning("feature-dropped", "fonts_embedded",
-                    "PPTX names Cairo; embedding caused PowerPoint repair prompts (reverted)"))
+                    "PPTX names Cairo (a:cs); install Cairo to render it (verified). Fonts are not "
+                    "embedded — PowerPoint rejected the embed; zero-install embedding is deferred"))
     return build_capability_report("pptx", supports, warnings)
