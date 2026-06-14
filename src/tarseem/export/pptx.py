@@ -339,8 +339,10 @@ def _emit_swimlane_chrome(b: _Builder, d: PositionedDiagram) -> None:
     for group in d.lane_groups:
         sp = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, group.x, group.y, group.width, group.height,
                     (group.hue or {}).get("label", _PHASE_FILL), None, opacity=92)
-        sp.text_frame._txBody.get_or_add_bodyPr().set("vert", "vert270")  # read upward (SVG rotate)
         b.text_in(sp, group.label, size=12, color="#FFFFFF", bold=True)
+        bodyPr = sp.text_frame._txBody.find(qn("a:bodyPr"))  # always present
+        if bodyPr is not None:
+            bodyPr.set("vert", "vert270")  # read upward (matches the SVG rotate)
     for band in d.lanes:
         hue = band.hue or {}
         b.rect(MSO_SHAPE.RECTANGLE, band.x, band.y, band.width, band.height,

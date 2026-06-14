@@ -21,6 +21,7 @@ FAMILIES = [
     "state-order-lifecycle",
     "deployment-web-stack",
     "arabic-flowchart",
+    "swimlane-nested-delivery",  # exercises the lane-group vertical-text path
 ]
 
 
@@ -91,6 +92,11 @@ def test_pptx_separators_are_connectors_not_freeforms():
     # straight separators/lifelines use connectors so they render crisp, not blurry (review #11-17).
     prs = Presentation(io.BytesIO(to_pptx_bytes(_render("swimlane-pipeline").diagram)))
     assert "<p:cxnSp>" in prs.slides[0]._element.xml
+
+
+def test_pptx_lane_group_label_is_vertical():
+    prs = Presentation(io.BytesIO(to_pptx_bytes(_render("swimlane-nested-delivery").diagram)))
+    assert 'vert="vert270"' in prs.slides[0]._element.xml
 
 
 def test_pptx_3d_shapes_have_a_drop_shadow():
