@@ -105,7 +105,8 @@ nav a {{ color:#5aa0ff; text-decoration:none; }} nav a:hover {{ text-decoration:
 @media (max-width:820px) {{ .pair {{ grid-template-columns:1fr; }} }}
 </style></head><body>
 <header><h1>Tarseem — diagram review</h1>
-<p>Engine (canonical) vs draw.io, per diagram. Open any <code>.drawio</code> in diagrams.net.</p></header>
+<p>Engine (canonical) vs draw.io, per diagram.
+Open any <code>.drawio</code> in diagrams.net.</p></header>
 <main>{"".join(cards)}</main></body></html>"""
 
 

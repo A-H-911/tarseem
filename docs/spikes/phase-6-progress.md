@@ -150,6 +150,26 @@ Tests: `tests/test_review_fixes.py` (now 20). Only SVG change = sequence label l
 `sequence-login.png` baseline regenerated (others byte-identical, determinism confirmed);
 **linux/macOS baselines still pending** via `baselines.yml`. Full gate green.
 
+## Review round 6 (2026-06-14) — fill-only borders + badge font
+
+Owner note on swimlane-pipeline: actor/user chips still showed black borders; badge digits a
+different font. Both addressed (draw.io + dev-tool only — no SVG change, no baseline regen):
+
+- **Black borders.** Every cell that is *fill-only in the SVG* (lane chips, title bar, phase
+  bands, lane-group gutter, ER title, ER PK/FK pill) now sets `strokeColor=none` — mxGraph
+  otherwise draws a default 1px black border. Confirmed gone in the viewer.
+- **Badge / all-text font.** The .drawio already names `fontFamily=Cairo,sans-serif`; draw.io
+  can't embed fonts (fonts ceiling), so the headless viewer fell back to a generic sans while
+  the SVG uses embedded Cairo. `tools/verify_drawio.py` now injects the bundled Cairo `@font-face`
+  into the render page, so the **review bundle reflects draw.io WITH Cairo** (as draw.io Desktop
+  does once the bundled OFL Cairo is installed). Badge digits now match the SVG in the review.
+  *Residual ceiling:* a draw.io install WITHOUT Cairo still falls back to sans; zero-dependency
+  parity would require embedding the font in the file (one hidden `fontSource` cell) — deferred,
+  owner's call on the file-size trade.
+
+Tests: `tests/test_review_fixes.py` (now 22). Also wrapped a pre-existing >100-col line in
+`tools/build_review.py` that the configured ruff scope flags. Full gate green.
+
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
 ✅ **Option A** (draw.io viewer / mxGraph) **and ✅ Option B** (draw.io **Desktop** engine,

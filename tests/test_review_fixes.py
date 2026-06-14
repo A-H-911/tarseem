@@ -183,3 +183,19 @@ def test_sequence_label_gap_unified_across_writers():
 
     assert _LABEL_LIFT == _SEQ_LABEL_GAP
     assert "spacingBottom=4" in to_drawio_xml(_render("sequence-login").diagram)
+
+
+# --- review round 6 (owner-reported) --------------------------------------------------
+
+def test_drawio_fill_only_chrome_has_no_black_border():
+    # SVG lane chips + title bar are fill-only; without strokeColor=none mxGraph draws a default
+    # black border ("actor/user shapes have black borders").
+    cells = _cellmap(to_drawio_xml(_render("swimlane-pipeline").diagram))
+    assert "strokeColor=none" in cells["title"].get("style", "")
+    chip = next(c for cid, c in cells.items() if (cid or "").startswith("lanechip_"))
+    assert "strokeColor=none" in chip.get("style", "")
+
+
+def test_drawio_er_title_has_no_black_border():
+    cells = _cellmap(to_drawio_xml(_render("er-shop").diagram))
+    assert "strokeColor=none" in cells["ertitle_order"].get("style", "")

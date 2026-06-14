@@ -292,8 +292,8 @@ def _emit_swimlane_chrome(root: etree._Element, diagram: PositionedDiagram) -> N
             root,
             _cell_id("lanegroup", group.id),
             (group.x, group.y, group.width, group.height),
-            f"rounded=1;arcSize=6;html=1;fillColor={fill};fontColor=#FFFFFF;fontStyle=1;"
-            f"opacity=92;horizontal=0;{_FONT}",  # horizontal=0 rotates the label to read upward
+            f"rounded=1;arcSize=6;html=1;fillColor={fill};strokeColor=none;fontColor=#FFFFFF;"
+            f"fontStyle=1;opacity=92;horizontal=0;{_FONT}",  # horizontal=0 reads the label upward
             group.label.text,
         )
 
@@ -308,9 +308,11 @@ def _emit_swimlane_chrome(root: etree._Element, diagram: PositionedDiagram) -> N
             f"rounded=0;html=1;fillColor={row};strokeColor={accent};opacity=85;",
         )
         chip = _chip_rect(band, rtl, vertical)
+        # strokeColor=none: the SVG lane chip is fill-only; without this mxGraph draws a default
+        # black 1px border (the "actor/user shapes have black borders" divergence).
         chip_style = _style(
-            f"rounded=1;arcSize=14;html=1;fillColor={accent};fontColor=#FFFFFF;fontStyle=1;"
-            "fontSize=13;",
+            f"rounded=1;arcSize=14;html=1;fillColor={accent};strokeColor=none;fontColor=#FFFFFF;"
+            "fontStyle=1;fontSize=13;",
             band.label,
         )
         _rect_cell(root, _cell_id("lanechip", band.id), chip, chip_style, band.label.text)
@@ -345,8 +347,8 @@ def _emit_title_bar(root: etree._Element, diagram: PositionedDiagram) -> None:
         "title",
         (title_x, title_top, title_right - title_x, title_bottom - title_top),
         _style(
-            f"rounded=1;arcSize=6;html=1;fillColor={fill};fontColor={text_color};fontStyle=1;"
-            "fontSize=18;",
+            f"rounded=1;arcSize=6;html=1;fillColor={fill};strokeColor=none;fontColor={text_color};"
+            "fontStyle=1;fontSize=18;",
             None,
         ),
         diagram.title,
@@ -381,8 +383,8 @@ def _emit_separators(
             _cell_id("phase", phase.id),
             (phase.x, phase.y, phase.width, phase.height),
             _style(
-                f"rounded=1;arcSize=5;html=1;fillColor={_PHASE_FILL};fontColor=#FFFFFF;"
-                "fontStyle=1;fontSize=13;opacity=92;",
+                f"rounded=1;arcSize=5;html=1;fillColor={_PHASE_FILL};strokeColor=none;"
+                "fontColor=#FFFFFF;fontStyle=1;fontSize=13;opacity=92;",
                 phase.label,
             ),
             phase.label.text,
@@ -504,8 +506,8 @@ def _emit_entity(
         _cell_id("ertitle", node.id),
         (x, y, w, title_h),
         _style(
-            f"{corner}html=1;fillColor={_ER_TITLE_FILL};fontColor=#FFFFFF;fontStyle=1;"
-            "fontSize=13;",
+            f"{corner}html=1;fillColor={_ER_TITLE_FILL};strokeColor=none;fontColor=#FFFFFF;"
+            "fontStyle=1;fontSize=13;",
             node.label,
         ),
         node.label.text,
@@ -532,9 +534,10 @@ def _emit_entity(
                 root,
                 _cell_id("erkey", rid),
                 (x + w - _ER_PAD_X - tw, ky - 8, tw, 16),
-                # absolute 3px radius MUST match render/er.py _key_tag rx=3 (was a 30% pill).
-                f"rounded=1;absoluteArcSize=1;arcSize=3;html=1;fillColor={fill};fontColor=#FFFFFF;"
-                f"fontStyle=1;fontSize=10;{_FONT}",
+                # absolute 3px radius MUST match render/er.py _key_tag rx=3 (was a 30% pill);
+                # strokeColor=none matches the fill-only SVG pill (no default black border).
+                f"rounded=1;absoluteArcSize=1;arcSize=3;html=1;fillColor={fill};strokeColor=none;"
+                f"fontColor=#FFFFFF;fontStyle=1;fontSize=10;{_FONT}",
                 r.key,
             )
 
