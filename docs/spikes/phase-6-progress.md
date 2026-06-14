@@ -244,6 +244,30 @@ core-prop timestamps. Core props pinned to a constant; the zip is re-emitted wit
 | theme_fidelity | partial | flat fills/strokes/text colours; no gradients/tints |
 | metadata | full | provenance in core properties (no wall-clock) |
 
+## PPTX review round 1 (2026-06-14) — owner PowerPoint pass (17 decks)
+
+Fixes from the owner's first real-PowerPoint review:
+
+- **Edge-label background → transparent** (global, incl. the SVG source of truth + PPTX; draw.io
+  already none). The white halo read as a white gap in the line ("some links are white"). Removed
+  the slab in `svg.py`/`swimlane.py`/`er.py` (deleted `_edge_label_bg`); PPTX label textboxes have
+  no fill and don't wrap (`word_wrap=False`) → fixes sequence labels spilling to two rows.
+- **Curved edges (PPTX)** — freeform now traces rounded corners (quadratic sampled into segments,
+  `_EDGE_RADIUS=8` matching the SVG), honoring `theme.edgeCorners`.
+- **Arabic font (PPTX)** — set `a:cs`/`a:ea` typeface to Cairo (python-pptx only sets `a:latin`,
+  so Arabic was falling back to the theme's complex-script font).
+- **Blurry separators (PPTX)** — straight separators/lifelines/ER row rules now use **connectors**
+  (`p:cxnSp`), not degenerate zero-width freeforms.
+- **ER title corners (PPTX)** — title is a rounded rect so its top follows the container.
+- **Vertical gutter text (PPTX)** — nested-lane group label gets `bodyPr vert="vert270"`.
+- **3-D drop shadow** (owner liked it) — added to cube + cylinder in **all** writers: SVG
+  (`feDropShadow` filter), draw.io (`shadow=1`), PPTX (`a:outerShdw`).
+
+SVG-default changes (edge-label slab + shadow) → 12 win32 baselines regenerated; **linux/macOS
+pending** (CI at PR time). Tests: `tests/test_export_pptx.py` (24), `tests/test_review_fixes.py`
+(+SVG slab/shadow). Full gate green. **Open / still to verify in PowerPoint:** Arabic/English
+mixed bidi spacing (review #3) — improved via rtl + cs font, may need another pass.
+
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
 ✅ **Option A** (draw.io viewer / mxGraph) **and ✅ Option B** (draw.io **Desktop** engine,

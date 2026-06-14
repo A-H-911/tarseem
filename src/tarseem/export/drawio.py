@@ -51,14 +51,14 @@ _SHAPE_STYLE: dict[str, str] = {
     "parallelogram": "shape=parallelogram;perimeter=parallelogramPerimeter;",
     # size=9 MUST match render/svg.py cylinder ry (shallow cap = engine's tall-can look; the
     # cylinder3 default cap is deeper and reads as a shorter cylinder).
-    "cylinder": "shape=cylinder3;size=9;",
+    "cylinder": "shape=cylinder3;size=9;shadow=1;",
     "document": "shape=document;",
     # cube depth = 14 (MUST match render/svg.py + measure._CUBE_DEPTH). draw.io's cube extrudes
     # depth at top+LEFT (front face bottom-right) — the MIRROR of the engine (top+right); flipH=1
     # mirrors it back so the 3D faces and the bottom-left front face match the SVG. draw.io centres
     # its own cube label on the bbox + ignores depth, so the label is a SEPARATE front-face text
     # cell (see _emit_cube_label) which flipH leaves untouched.
-    "cube": "shape=cube;size=14;flipH=1;",
+    "cube": "shape=cube;size=14;flipH=1;shadow=1;",
     "table": "",  # ER entity → plain box; attribute rows folded into label (reported partial)
 }
 

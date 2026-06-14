@@ -11,8 +11,8 @@ from __future__ import annotations
 from tarseem.model.ir import Marker, PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
 from tarseem.render.svg import (
+    SHADOW_DEF,
     _arrowhead,
-    _edge_label_bg,
     _esc,
     _label_attrs,
     _num,
@@ -177,7 +177,6 @@ def _edge_svg(e: PositionedEdge, curved: bool = True) -> list[str]:
         out.append(_arrowhead(e.points[-2], e.points[-1], color))
     if e.label and e.label_xy:
         lx, ly = e.label_xy
-        out.append(_edge_label_bg(lx, ly, e.label.text))
         out.append(
             f'<text x="{_num(lx)}" y="{_num(ly)}" font-size="12" fill="{color}" '
             f"{_label_attrs(e.label)}>{_esc(e.label.text)}</text>"
@@ -223,6 +222,7 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
         f"src:url(data:font/woff2;base64,{b64}) format('woff2');}}",
         f"text{{font-family:'{FONT_FAMILY}';}}",
         "</style>",
+        f"<defs>{SHADOW_DEF}</defs>",
         f'<rect width="{_num(w)}" height="{_num(h)}" fill="#FFFFFF"/>',
     ]
     m = diagram.lanes[0].x if diagram.lanes else 20.0  # lane-left, for the actor separator

@@ -237,10 +237,12 @@ def test_chrome_radius_unified_and_crisp():
     assert 'rx="3"' in _render("swimlane-phases").svg  # SVG phase band uses the same crisp radius
 
 
-def test_edge_label_bg_hugs_text():
-    # tight halo (owner: 'too much white'): 7 chars -> half=22 -> width 44, height 15
-    # (was an 18px-tall, len*3.5*2=49px box).
-    from tarseem.render.svg import _edge_label_bg
+def test_svg_edge_labels_have_no_white_slab():
+    # owner: white box behind link text -> transparent. The old halo rect is gone in all writers.
+    for name in ("state-order-lifecycle", "swimlane-pipeline", "er-shop"):
+        assert 'fill="#FFFFFF" opacity="0.85"' not in _render(name).svg
 
-    bg = _edge_label_bg(100.0, 50.0, "deliver")
-    assert 'height="15"' in bg and 'width="44"' in bg
+
+def test_svg_3d_shapes_get_a_drop_shadow():
+    svg = _render("deployment-web-stack").svg  # cube + cylinder
+    assert "tarseem-shadow" in svg and "feDropShadow" in svg

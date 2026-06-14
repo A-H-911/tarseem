@@ -1,14 +1,15 @@
 """PPTX writer — native PowerPoint shapes/connectors from the positioned IR (08 §3, D2:C).
 
 Consumes the positioned IR (ADR-001: writers never lay out) and emits **native** python-pptx
-autoshapes, freeform connectors, and text — never an embedded image or SVG-ungroup (invariant 5).
-Geometry is the IR's pixel coordinates converted to EMU (9525 EMU/px @ 96 dpi). The SVG framing
-is matched per family: generic/ER diagrams translate by a 24px margin, swimlane/sequence bake
-absolute coordinates, so the slide margin follows the same rule.
+autoshapes, connectors, freeform edges, and text — never an embedded image or SVG-ungroup
+(invariant 5). Geometry is the IR's pixel coordinates converted to EMU (9525 EMU/px @ 96 dpi).
+The SVG framing is matched per family: generic/ER diagrams translate by a 24px margin, swimlane/
+sequence bake absolute coordinates, so the slide margin follows the same rule.
 
 Constraints honoured:
-- **RTL** (invariant 4): python-pptx has no API for paragraph direction, so RTL labels get
-  ``<a:pPr rtl="1">`` via a small lxml patch.
+- **RTL** (invariant 4): python-pptx has no API for paragraph direction or the complex-script
+  font, so RTL labels get ``<a:pPr rtl="1">`` and every run's ``a:cs``/``a:ea`` typeface is set
+  to Cairo (otherwise Arabic falls back to the theme's complex-script font) via lxml patches.
 - **Determinism** (invariant 7): a .pptx is a zip that python-pptx stamps with wall-clock mtimes
   + core-property timestamps; core props are pinned to a constant and the zip is re-emitted with
   normalized ``ZipInfo``, so the same spec ⇒ byte-identical .pptx.
@@ -24,7 +25,7 @@ from typing import TYPE_CHECKING
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
@@ -32,7 +33,12 @@ from pptx.util import Emu, Pt
 from tarseem.export.result import WriteResult
 from tarseem.model.ir import LaneBand, Marker, PhaseBand, PositionedDiagram, PositionedEdge
 from tarseem.model.ir import PositionedNode as PNode
-from tarseem.render.text import has_rtl, resolve_badge_side, resolve_direction
+from tarseem.render.text import (
+    has_rtl,
+    resolve_badge_side,
+    resolve_direction,
+    resolve_edge_corners,
+)
 from tarseem.report import CapabilityWarning, build_capability_report
 
 if TYPE_CHECKING:  # `Presentation` is a factory fn; the instance type lives here
@@ -43,6 +49,7 @@ __all__ = ["write_pptx", "to_pptx_bytes"]
 EMU_PER_PX = 9525  # 914400 EMU/inch ÷ 96 px/inch
 _FONT = "Cairo"  # names the SVG face; PowerPoint substitutes if absent (fonts ceiling)
 _FIXED_TS = datetime(2001, 1, 1, tzinfo=timezone.utc)  # constant (invariant 7: no wall-clock)
+_EDGE_RADIUS = 8.0  # corner-rounding radius — MUST match render/svg.py _EDGE_RADIUS
 
 # Colours — MUST match the SVG/draw.io writers so all writers agree.
 _DEFAULT_FILL = "#FFFFFF"
@@ -70,6 +77,7 @@ _CHIP_H = 56.0
 _V_CHIP_H = 48.0
 _CHIP_INSET = 8.0
 _EDGE_WIDTH_DEFAULT = {"swimlane": 2.0, "er": 1.5, "sequence": 1.5}
+_SHADOW_SHAPES = ("cube", "cylinder")  # 3-D shapes get a drop shadow (matches SVG/draw.io)
 
 # python-pptx autoshape per IR shape (documented MSO_SHAPE members only).
 _SHAPE: dict[str, MSO_SHAPE] = {
@@ -111,6 +119,84 @@ def _rtl_label(label) -> bool:
     return resolve_direction(label.direction, label.text) == "rtl" or has_rtl(label.text)
 
 
+def _toward(b: tuple[float, float], a: tuple[float, float], r: float) -> tuple[float, float]:
+    """Point ``r`` from ``b`` toward ``a`` (clamped to half the segment). MUST match svg."""
+    dx, dy = a[0] - b[0], a[1] - b[1]
+    dist = (dx * dx + dy * dy) ** 0.5 or 1.0
+    rr = min(r, dist / 2)
+    return (b[0] + dx / dist * rr, b[1] + dy / dist * rr)
+
+
+def _rounded_points(points: list[tuple[float, float]], curved: bool) -> list[tuple[float, float]]:
+    """Densify a polyline with rounded corners so a straight-segment freeform looks curved like
+    the SVG (which draws a quadratic at each bend). Each corner's quadratic is sampled into short
+    segments. ``curved=False`` (theme.edgeCorners=straight) returns the raw points."""
+    if not curved or len(points) <= 2:
+        return list(points)
+    out: list[tuple[float, float]] = [points[0]]
+    for i in range(1, len(points) - 1):
+        a, b, c = points[i - 1], points[i], points[i + 1]
+        p0, p2 = _toward(b, a, _EDGE_RADIUS), _toward(b, c, _EDGE_RADIUS)
+        out.append(p0)
+        steps = 6
+        for k in range(1, steps + 1):
+            t = k / steps
+            mt = 1 - t
+            out.append((
+                mt * mt * p0[0] + 2 * mt * t * b[0] + t * t * p2[0],
+                mt * mt * p0[1] + 2 * mt * t * b[1] + t * t * p2[1],
+            ))
+    out.append(points[-1])
+    return out
+
+
+def _set_run_font(run, name: str) -> None:
+    """Set latin + east-asian + complex-script typefaces. python-pptx's ``font.name`` only sets
+    ``a:latin``; Arabic renders from ``a:cs``, so without this it falls back to the theme font."""
+    run.font.name = name  # a:latin, inserted in the schema-correct position
+    rPr = run.font._rPr
+    latin = rPr.find(qn("a:latin"))
+    for tag in ("a:ea", "a:cs"):
+        for existing in rPr.findall(qn(tag)):
+            rPr.remove(existing)
+    latin.addnext(rPr.makeelement(qn("a:cs"), {"typeface": name}))  # -> latin, cs
+    latin.addnext(rPr.makeelement(qn("a:ea"), {"typeface": name}))  # -> latin, ea, cs
+
+
+def _add_shadow(sp) -> None:
+    """A subtle outer drop shadow (owner-preferred for 3-D shapes; mirrored in SVG/draw.io)."""
+    spPr = sp._element.spPr
+    for existing in spPr.findall(qn("a:effectLst")):
+        spPr.remove(existing)
+    eff = spPr.makeelement(qn("a:effectLst"), {})
+    shdw = eff.makeelement(
+        qn("a:outerShdw"),
+        {"blurRad": "40000", "dist": "28000", "dir": "5400000", "rotWithShape": "0"},
+    )
+    clr = shdw.makeelement(qn("a:srgbClr"), {"val": "000000"})
+    clr.append(clr.makeelement(qn("a:alpha"), {"val": "32000"}))
+    shdw.append(clr)
+    eff.append(shdw)
+    spPr.append(eff)
+
+
+def _set_alpha(fore_color, pct: int) -> None:
+    """Set fill alpha (0–100) via the srgbClr's a:alpha child (no python-pptx API)."""
+    srgb = fore_color._xFill.find(qn("a:srgbClr"))
+    if srgb is None:
+        return
+    for existing in srgb.findall(qn("a:alpha")):
+        srgb.remove(existing)
+    srgb.append(srgb.makeelement(qn("a:alpha"), {"val": str(int(pct * 1000))}))
+
+
+def _stadium_adjust(sp) -> None:
+    try:
+        sp.adjustments[0] = 0.5
+    except (IndexError, ValueError):  # pragma: no cover - shape without an adjustment handle
+        pass
+
+
 class _Builder:
     """Holds the slide + the family margin offset, and the per-element emit helpers."""
 
@@ -124,76 +210,69 @@ class _Builder:
         self.slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # blank
         self.shapes = self.slide.shapes
 
-    # -- geometry --------------------------------------------------------------
     def _e(self, px: float) -> Emu:
         return Emu(int(round(px * EMU_PER_PX)))
 
     def _box(self, x: float, y: float, w: float, h: float) -> tuple[Emu, Emu, Emu, Emu]:
         return (self._e(x + self.m), self._e(y + self.m), self._e(w), self._e(h))
 
-    # -- primitives ------------------------------------------------------------
+    def _pt(self, p: tuple[float, float]) -> tuple[Emu, Emu]:
+        return (self._e(p[0] + self.m), self._e(p[1] + self.m))
+
     def rect(
         self, shape: MSO_SHAPE, x: float, y: float, w: float, h: float, fill: str | None,
-        line: str | None, line_w: float = 1.0, opacity: int | None = None,
+        line: str | None, line_w: float = 1.0, opacity: int | None = None, shadow: bool = False,
     ):
         sp = self.shapes.add_shape(shape, *self._box(x, y, w, h))
-        sp.shadow.inherit = False
+        if shadow:
+            _add_shadow(sp)
+        else:
+            sp.shadow.inherit = False
         if fill is None:
             sp.fill.background()
         else:
             sp.fill.solid()
             sp.fill.fore_color.rgb = _rgb(fill)
+            if opacity is not None:
+                _set_alpha(sp.fill.fore_color, opacity)
         if line is None:
             sp.line.fill.background()
         else:
             sp.line.color.rgb = _rgb(line)
             sp.line.width = self._e(line_w)
-        if opacity is not None and fill is not None:
-            _set_alpha(sp.fill.fore_color, opacity)
         return sp
 
     def text_in(self, sp, label, *, size: float = 12.0, color: str = _DEFAULT_TEXT,
-                bold: bool = False, align=PP_ALIGN.CENTER) -> None:
+                bold: bool = False, align=PP_ALIGN.CENTER, wrap: bool = True) -> None:
         tf = sp.text_frame
-        tf.word_wrap = True
+        tf.word_wrap = wrap
         for side in ("left", "right", "top", "bottom"):
             setattr(tf, f"margin_{side}", 0)
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
         p = tf.paragraphs[0]
         p.alignment = align
-        text = label if isinstance(label, str) else label.text
         run = p.add_run()
-        run.text = text
+        run.text = label if isinstance(label, str) else label.text
         run.font.size = Pt(size)
         run.font.bold = bold
-        run.font.name = _FONT
+        _set_run_font(run, _FONT)
         run.font.color.rgb = _rgb(color)
         if not isinstance(label, str) and _rtl_label(label):
-            pPr = p._p.get_or_add_pPr()
-            pPr.set("rtl", "1")  # python-pptx has no API for paragraph direction (invariant 4)
+            p._p.get_or_add_pPr().set("rtl", "1")  # no python-pptx API (invariant 4)
 
     def textbox(self, x: float, y: float, w: float, h: float, label, **kw):
         tb = self.shapes.add_textbox(*self._box(x, y, w, h))
         self.text_in(tb, label, **kw)
         return tb
 
-
-def _set_alpha(fore_color, pct: int) -> None:
-    """Set fill alpha (0–100) via the srgbClr's a:alpha child (no python-pptx API)."""
-    srgb = fore_color._xFill.find(qn("a:srgbClr"))
-    if srgb is None:
-        return
-    for existing in srgb.findall(qn("a:alpha")):
-        srgb.remove(existing)
-    alpha = srgb.makeelement(qn("a:alpha"), {"val": str(int(pct * 1000))})
-    srgb.append(alpha)
-
-
-def _stadium_adjust(sp) -> None:
-    try:
-        sp.adjustments[0] = 0.5
-    except (IndexError, ValueError):  # pragma: no cover - shape without an adjustment handle
-        pass
+    def connector(self, p1, p2, color: str, width: float, dashed: bool = False) -> None:
+        cn = self.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, *self._pt(p1), *self._pt(p2))
+        cn.shadow.inherit = False
+        cn.line.color.rgb = _rgb(color)
+        cn.line.width = self._e(width)
+        if dashed:
+            ln = cn.line._get_or_add_ln()
+            ln.append(ln.makeelement(qn("a:prstDash"), {"val": "dash"}))
 
 
 # ---------------------------------------------------------------------------
@@ -204,14 +283,14 @@ def _emit_node(b: _Builder, node: PNode, badge_side: str) -> None:
     if node.shape in ("initial", "final"):
         _emit_pseudostate(b, node)
         return
-    is_cube = node.shape == "cube"
     sp = b.rect(
         _SHAPE.get(node.shape, MSO_SHAPE.RECTANGLE), node.x, node.y, node.width, node.height,
         _fill_of(node.style), _stroke_of(node.style), _stroke_w_of(node.style),
+        shadow=node.shape in _SHADOW_SHAPES,
     )
     if node.shape == "stadium":
         _stadium_adjust(sp)
-    if is_cube:  # label on the front face (matches the engine), not the bbox centre
+    if node.shape == "cube":  # label on the front face (matches the engine), not the bbox centre
         d = _CUBE_DEPTH
         b.textbox(node.x, node.y + d, node.width - d, node.height - d, node.label,
                   color=_font_color_of(node.style))
@@ -260,15 +339,15 @@ def _emit_swimlane_chrome(b: _Builder, d: PositionedDiagram) -> None:
     for group in d.lane_groups:
         sp = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, group.x, group.y, group.width, group.height,
                     (group.hue or {}).get("label", _PHASE_FILL), None, opacity=92)
+        sp.text_frame._txBody.get_or_add_bodyPr().set("vert", "vert270")  # read upward (SVG rotate)
         b.text_in(sp, group.label, size=12, color="#FFFFFF", bold=True)
     for band in d.lanes:
         hue = band.hue or {}
-        row = hue.get("row", _LANE_ROW)
-        accent = hue.get("label", _LANE_ACCENT)
-        b.rect(MSO_SHAPE.RECTANGLE, band.x, band.y, band.width, band.height, row, accent, 1.0,
-               opacity=85)
+        b.rect(MSO_SHAPE.RECTANGLE, band.x, band.y, band.width, band.height,
+               hue.get("row", _LANE_ROW), hue.get("label", _LANE_ACCENT), 1.0, opacity=85)
         cx, cy, cw, ch = _chip_rect(band, rtl, vertical)
-        chip = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, cx, cy, cw, ch, accent, None)
+        chip = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, cx, cy, cw, ch,
+                      hue.get("label", _LANE_ACCENT), None)
         b.text_in(chip, band.label, size=13, color="#FFFFFF", bold=True)
     _emit_separators(b, d, rtl, vertical)
 
@@ -301,22 +380,22 @@ def _emit_separators(b: _Builder, d: PositionedDiagram, rtl: bool, vertical: boo
     m = lanes[0].x
     if vertical:
         sep_y = lanes[0].y + _V_HEADER
-        _line(b, (lanes[0].x, sep_y), (lanes[-1].x + lanes[-1].width, sep_y), _SEP, 2.0)
+        b.connector((lanes[0].x, sep_y), (lanes[-1].x + lanes[-1].width, sep_y), _SEP, 2.0)
         return
     top, bottom = lanes[0].y, lanes[-1].y + lanes[-1].height
     sep_x = (d.width - m - _LABEL_W) if rtl else m + _LABEL_W
-    _line(b, (sep_x, top), (sep_x, bottom), _SEP, 2.0)
+    b.connector((sep_x, top), (sep_x, bottom), _SEP, 2.0)
     sep = d.phase_separator or {}
     color = str(sep.get("color", _SEP))
     width = float(sep.get("width", 1.5))
     dashed = sep.get("style") != "solid"
     for phase in d.phases:
-        _line(b, (phase.x, top), (phase.x, bottom), color, width, dashed)
+        b.connector((phase.x, top), (phase.x, bottom), color, width, dashed)
         _emit_phase(b, phase)
     if d.phases:
         last = max(d.phases, key=lambda p: p.x + p.width)
         edge = last.x + last.width
-        _line(b, (edge, top), (edge, bottom), color, width, dashed)
+        b.connector((edge, top), (edge, bottom), color, width, dashed)
 
 
 def _emit_phase(b: _Builder, phase: PhaseBand) -> None:
@@ -331,7 +410,7 @@ def _emit_sequence_chrome(b: _Builder, d: PositionedDiagram) -> None:
     bottom = d.height - 24.0
     for node in d.nodes:
         cx = node.x + node.width / 2
-        _line(b, (cx, node.y + node.height), (cx, bottom), _SEQ_STEM, 1.5, dashed=True)
+        b.connector((cx, node.y + node.height), (cx, bottom), _SEQ_STEM, 1.5, dashed=True)
     for act in d.activations:
         b.rect(MSO_SHAPE.RECTANGLE, act.x, act.y, act.width, act.height, "#FFFFFF",
                _SEQ_ACT_BORDER, 1.5)
@@ -341,11 +420,16 @@ def _emit_entity(b: _Builder, node: PNode) -> None:
     x, y, w, h = node.x, node.y, node.width, node.height
     title_h = node.rows[0].y_offset if node.rows else h
     b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h, "#FFFFFF", _ER_BORDER, 1.5)
-    title = b.rect(MSO_SHAPE.RECTANGLE, x, y, w, title_h, _ER_TITLE_FILL, None)
+    # rounded-rect title so its top corners follow the container (square corners poked out)
+    title = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, title_h, _ER_TITLE_FILL, None)
+    try:
+        title.adjustments[0] = 6.0 / min(w, title_h)  # ~6px radius
+    except (IndexError, ValueError, ZeroDivisionError):  # pragma: no cover
+        pass
     b.text_in(title, node.label, size=13, color="#FFFFFF", bold=True)
     for r in node.rows:
         ry = y + r.y_offset
-        _line(b, (x, ry), (x + w, ry), _ER_ROW_SEP, 1.0)
+        b.connector((x, ry), (x + w, ry), _ER_ROW_SEP, 1.0)
         align = PP_ALIGN.RIGHT if _rtl_label(r.label) else PP_ALIGN.LEFT
         b.textbox(x + 10.0, ry, w - 20.0, r.height, r.label, size=12, color=_DEFAULT_TEXT,
                   align=align)
@@ -357,27 +441,21 @@ def _emit_entity(b: _Builder, node: PNode) -> None:
             b.text_in(pill, r.key, size=10, color="#FFFFFF", bold=True)
 
 
-def _line(b: _Builder, p1: tuple[float, float], p2: tuple[float, float], color: str,
-          width: float, dashed: bool = False) -> None:
-    _freeform(b, [p1, p2], color, width, dashed=dashed, arrow=False)
-
-
-def _emit_edge(b: _Builder, edge: PositionedEdge, default_w: float, label_above: bool) -> None:
+def _emit_edge(b: _Builder, edge: PositionedEdge, default_w: float, label_above: bool,
+               curved: bool) -> None:
     color = str(edge.style.get("stroke", _DEFAULT_EDGE))
     width = float(edge.style.get("width", default_w) or default_w)
     dashed = edge.style.get("style") == "dashed"
-    _freeform(b, list(edge.points), color, width, dashed=dashed, arrow=True)
+    _freeform(b, _rounded_points(list(edge.points), curved), color, width, dashed=dashed)
     if edge.label and edge.label_xy:
         lx, ly = edge.label_xy
         dy = -7.5 if label_above else 0.0
-        tb = b.textbox(lx - 30.0, ly - 8 + dy, 60.0, 16.0, edge.label, size=12, color=color)
-        tb.fill.solid()
-        tb.fill.fore_color.rgb = _rgb("#FFFFFF")
-        _set_alpha(tb.fill.fore_color, 85)
+        w = max(40.0, len(edge.label.text) * 7.0)  # ~text width; transparent (no white slab)
+        b.textbox(lx - w / 2, ly - 8 + dy, w, 16.0, edge.label, size=12, color=color, wrap=False)
 
 
 def _freeform(b: _Builder, pts: list[tuple[float, float]], color: str, width: float,
-              *, dashed: bool, arrow: bool) -> None:
+              *, dashed: bool) -> None:
     if len(pts) < 2:
         return
     off = b.m
@@ -388,14 +466,14 @@ def _freeform(b: _Builder, pts: list[tuple[float, float]], color: str, width: fl
         [((px + off) * EMU_PER_PX, (py + off) * EMU_PER_PX) for px, py in pts[1:]], close=False
     )
     sp = fb.convert_to_shape()
+    sp.shadow.inherit = False
     sp.fill.background()
     sp.line.color.rgb = _rgb(color)
     sp.line.width = b._e(width)
     ln = sp.line._get_or_add_ln()
     if dashed:
         ln.append(ln.makeelement(qn("a:prstDash"), {"val": "dash"}))
-    if arrow:
-        ln.append(ln.makeelement(qn("a:tailEnd"), {"type": "triangle", "w": "med", "len": "med"}))
+    ln.append(ln.makeelement(qn("a:tailEnd"), {"type": "triangle", "w": "med", "len": "med"}))
 
 
 def _build(diagram: PositionedDiagram) -> _Prs:
@@ -407,8 +485,9 @@ def _build(diagram: PositionedDiagram) -> _Prs:
     badge_side = resolve_badge_side(diagram.direction == "RL", diagram.theme)
     default_w = _EDGE_WIDTH_DEFAULT.get(diagram.diagram_type, 1.0)
     label_above = diagram.diagram_type == "sequence"
+    curved = resolve_edge_corners(diagram.theme)
     for edge in diagram.edges:  # edges first, shapes on top (arrowheads tuck at borders)
-        _emit_edge(b, edge, default_w, label_above)
+        _emit_edge(b, edge, default_w, label_above, curved)
     for node in diagram.nodes:
         if node.rows:
             _emit_entity(b, node)
@@ -466,13 +545,13 @@ def _report(diagram: PositionedDiagram):
         "phases": "full" if diagram.phases else "none",
         "badges": "full",
         "markers": "full",
-        "edge_routes": "full",  # exact IR polyline via a freeform connector
+        "edge_routes": "full",  # exact IR polyline (rounded corners) as a freeform connector
         "edge_labels": "full",
-        "curved_edges": "none",  # straight segments only
+        "curved_edges": "partial",  # rounded corners approximated by sampled segments
         "ports": "partial" if any(n.rows for n in diagram.nodes) else "none",
         "gradients": "none",
         "fonts_embedded": "none",  # references Cairo by name; PowerPoint substitutes if absent
-        "rtl_shaping": "partial",  # pPr rtl=1 set; shaping delegated to PowerPoint
+        "rtl_shaping": "partial",  # pPr rtl=1 + cs font set; shaping delegated to PowerPoint
         "theme_fidelity": "partial",  # flat fills/strokes/text colours; no gradients/tints
         "metadata": "full",  # provenance in core properties
     }
@@ -488,7 +567,7 @@ def _report(diagram: PositionedDiagram):
                         "ER rows are explicit cells; not native table ports"))
     if any(_rtl_label(n.label) for n in diagram.nodes):
         warnings.append(CapabilityWarning("feature-approximated", "rtl_shaping",
-                        "a:pPr rtl=1 set; bidi shaping delegated to PowerPoint"))
+                        "a:pPr rtl=1 + a:cs=Cairo set; bidi shaping delegated to PowerPoint"))
     warnings.append(CapabilityWarning("feature-dropped", "fonts_embedded",
                     "PPTX references Cairo by name; font bytes are not embedded"))
     return build_capability_report("pptx", supports, warnings)

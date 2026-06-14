@@ -19,6 +19,13 @@ _DEFAULT_FILL = "#FFFFFF"
 _DEFAULT_STROKE = "#333333"
 _DEFAULT_TEXT = "#14281D"
 _DEFAULT_EDGE = "#333333"
+# Subtle drop shadow for 3-D shapes (cube/cylinder) — owner-preferred; mirrored in draw.io/pptx.
+SHADOW_DEF = (
+    '<filter id="tarseem-shadow" x="-20%" y="-20%" width="140%" height="140%">'
+    '<feDropShadow dx="2" dy="3" stdDeviation="2" flood-color="#000000" flood-opacity="0.32"/>'
+    "</filter>"
+)
+_SHADOW = ' filter="url(#tarseem-shadow)"'
 
 
 def _esc(s: str) -> str:
@@ -79,7 +86,7 @@ def _shape_svg(n: PositionedNode) -> str:
             f'<path d="M {_p(x, y + ry)} A {rw} {_num(ry)} 0 0 0 {_p(x + w, y + ry)}" '
             f'fill="none" stroke="{stroke}" stroke-width="{_num(sw)}"/>'
         )
-        return body + top
+        return f'<g{_SHADOW}>{body}{top}</g>'
     if kind == "document":
         wv = 14.0
         return (
@@ -104,7 +111,7 @@ def _shape_svg(n: PositionedNode) -> str:
         right = _poly(
             [(x + w - d, y + d), (x + w, y), (x + w, y + h - d), (x + w - d, y + h)], st
         )
-        return top + right + front
+        return f'<g{_SHADOW}>{top}{right}{front}</g>'
     return _rect(x, y, w, h, st)
 
 
@@ -152,17 +159,6 @@ def edge_svg_line(
     return (
         f'<polyline points="{poly}" fill="none" stroke="{stroke}" '
         f'stroke-width="{_num(sw)}"{dash}/>'
-    )
-
-
-def _edge_label_bg(lx: float, ly: float, text: str) -> str:
-    """Tight white halo behind an edge label so it stays legible over lines without slabbing over
-    nearby shapes. Text is ``dominant-baseline=central`` on ``ly`` so the box hugs it symmetrically
-    (was an oversized 18px box — owner: 'too much white'; draw.io is cleaner)."""
-    half = max(7.0, len(text) * 3.0 + 1.0)
-    return (
-        f'<rect x="{_num(lx - half)}" y="{_num(ly - 7.5)}" width="{_num(2 * half)}" '
-        f'height="15" fill="#FFFFFF" opacity="0.85"/>'
     )
 
 
@@ -221,6 +217,7 @@ def render_svg(diagram: PositionedDiagram) -> str:
         f"src:url(data:font/woff2;base64,{b64}) format('woff2');}}",
         f"text{{font-family:'{FONT_FAMILY}';}}",
         "</style>",
+        f"<defs>{SHADOW_DEF}</defs>",
         f'<rect width="{_num(width)}" height="{_num(height)}" fill="#FFFFFF"/>',
         f'<g transform="translate({_num(dx)},{_num(dy)})">',
     ]
@@ -236,7 +233,6 @@ def render_svg(diagram: PositionedDiagram) -> str:
             parts.append(_arrowhead(e.points[-2], e.points[-1], color))
         if e.label and e.label_xy:
             lx, ly = e.label_xy
-            parts.append(_edge_label_bg(lx, ly, e.label.text))
             parts.append(
                 f'<text x="{_num(lx)}" y="{_num(ly)}" font-size="12" fill="{color}" '
                 f'{_label_attrs(e.label)}>{_esc(e.label.text)}</text>'

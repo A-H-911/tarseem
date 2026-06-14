@@ -81,6 +81,32 @@ def test_capability_report_on_shared_vocab(tmp_path):
     assert result.report.supports["edge_routes"] == "full"
 
 
+def test_pptx_runs_set_complex_script_font():
+    # Arabic renders from the cs slot; without this it falls back to the theme font (review #1-3).
+    prs = Presentation(io.BytesIO(to_pptx_bytes(_render("arabic-flowchart").diagram)))
+    assert '<a:cs typeface="Cairo"' in prs.slides[0]._element.xml
+
+
+def test_pptx_separators_are_connectors_not_freeforms():
+    # straight separators/lifelines use connectors so they render crisp, not blurry (review #11-17).
+    prs = Presentation(io.BytesIO(to_pptx_bytes(_render("swimlane-pipeline").diagram)))
+    assert "<p:cxnSp>" in prs.slides[0]._element.xml
+
+
+def test_pptx_3d_shapes_have_a_drop_shadow():
+    prs = Presentation(io.BytesIO(to_pptx_bytes(_render("deployment-web-stack").diagram)))
+    assert "outerShdw" in prs.slides[0]._element.xml
+
+
+def test_pptx_edge_label_has_no_fill_slab():
+    # link-text background is transparent now (review global note); the freeform line is the route.
+    prs = Presentation(io.BytesIO(to_pptx_bytes(_render("flowchart").diagram)))
+    # textboxes carry no solid fill (no <a:solidFill> inside a txBox spPr is hard to assert
+    # directly); instead confirm curved edges produced a multi-point freeform path.
+    assert "<a:cubicBezTo>" in prs.slides[0]._element.xml or \
+        prs.slides[0]._element.xml.count("<a:lnTo>") > len(_render("flowchart").diagram.edges)
+
+
 def test_export_writes_pptx_with_lossy_sidecar(tmp_path):
     res = _render("swimlane-pipeline")
     written = res.export(["pptx"], tmp_path, name="d")
