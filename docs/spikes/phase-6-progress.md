@@ -28,13 +28,25 @@ One positioned IR, many writers (ADR-001). New shared infra this phase: **Capabi
 Verification is the **viewer** (Option A), not yet the Desktop editor (Option B) — those can differ; Option B is the final sign-off before human review.
 | 2 | **PPTX writer** — python-pptx native shapes/connectors from IR in EMUs, `rtl="1"` lxml patch, deterministic zip, manual PowerPoint checklist | ✅ done (writer + tests); manual PPT review pending | `export/pptx.py`, `tests/test_export_pptx.py`, `docs/pptx-manual-checklist.md` |
 | 3 | **PDF** via Chromium CDP (print-to-PDF, mirrors `png.py`) | ✅ done; visually verified vs canonical PNG (incl. Arabic) | `export/pdf.py`, `tests/test_export_pdf.py` |
-| 4 | **Mermaid + PlantUML** source writers (logical IR) with CapabilityReports | ⏳ | — |
+| 4 | **Mermaid + PlantUML** source writers (logical IR) with CapabilityReports | ⛔ deferred → future feature (2026-06-15) | see "Deferred / future tasks" |
 | 5 | Export metadata embedded in **all** artifacts (SVG already; PNG tEXt, PDF XMP, PPTX core-props, drawio done) | ◑ partial | drawio done |
 | 6 | **class + mindmap** profiles (family/layout workstream; mindmap needs a non-layered ELK tree/radial algo — the real risk) | ⏳ | — |
 
 Gate green throughout: ruff + mypy clean; `pytest` full suite passes; coverage 92% (≥80 gate).
 New example specs deliberately NOT added — writers are exercised against the existing corpus
 (`flowchart`, `swimlane-*`, `arabic-*`, `er-shop`) to avoid triggering 3-OS visual-baseline regen.
+
+### Session decision (2026-06-15)
+
+- **Sub-stage 4 (Mermaid + PlantUML) dropped → future feature** (see "Deferred / future tasks"). Plan,
+  acceptance criteria, and requirements updated to match.
+- **PPTX manual PowerPoint close-out: complete** — Arabic/English mixed-bidi spacing (review #3)
+  owner-confirmed (see PPTX review round 1, updated).
+- **Sub-stage 6 (class + mindmap)** and the remaining deferred items (PPTX font embedding,
+  badge-as-circle, promote showcases) — **everything except spike-5 (searchable PDF, parked)** — are
+  queued for **after a session cleanup**, in a later session.
+- **Remaining active Phase-6 work:** sub-stage 5 (PNG `tEXt` + PDF `XMP` metadata) + verification/CI
+  (linux/macOS baselines, Option-B CI) + `exports/` docs + PowerPoint workflow guide + merge.
 
 ## Bug-fix pass — user review round 1 (2026-06-13)
 
@@ -265,8 +277,9 @@ Fixes from the owner's first real-PowerPoint review:
 
 SVG-default changes (edge-label slab + shadow) → 12 win32 baselines regenerated; **linux/macOS
 pending** (CI at PR time). Tests: `tests/test_export_pptx.py` (24), `tests/test_review_fixes.py`
-(+SVG slab/shadow). Full gate green. **Open / still to verify in PowerPoint:** Arabic/English
-mixed bidi spacing (review #3) — improved via rtl + cs font, may need another pass.
+(+SVG slab/shadow). Full gate green. **Arabic/English mixed-bidi spacing (review #3): confirmed
+working in PowerPoint by the owner (2026-06-15)** — `rtl` + per-run `lang` + complex-script Cairo
+font produce correct mixed Arabic/Latin spacing. PPTX manual PowerPoint close-out complete.
 
 ## PPTX review round 2 (2026-06-14) — labels off the line + rounded-by-default
 
@@ -349,6 +362,15 @@ tool renders PDFs; no separate headless PDF renderer needed):**
 
 ## Deferred / future tasks
 
+- **Mermaid + PlantUML source writers (deferred 2026-06-15 → future feature).** Sub-stage 4 —
+  best-effort DSL source exports from the **logical IR** (`result.graph`) with CapabilityReports, per
+  `08-export-strategy.md` (best-effort tier) and FR-11.7/FR-11.8. **Dropped from the initial Phase-6
+  delivery** and recorded as a future feature; the design is unchanged (lossy, capability-reported
+  writers — lanes→subgraph approximation, ports dropped, Arabic diacritics quoted/stripped with a
+  warning per R-6). Synced: `11-phased-plan.md` (Phase 6 scope), `12-acceptance-criteria.md` (F7),
+  `01-requirements.md` (FR-11.7/11.8). The IR-retention comments in `engine.py`/`export/__init__.py`
+  stay valid (they exist precisely so these future writers can traverse the pre-layout graph).
+
 - **Searchable/selectable Arabic in PDF (deferred 2026-06-15, owner-approved).** Chromium prints
   shaped Arabic as Type3 visual-order glyphs with no logical Unicode, so the committed `8098cc1` PDF
   is visually perfect but Arabic isn't searchable. A full investigation (**`spikes/spike-5-pdf-searchable/`**,
@@ -416,6 +438,7 @@ Only keys believed documented in mxGraph are emitted (confirm on first round-tri
 2. Writer contract is set: `write_<fmt>(diagram_or_graph, out_path, meta) -> WriteResult(path, report)`;
    wire new formats into `RenderResult._export_writer` + the `export()` dispatch.
 3. PPTX next (shares positioned-IR geometry with drawio; python-pptx already a core dep — lazy-import
-   like `png.py`). Then PDF (trivial, mirror `png.py`). Then Mermaid/PlantUML (traverse `result.graph`,
-   the retained logical IR). class+mindmap is a separate family/layout workstream — land last.
+   like `png.py`). Then PDF (trivial, mirror `png.py`). **Mermaid/PlantUML deferred to a future
+   feature** (logical-IR source writers — see "Deferred / future tasks"). class+mindmap is a separate
+   family/layout workstream — land last.
 4. No phase ships with red CI; nothing reaches `main` without a PR; new examples take the baseline cost knowingly.

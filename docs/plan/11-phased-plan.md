@@ -66,7 +66,7 @@ Each phase: goal / scope / deliverables / validation / risks / exit criteria.
 ## Phase 6 — Export & Editability
 
 **Goal**: publish/refine/regenerate output roles complete.
-**Scope**: PDF (Chromium CDP, per D7); **draw.io and PPTX writers built in parallel (D2:C)** — drawio: pools/lanes/containers/orthogonal points/RTL keys + CLI round-trip tests; PPTX: shapes/connectors/groups/RTL paragraphs + real-PowerPoint checklist; Mermaid + PlantUML source writers with CapabilityReports; export metadata everywhere; class + mindmap profiles.
+**Scope**: PDF (Chromium CDP, per D7); **draw.io and PPTX writers built in parallel (D2:C)** — drawio: pools/lanes/containers/orthogonal points/RTL keys + CLI round-trip tests; PPTX: shapes/connectors/groups/RTL paragraphs + real-PowerPoint checklist; export metadata everywhere; class + mindmap profiles. **Mermaid + PlantUML source writers deferred to a future feature (2026-06-15) — see `docs/spikes/phase-6-progress.md` "Deferred / future tasks".**
 **Deliverables**: all export tiers live; `exports/` docs; PowerPoint workflow guide.
 **Validation**: drawio opens+re-exports headless in CI; PPTX assertions + manual edit test; lossiness reports reviewed.
 **Risks**: R-14…R-19.

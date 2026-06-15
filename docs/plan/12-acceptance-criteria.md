@@ -31,7 +31,7 @@ Status: Proposed · 2026-06-11 · All items are testable; each maps to CI checks
 | F4 | Styling: full 6-level cascade, themes portable across SVG/drawio/PPTX writers (within declared ceilings) | cross-writer golden checks |
 | F5 | Routing: orthogonal+curved modes, ports, waypoints, priorities; measured crossing counts within thresholds on benchmark set | RenderReport gates |
 | F6 | Cross-platform: full suite green on Windows, macOS, Linux | CI matrix |
-| F7 | Exports: SVG/PNG/PDF/HTML first-class; drawio + PPTX editable (open + edit verified); Mermaid/PlantUML best-effort with loss reports | export suites + manual gate |
+| F7 | Exports: SVG/PNG/PDF/HTML first-class; drawio + PPTX editable (open + edit verified). _(Mermaid/PlantUML best-effort source exports **deferred to a future feature, 2026-06-15** — not required for Phase-6 exit.)_ | export suites + manual gate |
 | F8 | Browser verification: gallery + E2E + screenshot regression operational and gating | CI |
 | F9 | Extensibility: new diagram type added via plugin without core changes (proven twice, incl. clone-tutorial) | plugin exercise |
 | F10 | Documentation complete per `10-documentation-plan.md`, including limitations + troubleshooting | doc review gate |
