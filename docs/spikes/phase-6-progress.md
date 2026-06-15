@@ -46,8 +46,9 @@ New example specs deliberately NOT added — writers are exercised against the e
   badge-as-circle, promote showcases) — **everything except spike-5 (searchable PDF, parked)** — are
   queued for **after a session cleanup**, in a later session.
 - **Remaining active Phase-6 work:** ~~sub-stage 5 (PNG `tEXt` + PDF metadata)~~ ✅ done (2026-06-15,
-  below) + ~~linux/macOS visual baselines~~ ✅ regenerated (2026-06-15, below) + Option-B draw.io CI
-  proof + `exports/` docs + PowerPoint workflow guide + merge.
+  below) + ~~linux/macOS visual baselines~~ ✅ regenerated (2026-06-15, below) + ~~`exports/` docs +
+  PowerPoint workflow guide~~ ✅ written (2026-06-15: `docs/guide/exports.md` +
+  `docs/guide/powerpoint.md`) + Option-B draw.io CI proof + merge.
 
 ### Uniform per-format CapabilityReports + sub-stage 5 metadata (2026-06-15)
 

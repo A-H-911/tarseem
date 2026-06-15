@@ -69,4 +69,7 @@ embed a content-addressed spec hash + engine versions via `result.to_svg(provena
 ## Next
 
 - [Diagram families](families.md) — the supported families with minimal specs.
+- [Exports](exports.md) — svg/png/pdf/drawio/pptx, the fidelity matrix, and capability reports.
+- [PowerPoint workflow](powerpoint.md) — generating and editing native `.pptx` decks.
+- [RTL & Arabic](rtl-arabic.md) — the end-to-end Arabic story.
 - Acceptance + verification status: `docs/spikes/phase-3-progress.md`.
