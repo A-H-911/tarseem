@@ -702,7 +702,10 @@ def _report(diagram: PositionedDiagram):
         "curved_edges": "none",
         "ports": "partial" if any(n.rows for n in diagram.nodes) else "none",
         "gradients": "none",
-        "fonts_embedded": "none",
+        # The bundled Cairo subset is embedded INTO the file (``_embed_font``), so it renders in
+        # Cairo with zero setup — ``full`` under the shared definition (renders with no external
+        # font installed). Was stale ``none`` before the round-7 embed (report.faithful_*).
+        "fonts_embedded": "full",
         "rtl_shaping": "partial",
         "theme_fidelity": "partial",
         "metadata": "full",

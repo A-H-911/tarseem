@@ -29,7 +29,7 @@ Verification is the **viewer** (Option A), not yet the Desktop editor (Option B)
 | 2 | **PPTX writer** — python-pptx native shapes/connectors from IR in EMUs, `rtl="1"` lxml patch, deterministic zip, manual PowerPoint checklist | ✅ done (writer + tests); manual PPT review pending | `export/pptx.py`, `tests/test_export_pptx.py`, `docs/pptx-manual-checklist.md` |
 | 3 | **PDF** via Chromium CDP (print-to-PDF, mirrors `png.py`) | ✅ done; visually verified vs canonical PNG (incl. Arabic) | `export/pdf.py`, `tests/test_export_pdf.py` |
 | 4 | **Mermaid + PlantUML** source writers (logical IR) with CapabilityReports | ⛔ deferred → future feature (2026-06-15) | see "Deferred / future tasks" |
-| 5 | Export metadata embedded in **all** artifacts (SVG already; PNG tEXt, PDF XMP, PPTX core-props, drawio done) | ◑ partial | drawio done |
+| 5 | Export metadata embedded in **all** artifacts (SVG comment; PNG `tEXt`; PDF Info dict; PPTX core-props; drawio comment) | ✅ done | `png.py`, `pdf.py`, `metadata.py`, `engine.py` |
 | 6 | **class + mindmap** profiles (family/layout workstream; mindmap needs a non-layered ELK tree/radial algo — the real risk) | ⏳ | — |
 
 Gate green throughout: ruff + mypy clean; `pytest` full suite passes; coverage 92% (≥80 gate).
@@ -45,8 +45,37 @@ New example specs deliberately NOT added — writers are exercised against the e
 - **Sub-stage 6 (class + mindmap)** and the remaining deferred items (PPTX font embedding,
   badge-as-circle, promote showcases) — **everything except spike-5 (searchable PDF, parked)** — are
   queued for **after a session cleanup**, in a later session.
-- **Remaining active Phase-6 work:** sub-stage 5 (PNG `tEXt` + PDF `XMP` metadata) + verification/CI
-  (linux/macOS baselines, Option-B CI) + `exports/` docs + PowerPoint workflow guide + merge.
+- **Remaining active Phase-6 work:** ~~sub-stage 5 (PNG `tEXt` + PDF metadata)~~ ✅ done (2026-06-15,
+  below) + verification/CI (linux/macOS baselines, Option-B CI) + `exports/` docs + PowerPoint
+  workflow guide + merge.
+
+### Uniform per-format CapabilityReports + sub-stage 5 metadata (2026-06-15)
+
+Resolves the **invariant-6 tension** flagged earlier (png/pdf carried *no* CapabilityReport while
+drawio/pptx did) and lands sub-stage 5 (provenance embedded everywhere).
+
+- **png + pdf now return `WriteResult` + a CapabilityReport**, like drawio/pptx. New shared builder
+  `report.faithful_svg_render_report`: a writer that faithfully renders the canonical SVG carries
+  **every visual axis at `full`** (it pixel-/vector-reproduces the source of truth — honest, not
+  ceremony); it differs only on the *medium* axes. `engine.export` routes all four writer-backed
+  formats through one `_record` (was `_export_writer`); the **SVG is the reference and carries no
+  report** (it cannot be lossy w.r.t. itself).
+- **`fonts_embedded` defined once, uniformly:** "renders with zero external fonts installed." png
+  (pixels) = full, pdf (Skia Type3 procedures) = full, drawio (embedded subset) = full, pptx (names
+  Cairo) = none. **Fixed a stale/dishonest drawio report** — it embeds the Cairo subset (round 7)
+  but still declared `fonts_embedded=none`; now `full`.
+- **Sub-stage 5 metadata.** PNG `tEXt` chunk inserted before `IEND` **without re-encoding** (pixel
+  stream untouched → zero baseline churn; baselines compare pixels). PDF provenance via an
+  **append-only incremental-update Info dictionary** (Chromium emits a classic xref table — no PDF
+  dep needed); safe failure — if Chromium ever moves to xref streams the update is skipped and the
+  report honestly says `metadata=none`. Both deterministic (invariant 7).
+- **PDF text-layer ceiling is now machine-reported:** `rtl_shaping` stays `full` (the picture is
+  shaped + joined + RTL-correct), with a `text-layer-lossy` warning attached **only for RTL
+  diagrams** — so a Latin png/pdf is `lossy=False` (no sidecar) and an Arabic pdf sidecars the one
+  real ceiling (unsearchable Arabic text, per spike-5).
+
+Tests: `tests/test_export_reports.py` (17 — byte-surgery unit tests on synthetic png/pdf run
+browser-free; writer + engine integration Chromium-gated). Full gate green; coverage 93%.
 
 ## Bug-fix pass — user review round 1 (2026-06-13)
 
@@ -357,7 +386,7 @@ tool renders PDFs; no separate headless PDF renderer needed):**
 | fonts | self-contained | Skia carries Cairo glyphs as **Type3 vector procedures** (renders with zero fonts installed) — not a TrueType embed |
 | text layer | partial | extractable/searchable text is clean for Latin but **garbled for Arabic** (Type3 has no reliable Unicode); the *picture* is correct. A searchable-Arabic layer was investigated and **deferred** — see "Searchable/selectable Arabic in PDF" below |
 | raster | minor | some compositing (e.g. semi-transparent lane fills) flattens to a small `/Image` — **not visible** at the rendered size |
-| metadata | none | provenance not embedded yet (PDF XMP = sub-stage 5, "where practical") |
+| metadata | full | provenance embedded as an Info dictionary via an append-only incremental update (sub-stage 5, 2026-06-15); not XMP — Info dict is dependency-free |
 | determinism | full | same spec ⇒ byte-identical (dates pinned) |
 
 ## Deferred / future tasks
@@ -435,8 +464,10 @@ Only keys believed documented in mxGraph are emitted (confirm on first round-tri
 ## Resume checklist
 
 1. Re-anchor: CLAUDE.md + `git log --oneline -8` + Phase 6 in `11-phased-plan.md` + `.venv` pytest.
-2. Writer contract is set: `write_<fmt>(diagram_or_graph, out_path, meta) -> WriteResult(path, report)`;
-   wire new formats into `RenderResult._export_writer` + the `export()` dispatch.
+2. Writer contract is set: `write_<fmt>(diagram_or_graph, out_path, meta) -> WriteResult(path, report)`
+   (png/pdf take the canonical SVG, not the IR — they faithfully render it); wire new formats into
+   `RenderResult._record` + the `export()` dispatch. Faithful SVG renderers use
+   `report.faithful_svg_render_report`.
 3. PPTX next (shares positioned-IR geometry with drawio; python-pptx already a core dep — lazy-import
    like `png.py`). Then PDF (trivial, mirror `png.py`). **Mermaid/PlantUML deferred to a future
    feature** (logical-IR source writers — see "Deferred / future tasks"). class+mindmap is a separate

@@ -1,9 +1,11 @@
 """PDF export — single-page, vector, font-embedded, deterministic (Phase 6, 08 §export).
 
-PDF is a thin Chromium render of the canonical SVG (like PNG), so it drops nothing and carries
-no CapabilityReport. The render needs a Playwright Chromium; those tests skip cleanly when it is
-absent (CI installs it) and otherwise run ``svg_to_pdf`` for real so a writer bug fails — it is
-not swallowed. The date-normalization unit test is browser-free and always runs.
+PDF is a thin Chromium render of the canonical SVG (like PNG). This file covers the bare
+``svg_to_pdf`` primitive (sizing + date determinism); the ``write_pdf`` writer's CapabilityReport
+and provenance embedding live in ``test_export_reports.py``. The render needs a Playwright
+Chromium; those tests skip cleanly when it is absent (CI installs it) and otherwise run
+``svg_to_pdf`` for real so a writer bug fails — it is not swallowed. The date-normalization unit
+test is browser-free and always runs.
 """
 from __future__ import annotations
 

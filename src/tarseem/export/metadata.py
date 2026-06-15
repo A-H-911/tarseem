@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from tarseem.engine import RenderResult
 
-__all__ = ["provenance", "as_comment"]
+__all__ = ["provenance", "as_comment", "as_text"]
 
 _GENERATOR = "tarseem"
 
@@ -55,3 +55,9 @@ def as_comment(meta: dict[str, str]) -> str:
     the ``--`` sequence that would otherwise close a comment prematurely."""
     body = " ".join(f"{k}={v}" for k, v in meta.items())
     return f"<!-- {_GENERATOR} provenance: {body.replace('--', '- -')} -->"
+
+
+def as_text(meta: dict[str, str]) -> str:
+    """Render provenance as a compact ``k=v k=v`` line — the value of a PNG ``tEXt`` chunk
+    (08 §6). Deterministic: the dict is already ordered and carries no wall-clock (invariant 7)."""
+    return " ".join(f"{k}={v}" for k, v in meta.items())
