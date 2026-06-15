@@ -46,8 +46,8 @@ New example specs deliberately NOT added — writers are exercised against the e
   badge-as-circle, promote showcases) — **everything except spike-5 (searchable PDF, parked)** — are
   queued for **after a session cleanup**, in a later session.
 - **Remaining active Phase-6 work:** ~~sub-stage 5 (PNG `tEXt` + PDF metadata)~~ ✅ done (2026-06-15,
-  below) + verification/CI (linux/macOS baselines, Option-B CI) + `exports/` docs + PowerPoint
-  workflow guide + merge.
+  below) + ~~linux/macOS visual baselines~~ ✅ regenerated (2026-06-15, below) + Option-B draw.io CI
+  proof + `exports/` docs + PowerPoint workflow guide + merge.
 
 ### Uniform per-format CapabilityReports + sub-stage 5 metadata (2026-06-15)
 
@@ -76,6 +76,27 @@ drawio/pptx did) and lands sub-stage 5 (provenance embedded everywhere).
 
 Tests: `tests/test_export_reports.py` (17 — byte-surgery unit tests on synthetic png/pdf run
 browser-free; writer + engine integration Chromium-gated). Full gate green; coverage 93%.
+
+### linux + macOS visual baselines regenerated (2026-06-15)
+
+The linux/darwin baselines were stale across rounds 2–9 + the PPTX rounds (each round regenerated
+only win32 locally). Regenerated on real runners via the **`baselines.yml`** workflow_dispatch
+(run 27566674732, ubuntu-latest + macos-latest) — all 13 goldens per platform changed (the
+accumulated default-style churn: rounded corners, edge-label-slab removal, shadows, crisp chrome,
+etc.). Committed `70f8472`.
+
+- **Refactor first (`e483ef0`):** `regen_baselines.py` + `test_visual_regression.py` now rasterize
+  via the **`svg_to_png` primitive from the canonical SVG**, not `export(["png"])` — a visual
+  baseline is a *provenance-free pixel reference*, decoupled from the export wrapper's `tEXt` chunk
+  (a writer change can never silently move a baseline). Verified win32 reproduces byte-identically
+  (zero churn); the regenerated linux/darwin sets carry no `tEXt`.
+- **Spot-checked** the regenerated LTR swimlane + Arabic/RTL flowchart (correct joined shaping,
+  mirrored flow). win32 untouched. `ci.yml` comment corrected — baselines now exist for all three
+  platforms, so the comparison runs on every matrix OS (was win32-only).
+- **Empirical CI validation** of the new linux/darwin sets runs on the next PR / push-to-main
+  (`ci.yml` triggers on those only). By construction they pass: the suite renders via the same
+  deterministic `svg_to_png`(canonical SVG) path the baselines were generated from, same runner
+  Chromium (A3).
 
 ## Bug-fix pass — user review round 1 (2026-06-13)
 
