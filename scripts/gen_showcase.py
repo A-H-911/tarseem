@@ -2,6 +2,10 @@
 
 Throwaway — exercises themes (corporate/monochrome), the full shape set, back-edges,
 phases+markers, RTL+theme combos, and a multi-participant sequence. Not committed examples.
+
+Run with the project venv so ``tarseem`` is importable (bare ``python`` raises ModuleNotFoundError):
+    .venv/bin/python scripts/gen_showcase.py            # macOS/Linux
+    .venv\\Scripts\\python.exe scripts/gen_showcase.py   # Windows
 """
 # ruff: noqa: E501 - compact one-line diagram data literals (incl. Arabic) read better unwrapped
 from __future__ import annotations

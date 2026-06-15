@@ -6,8 +6,11 @@ structure/determinism/RTL, but **glyph shaping and on-canvas appearance can only
 PowerPoint** — there is no headless PPTX renderer in CI. Run this checklist after any change to the
 writer.
 
-Generate the bundle: `python tools/build_review.py examples/*.json`. Decks land in `out/pptx/*.pptx`
-(and `out/index.html` links them per diagram alongside every other format). Open each `.pptx` in
+Generate the bundle **with the project venv** (bare `python` won't find `tarseem`):
+`.venv\Scripts\python.exe tools/build_review.py examples/*.json` on Windows, or
+`.venv/bin/python tools/build_review.py examples/*.json` on macOS/Linux. The script expands the
+glob itself, so the `examples/*.json` form works in PowerShell/cmd too. Decks land in
+`out/pptx/*.pptx` (and `out/index.html` links them per diagram alongside every other format). Open each `.pptx` in
 **Microsoft PowerPoint** (not only the web/Keynote — bidi + cube/can shapes differ).
 See `out/README.md` for the full `out/` layout.
 

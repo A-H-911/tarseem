@@ -1,6 +1,9 @@
 """Regenerate visual-regression baselines for the current platform.
 
-Usage:  python scripts/regen_baselines.py
+Usage (run with the project venv so ``tarseem`` is importable — bare ``python`` will raise
+ModuleNotFoundError):
+    .venv/bin/python scripts/regen_baselines.py            # macOS/Linux
+    .venv\\Scripts\\python.exe scripts/regen_baselines.py   # Windows
 
 Baselines are OS-specific (Chromium font rasterization differs per platform), so they are
 written under tests/baselines/<sys.platform>/. Regenerating is an explicit, reviewed action

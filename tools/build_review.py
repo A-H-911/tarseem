@@ -16,13 +16,18 @@ Layout under the output dir (default `out/`):
 PDF previews inline (browsers render it); PPTX has no headless renderer, so it shows as a
 download tile (open in PowerPoint).
 
-Usage:
-    python tools/build_review.py examples/*.json
-    python tools/build_review.py examples/*.json -o out
+Usage (run with the project venv so ``tarseem`` is importable):
+    .venv/bin/python tools/build_review.py examples/*.json          # macOS/Linux
+    .venv\\Scripts\\python.exe tools/build_review.py examples/*.json  # Windows
+    ... -o out                                                       # custom output dir
+
+Globs are expanded by the script itself, so the ``examples/*.json`` form works in PowerShell and
+cmd too (they don't expand wildcards for a native program the way POSIX shells do).
 """
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import sys
@@ -180,7 +185,13 @@ def main(argv: list[str] | None = None) -> int:
         (out / fmt).mkdir(parents=True, exist_ok=True)
     engine = Engine()
     entries: list[dict] = []
+    # Expand globs ourselves: PowerShell/cmd don't expand `examples/*.json` for a native
+    # program (only POSIX shells do), so a literal pattern would otherwise be skipped.
+    specs: list[str] = []
     for raw in args.specs:
+        matched = sorted(glob.glob(raw))
+        specs.extend(matched if matched else [raw])
+    for raw in specs:
         path = Path(raw)
         if not path.exists():
             print(f"[skip] {path}")

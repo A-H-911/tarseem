@@ -78,7 +78,10 @@ There is no headless PPTX renderer, so on-canvas appearance is checked by hand. 
 `src/tarseem/export/pptx.py`, run the deck review:
 
 ```bash
-python tools/build_review.py examples/*.json   # decks in out/pptx/, side-by-side in out/index.html
+# run with the project venv so `tarseem` is importable (bare `python` will ModuleNotFoundError):
+.venv/bin/python tools/build_review.py examples/*.json        # macOS/Linux
+.venv\Scripts\python.exe tools/build_review.py examples/*.json  # Windows (glob expanded by the script)
+# decks in out/pptx/, side-by-side in out/index.html
 ```
 
 then work through the per-deck **[manual PowerPoint checklist](../pptx-manual-checklist.md)** in real
