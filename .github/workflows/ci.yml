@@ -8,8 +8,9 @@ on:
 jobs:
   build-test:
     # MVP A8: full suite green across Windows, macOS, and Linux x Python 3.10/3.12.
-    # The visual-regression baselines are OS-specific (tests/baselines/<platform>/); the
-    # comparison runs only where a baseline exists (currently win32) and skips elsewhere.
+    # The visual-regression baselines are OS-specific (tests/baselines/<platform>/); committed
+    # for win32 + linux + darwin, so the comparison runs on each matrix OS (it skips a platform
+    # only if its baseline dir is ever missing). Regenerate via the baselines.yml workflow.
     name: ${{ matrix.os }} / py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
