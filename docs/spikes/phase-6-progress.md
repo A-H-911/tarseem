@@ -15,7 +15,7 @@ One positioned IR, many writers (ADR-001). New shared infra this phase: **Capabi
 | 0 | Shared infra: CapabilityReport + feature vocab; export metadata; `WriteResult`; logical-IR retained on `RenderResult`; `export()` writer dispatch + `.report.json` sidecars | ✅ done | `report.py`, `export/metadata.py`, `export/result.py`, `engine.py` |
 | 1 | **draw.io writer** — native pool/lane swimlane cells, geometric lane parenting, exact geometry, floating `edgeStyle=none` edges with exact mxPoint routes, `writingDirection=rtl`, uncompressed XML, documented style-key subset, embedded provenance comment | ✅ done; **verified via Option-A (draw.io viewer) on 6 samples** | `export/drawio.py`, `tests/test_export_drawio.py`, `tools/verify_drawio.py` |
 | 1a | **Render-fidelity loop (Option A)** — render each `.drawio` through draw.io's own viewer (mxGraph) in headless Chromium, screenshot, inspect. No install. | ✅ done | `tools/verify_drawio.py` |
-| 1b | **Option B authoritative gate** — headless draw.io **Desktop** (Docker `rlespinasse/drawio-desktop-headless`) renders our `.drawio` | ✅ **executed locally — PASS** (6/6 render; Desktop agrees with viewer + SVG). CI workflow still unproven in CI. | `.github/workflows/drawio-roundtrip.yml`, `out/drawio-gate/` |
+| 1b | **Option B authoritative gate** — headless draw.io **Desktop** (Docker `rlespinasse/drawio-desktop-headless`) renders our `.drawio` | ✅ **PASS locally AND in CI** (6/6 render; Desktop agrees with viewer + SVG). `drawio-roundtrip.yml` green in CI (run 27567867069, 2026-06-15). | `.github/workflows/drawio-roundtrip.yml`, `out/drawio-gate/` |
 
 ### Option-A verification findings (6 samples through draw.io's viewer)
 
@@ -48,7 +48,8 @@ New example specs deliberately NOT added — writers are exercised against the e
 - **Remaining active Phase-6 work:** ~~sub-stage 5 (PNG `tEXt` + PDF metadata)~~ ✅ done (2026-06-15,
   below) + ~~linux/macOS visual baselines~~ ✅ regenerated (2026-06-15, below) + ~~`exports/` docs +
   PowerPoint workflow guide~~ ✅ written (2026-06-15: `docs/guide/exports.md` +
-  `docs/guide/powerpoint.md`) + Option-B draw.io CI proof + merge.
+  `docs/guide/powerpoint.md`) + ~~Option-B draw.io CI proof~~ ✅ green in CI (2026-06-15, run
+  27567867069). **Only `merge` remains** — open the PR when ready.
 
 ### Uniform per-format CapabilityReports + sub-stage 5 metadata (2026-06-15)
 
