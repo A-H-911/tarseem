@@ -116,7 +116,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_exp = sub.add_parser("export", help="export a spec to one or more formats")
     p_exp.add_argument("spec")
-    p_exp.add_argument("-f", "--formats", default="svg", help="comma list: svg,png,drawio")
+    p_exp.add_argument(
+        "-f", "--formats", default="svg", help="comma list: svg,png,pdf,drawio,pptx"
+    )
     p_exp.add_argument("-o", "--out", default=".", help="output directory")
     p_exp.add_argument("-n", "--name", default="diagram", help="output basename")
     p_exp.add_argument("--node", default="node", help="Node.js executable (graph families)")

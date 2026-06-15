@@ -16,7 +16,6 @@ from tarseem.render.text import bidi_attrs, resolve_edge_corners
 __all__ = ["render_sequence_svg"]
 
 _M = 24.0
-_LABEL_LIFT = 4.0  # px to raise a message label above its line (MUST match drawio _SEQ_LABEL_GAP)
 _STEM = "#9AA8A2"
 _ACT_FILL = "#FFFFFF"
 _ACT_BORDER = "#2E8B57"
@@ -65,9 +64,9 @@ def _message_svg(e: PositionedEdge, curved: bool = True) -> list[str]:
         head = _open_arrowhead if is_return else _arrowhead
         out.append(head(e.points[-2], e.points[-1], color))
     if e.label and e.label_xy:
-        lx, ly = e.label_xy
+        lx, ly = e.label_xy  # already off the line (offset_edge_labels)
         out.append(
-            f'<text x="{_num(lx)}" y="{_num(ly - _LABEL_LIFT)}" font-size="12" fill="{color}" '
+            f'<text x="{_num(lx)}" y="{_num(ly)}" font-size="12" fill="{color}" '
             f'{_label_attrs(e.label)}>{_esc(e.label.text)}</text>'
         )
     return out

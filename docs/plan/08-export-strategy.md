@@ -12,7 +12,7 @@ Core property: one positioned IR → many writers (see `04-architecture.md` §1)
 | **First-class** (CI-gated, full fidelity) | SVG · PNG · HTML gallery · JSON spec (authoritative source) | publish / verify / regenerate | Own SVG renderer; Playwright PNG; gallery builder |
 | **First-class editable** | draw.io XML (.drawio) | refine | Own mxGraph XML writer from positioned IR |
 | **Adapter** (full support, optional deps) | PDF (Playwright print-to-PDF) · PPTX (python-pptx) | publish / refine | Optional extras `[pdf]`, `[pptx]` |
-| **Best-effort** (lossy, capability-reported) | Mermaid source · PlantUML source · (later, if wanted: Excalidraw JSON, BPMN XML with watermark warning) | regenerate / interop | DSL writers from logical IR |
+| **Best-effort** (lossy, capability-reported) | Mermaid source · PlantUML source **— deferred to a future feature (2026-06-15)** · (later, if wanted: Excalidraw JSON, BPMN XML with watermark warning) | regenerate / interop | DSL writers from logical IR |
 | **Rejected** | EMF (Windows-only Inkscape path, text→paths), SVG-ungroup-in-PowerPoint as *primary* editable path (manual, regression-prone), CairoSVG anything | — | Documented in limitations |
 
 ## 2. First-Class Details

@@ -19,6 +19,7 @@ import pytest
 from PIL import Image
 
 from tarseem.engine import Engine
+from tarseem.export import svg_to_png
 from tarseem.visualtest import compare_png
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -110,8 +111,10 @@ requires_node = pytest.mark.skipif(
 
 def _assert_matches_baseline(name: str, tmp_path: Path) -> None:
     spec = json.loads((ROOT / "examples" / f"{name}.json").read_text(encoding="utf-8"))
-    Engine().render(spec).export(["png"], tmp_path, name)
     current = tmp_path / f"{name}.png"
+    # Match scripts/regen_baselines.py exactly: bare raster of the canonical SVG (no provenance
+    # tEXt), so the suite tests the *picture* and is immune to export-wrapper changes.
+    svg_to_png(Engine().render(spec).svg, current)
     baseline = _baseline_dir() / f"{name}.png"
     if not baseline.exists():
         pytest.skip(f"no committed baseline for {name} on '{sys.platform}'")

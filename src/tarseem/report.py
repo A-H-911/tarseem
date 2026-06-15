@@ -24,6 +24,7 @@ __all__ = [
     "CapabilityWarning",
     "CapabilityReport",
     "build_capability_report",
+    "faithful_svg_render_report",
 ]
 
 # ---------------------------------------------------------------------------
@@ -118,6 +119,53 @@ def build_capability_report(
     if bad_feature:
         raise ValueError(f"{writer}: warning(s) cite unknown feature(s): {bad_feature}")
     return CapabilityReport(writer=writer, supports=dict(supports), warnings=warns)
+
+
+def faithful_svg_render_report(
+    writer: str,
+    *,
+    svg: str,
+    fonts_embedded: Support,
+    metadata: Support,
+    searchable_rtl_text: bool = True,
+) -> CapabilityReport:
+    """CapabilityReport for a writer that *faithfully renders the canonical SVG* — the raster
+    (png) and print (pdf) writers. Such a writer reproduces the source-of-truth picture within
+    its medium, so EVERY visual axis is ``full``: whatever the SVG drew (shapes, lanes, phases,
+    badges, markers, exact routes, labels, curved edges, ER rows/ports, gradients, theme colours,
+    and shaped/joined RTL text) appears pixel- or vector-identical. This is honest, not ceremony —
+    a faithful render genuinely carries each of these. The writer can differ from the SVG only on
+    the *non-visual* axes its medium controls:
+
+    * ``fonts_embedded`` — defined UNIFORMLY across every writer as: the artifact renders correctly
+      with **zero external fonts installed**. png bakes glyphs to pixels (full); pdf carries Skia
+      Type3 glyph procedures (full); drawio embeds a Cairo subset (full); pptx only *names* Cairo
+      and needs it installed (none). Keep this one definition so the axis never drifts per writer.
+    * ``metadata`` — whether provenance is embedded in the artifact itself.
+
+    ``searchable_rtl_text=False`` records a medium that paints shaped RTL correctly but cannot keep
+    a reliable *extractable/searchable* text layer (pdf: Chromium emits Type3 visual-order glyphs
+    with no logical Unicode). A warning is attached ONLY when the diagram actually contains RTL
+    (so it is never a silent drop per invariant 6, and never noise on a Latin diagram). This is a
+    **text-extraction** loss, not a shaping loss — the picture is correct, so ``rtl_shaping`` itself
+    stays ``full`` (unlike drawio/pptx, which delegate shaping to a viewer and so report partial).
+    """
+    supports: dict[str, Support] = {feature: "full" for feature in FEATURES}
+    supports["fonts_embedded"] = fonts_embedded
+    supports["metadata"] = metadata
+    warnings: list[CapabilityWarning] = []
+    if not searchable_rtl_text and 'direction="rtl"' in svg:
+        warnings.append(
+            CapabilityWarning(
+                "text-layer-lossy",
+                "rtl_shaping",
+                "RTL text is painted shaped, joined and right-to-left correctly, but the "
+                "extractable text layer loses reliable Unicode for Arabic — the picture is "
+                "correct; copy/search of Arabic text is garbled",
+            )
+        )
+    return build_capability_report(writer, supports, warnings)
+
 
 Point = tuple[float, float]
 

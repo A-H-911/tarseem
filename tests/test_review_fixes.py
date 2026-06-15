@@ -130,8 +130,11 @@ def test_drawio_cube_label_is_separate_front_face_cell():
     assert any((i or "").startswith("cubelabel_") for i in ids)
 
 
-def test_drawio_sequence_label_raised_above_line():
-    assert "verticalAlign=bottom" in to_drawio_xml(_render("sequence-login").diagram)
+def test_drawio_edge_label_is_a_separate_offset_cell():
+    # draw.io would centre an edge value ON the line; we emit a separate text cell at the
+    # off-line label_xy instead (matches SVG/PPTX, no passthrough).
+    ids = _ids(to_drawio_xml(_render("sequence-login").diagram))
+    assert any((i or "").startswith("elabel_") for i in ids)
 
 
 # --- review round 5 (owner-reported) --------------------------------------------------
@@ -176,13 +179,45 @@ def test_drawio_er_key_pill_radius_matches_svg():
     assert "absoluteArcSize=1;arcSize=3" in to_drawio_xml(_render("er-shop").diagram)
 
 
-def test_sequence_label_gap_unified_across_writers():
-    # the message-label lift is one shared constant so SVG and draw.io keep the same gap.
-    from tarseem.export.drawio import _SEQ_LABEL_GAP
-    from tarseem.render.sequence import _LABEL_LIFT
+def test_edge_labels_offset_off_line_and_idempotent():
+    # offset_edge_labels nudges a label off its nearest segment so the line never passes through
+    # the text; re-applying is a no-op (offset is measured from the line, not the label).
+    from tarseem.model.edge_labels import _nearest_segment, offset_edge_labels
 
-    assert _LABEL_LIFT == _SEQ_LABEL_GAP
-    assert "spacingBottom=4" in to_drawio_xml(_render("sequence-login").diagram)
+    d = _render("sequence-login").diagram  # already offset by the engine pipeline
+    again = offset_edge_labels(d)
+    assert all(a.label_xy == b.label_xy for a, b in zip(again.edges, d.edges, strict=True))
+    labelled = [e for e in d.edges if e.label and e.label_xy and len(e.points) >= 2]
+    assert labelled
+    for e in labelled:  # the label clears its nearest segment (not on the line)
+        lx, ly = e.label_xy
+        (ax, ay), (bx, by) = _nearest_segment(e.points, lx, ly)
+        perp = abs(ly - ay) if abs(bx - ax) >= abs(by - ay) else abs(lx - ax)
+        assert perp >= 8.0
+
+
+def test_sequence_heads_are_rounded_by_default():
+    # the sequence layouter must honor the compiled (rounded) shape, not hardcode rect.
+    assert 'rx="10"' in _render("sequence-login").svg
+
+
+def test_cylinder_label_drops_below_the_cap():
+    from tarseem.model.ir import Label, PositionedNode
+    from tarseem.render.svg import _CYL_CAP, _label_center
+
+    n = PositionedNode(id="c", x=0.0, y=0.0, width=100.0, height=60.0,
+                       label=Label(text="db"), shape="cylinder")
+    assert _label_center(n) == (50.0, 30.0 + _CYL_CAP)
+
+
+def test_node_corners_rounded_by_default_and_opt_out():
+    # owner directive: rect shapes render rounded by default; theme.nodeCorners="sharp" opts out.
+    spec = _spec("architecture")
+    assert 'rx="10"' in Engine().render(spec).svg  # rect -> roundrect default
+    spec_sharp = {**spec, "theme": {**(spec.get("theme") or {}), "nodeCorners": "sharp"}}
+    svg_sharp = Engine().render(spec_sharp).svg
+    # at least one plain (non-rounded) rect appears when sharp
+    assert svg_sharp.count('rx="10"') < Engine().render(spec).svg.count('rx="10"')
 
 
 # --- review round 6 (owner-reported) --------------------------------------------------
@@ -237,10 +272,12 @@ def test_chrome_radius_unified_and_crisp():
     assert 'rx="3"' in _render("swimlane-phases").svg  # SVG phase band uses the same crisp radius
 
 
-def test_edge_label_bg_hugs_text():
-    # tight halo (owner: 'too much white'): 7 chars -> half=22 -> width 44, height 15
-    # (was an 18px-tall, len*3.5*2=49px box).
-    from tarseem.render.svg import _edge_label_bg
+def test_svg_edge_labels_have_no_white_slab():
+    # owner: white box behind link text -> transparent. The old halo rect is gone in all writers.
+    for name in ("state-order-lifecycle", "swimlane-pipeline", "er-shop"):
+        assert 'fill="#FFFFFF" opacity="0.85"' not in _render(name).svg
 
-    bg = _edge_label_bg(100.0, 50.0, "deliver")
-    assert 'height="15"' in bg and 'width="44"' in bg
+
+def test_svg_3d_shapes_get_a_drop_shadow():
+    svg = _render("deployment-web-stack").svg  # cube + cylinder
+    assert "tarseem-shadow" in svg and "feDropShadow" in svg

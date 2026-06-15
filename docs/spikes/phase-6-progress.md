@@ -15,7 +15,7 @@ One positioned IR, many writers (ADR-001). New shared infra this phase: **Capabi
 | 0 | Shared infra: CapabilityReport + feature vocab; export metadata; `WriteResult`; logical-IR retained on `RenderResult`; `export()` writer dispatch + `.report.json` sidecars | ✅ done | `report.py`, `export/metadata.py`, `export/result.py`, `engine.py` |
 | 1 | **draw.io writer** — native pool/lane swimlane cells, geometric lane parenting, exact geometry, floating `edgeStyle=none` edges with exact mxPoint routes, `writingDirection=rtl`, uncompressed XML, documented style-key subset, embedded provenance comment | ✅ done; **verified via Option-A (draw.io viewer) on 6 samples** | `export/drawio.py`, `tests/test_export_drawio.py`, `tools/verify_drawio.py` |
 | 1a | **Render-fidelity loop (Option A)** — render each `.drawio` through draw.io's own viewer (mxGraph) in headless Chromium, screenshot, inspect. No install. | ✅ done | `tools/verify_drawio.py` |
-| 1b | **Option B authoritative gate** — headless draw.io **Desktop** (Docker `rlespinasse/drawio-desktop-headless`) renders our `.drawio` | ✅ **executed locally — PASS** (6/6 render; Desktop agrees with viewer + SVG). CI workflow still unproven in CI. | `.github/workflows/drawio-roundtrip.yml`, `out/drawio-gate/` |
+| 1b | **Option B authoritative gate** — headless draw.io **Desktop** (Docker `rlespinasse/drawio-desktop-headless`) renders our `.drawio` | ✅ **PASS locally AND in CI** (6/6 render; Desktop agrees with viewer + SVG). `drawio-roundtrip.yml` green in CI (run 27567867069, 2026-06-15). | `.github/workflows/drawio-roundtrip.yml`, `out/drawio-gate/` |
 
 ### Option-A verification findings (6 samples through draw.io's viewer)
 
@@ -26,15 +26,79 @@ One positioned IR, many writers (ADR-001). New shared infra this phase: **Capabi
 - Minor: diamond label slightly overflows the rhombus outline (a diamond has ~half its bbox area). Cosmetic.
 
 Verification is the **viewer** (Option A), not yet the Desktop editor (Option B) — those can differ; Option B is the final sign-off before human review.
-| 2 | **PPTX writer** — python-pptx shapes/connectors/groups from IR in EMUs, `rtl="1"` lxml patch, manual PowerPoint checklist | ⏳ next | — |
-| 3 | **PDF** via Chromium CDP (print-to-PDF, mirrors `png.py`) | ⏳ | — |
-| 4 | **Mermaid + PlantUML** source writers (logical IR) with CapabilityReports | ⏳ | — |
-| 5 | Export metadata embedded in **all** artifacts (SVG already; PNG tEXt, PDF XMP, PPTX core-props, drawio done) | ◑ partial | drawio done |
+| 2 | **PPTX writer** — python-pptx native shapes/connectors from IR in EMUs, `rtl="1"` lxml patch, deterministic zip, manual PowerPoint checklist | ✅ done (writer + tests); manual PPT review pending | `export/pptx.py`, `tests/test_export_pptx.py`, `docs/pptx-manual-checklist.md` |
+| 3 | **PDF** via Chromium CDP (print-to-PDF, mirrors `png.py`) | ✅ done; visually verified vs canonical PNG (incl. Arabic) | `export/pdf.py`, `tests/test_export_pdf.py` |
+| 4 | **Mermaid + PlantUML** source writers (logical IR) with CapabilityReports | ⛔ deferred → future feature (2026-06-15) | see "Deferred / future tasks" |
+| 5 | Export metadata embedded in **all** artifacts (SVG comment; PNG `tEXt`; PDF Info dict; PPTX core-props; drawio comment) | ✅ done | `png.py`, `pdf.py`, `metadata.py`, `engine.py` |
 | 6 | **class + mindmap** profiles (family/layout workstream; mindmap needs a non-layered ELK tree/radial algo — the real risk) | ⏳ | — |
 
 Gate green throughout: ruff + mypy clean; `pytest` full suite passes; coverage 92% (≥80 gate).
 New example specs deliberately NOT added — writers are exercised against the existing corpus
 (`flowchart`, `swimlane-*`, `arabic-*`, `er-shop`) to avoid triggering 3-OS visual-baseline regen.
+
+### Session decision (2026-06-15)
+
+- **Sub-stage 4 (Mermaid + PlantUML) dropped → future feature** (see "Deferred / future tasks"). Plan,
+  acceptance criteria, and requirements updated to match.
+- **PPTX manual PowerPoint close-out: complete** — Arabic/English mixed-bidi spacing (review #3)
+  owner-confirmed (see PPTX review round 1, updated).
+- **Sub-stage 6 (class + mindmap)** and the remaining deferred items (PPTX font embedding,
+  badge-as-circle, promote showcases) — **everything except spike-5 (searchable PDF, parked)** — are
+  queued for **after a session cleanup**, in a later session.
+- **Remaining active Phase-6 work:** ~~sub-stage 5 (PNG `tEXt` + PDF metadata)~~ ✅ done (2026-06-15,
+  below) + ~~linux/macOS visual baselines~~ ✅ regenerated (2026-06-15, below) + ~~`exports/` docs +
+  PowerPoint workflow guide~~ ✅ written (2026-06-15: `docs/guide/exports.md` +
+  `docs/guide/powerpoint.md`) + ~~Option-B draw.io CI proof~~ ✅ green in CI (2026-06-15, run
+  27567867069). **Only `merge` remains** — open the PR when ready.
+
+### Uniform per-format CapabilityReports + sub-stage 5 metadata (2026-06-15)
+
+Resolves the **invariant-6 tension** flagged earlier (png/pdf carried *no* CapabilityReport while
+drawio/pptx did) and lands sub-stage 5 (provenance embedded everywhere).
+
+- **png + pdf now return `WriteResult` + a CapabilityReport**, like drawio/pptx. New shared builder
+  `report.faithful_svg_render_report`: a writer that faithfully renders the canonical SVG carries
+  **every visual axis at `full`** (it pixel-/vector-reproduces the source of truth — honest, not
+  ceremony); it differs only on the *medium* axes. `engine.export` routes all four writer-backed
+  formats through one `_record` (was `_export_writer`); the **SVG is the reference and carries no
+  report** (it cannot be lossy w.r.t. itself).
+- **`fonts_embedded` defined once, uniformly:** "renders with zero external fonts installed." png
+  (pixels) = full, pdf (Skia Type3 procedures) = full, drawio (embedded subset) = full, pptx (names
+  Cairo) = none. **Fixed a stale/dishonest drawio report** — it embeds the Cairo subset (round 7)
+  but still declared `fonts_embedded=none`; now `full`.
+- **Sub-stage 5 metadata.** PNG `tEXt` chunk inserted before `IEND` **without re-encoding** (pixel
+  stream untouched → zero baseline churn; baselines compare pixels). PDF provenance via an
+  **append-only incremental-update Info dictionary** (Chromium emits a classic xref table — no PDF
+  dep needed); safe failure — if Chromium ever moves to xref streams the update is skipped and the
+  report honestly says `metadata=none`. Both deterministic (invariant 7).
+- **PDF text-layer ceiling is now machine-reported:** `rtl_shaping` stays `full` (the picture is
+  shaped + joined + RTL-correct), with a `text-layer-lossy` warning attached **only for RTL
+  diagrams** — so a Latin png/pdf is `lossy=False` (no sidecar) and an Arabic pdf sidecars the one
+  real ceiling (unsearchable Arabic text, per spike-5).
+
+Tests: `tests/test_export_reports.py` (17 — byte-surgery unit tests on synthetic png/pdf run
+browser-free; writer + engine integration Chromium-gated). Full gate green; coverage 93%.
+
+### linux + macOS visual baselines regenerated (2026-06-15)
+
+The linux/darwin baselines were stale across rounds 2–9 + the PPTX rounds (each round regenerated
+only win32 locally). Regenerated on real runners via the **`baselines.yml`** workflow_dispatch
+(run 27566674732, ubuntu-latest + macos-latest) — all 13 goldens per platform changed (the
+accumulated default-style churn: rounded corners, edge-label-slab removal, shadows, crisp chrome,
+etc.). Committed `70f8472`.
+
+- **Refactor first (`e483ef0`):** `regen_baselines.py` + `test_visual_regression.py` now rasterize
+  via the **`svg_to_png` primitive from the canonical SVG**, not `export(["png"])` — a visual
+  baseline is a *provenance-free pixel reference*, decoupled from the export wrapper's `tEXt` chunk
+  (a writer change can never silently move a baseline). Verified win32 reproduces byte-identically
+  (zero churn); the regenerated linux/darwin sets carry no `tEXt`.
+- **Spot-checked** the regenerated LTR swimlane + Arabic/RTL flowchart (correct joined shaping,
+  mirrored flow). win32 untouched. `ci.yml` comment corrected — baselines now exist for all three
+  platforms, so the comparison runs on every matrix OS (was win32-only).
+- **Empirical CI validation** of the new linux/darwin sets runs on the next PR / push-to-main
+  (`ci.yml` triggers on those only). By construction they pass: the suite renders via the same
+  deterministic `svg_to_png`(canonical SVG) path the baselines were generated from, same runner
+  Chromium (A3).
 
 ## Bug-fix pass — user review round 1 (2026-06-13)
 
@@ -211,6 +275,176 @@ is reused by the generic, swimlane, and ER writers (was three near-duplicate inl
 SVG-default change → 12 win32 baselines regenerated (every edge-labelled sample). **linux/macOS
 pending.** Tests: `tests/test_review_fixes.py` (now 27). Full gate green.
 
+## PPTX writer (2026-06-14) — native shapes, branch `phase-6-pptx`
+
+`src/tarseem/export/pptx.py`: python-pptx **native** autoshapes + freeform connectors + text from
+the positioned IR (invariant 5 — no image, no SVG ungroup). IR px → EMU (9525/px); slide margin
+matches the SVG framing per family (generic/ER +24px, swimlane/sequence absolute). Edges are
+freeform polylines with an XML-patched `a:tailEnd` arrowhead; RTL labels get `a:pPr rtl="1"`
+(no python-pptx API). All families covered: shape vocab + state pseudostates, swimlane chrome
+(bands/chips/title/phases/groups/separators), sequence lifelines+activations, ER table cells,
+markers, badges. Wired into `engine.export(["pptx"])` + `.report.json` sidecars.
+
+**Determinism (invariant 7):** a .pptx is a zip python-pptx stamps with wall-clock mtimes +
+core-prop timestamps. Core props pinned to a constant; the zip is re-emitted with normalized
+`ZipInfo` → byte-identical per spec (tested across 7 families).
+
+**Verification:** structure/determinism/EMU-scaling/RTL/report tested (`tests/test_export_pptx.py`,
+20 tests). No headless PPTX renderer exists, so on-canvas appearance is an owner step — decks at
+`out/pptx/*.pptx`, checklist at `docs/pptx-manual-checklist.md`.
+
+| Feature | Level | Notes |
+|---|---|---|
+| shapes | full* | rect/roundrect/stadium/diamond/parallelogram/can/document/cube + state dot/bullseye. *unknown → rect + warning |
+| lanes / phases | full | explicit rects + chips + phase bands (matches the SVG/ADR-007 chrome) |
+| badges / markers | full | corner-circle ovals; start dot + end bullseye |
+| edge_routes | full | exact IR polyline as a freeform connector (floating, not shape-bound) |
+| edge_labels | full | textbox with a tight white halo |
+| curved_edges | none | straight segments only |
+| ports | partial | ER rows are explicit cells, not native table ports |
+| gradients | none | flat fills |
+| fonts_embedded | none | names Cairo (`a:cs` too); **install Cairo to render** (verified). Not embedded — embedding deferred (PowerPoint repair). |
+| rtl_shaping | partial | `a:pPr rtl=1`; shaping delegated to PowerPoint |
+| theme_fidelity | partial | flat fills/strokes/text colours; no gradients/tints |
+| metadata | full | provenance in core properties (no wall-clock) |
+
+## PPTX review round 1 (2026-06-14) — owner PowerPoint pass (17 decks)
+
+Fixes from the owner's first real-PowerPoint review:
+
+- **Edge-label background → transparent** (global, incl. the SVG source of truth + PPTX; draw.io
+  already none). The white halo read as a white gap in the line ("some links are white"). Removed
+  the slab in `svg.py`/`swimlane.py`/`er.py` (deleted `_edge_label_bg`); PPTX label textboxes have
+  no fill and don't wrap (`word_wrap=False`) → fixes sequence labels spilling to two rows.
+- **Curved edges (PPTX)** — freeform now traces rounded corners (quadratic sampled into segments,
+  `_EDGE_RADIUS=8` matching the SVG), honoring `theme.edgeCorners`.
+- **Arabic font (PPTX)** — set `a:cs`/`a:ea` typeface to Cairo (python-pptx only sets `a:latin`,
+  so Arabic was falling back to the theme's complex-script font).
+- **Blurry separators (PPTX)** — straight separators/lifelines/ER row rules now use **connectors**
+  (`p:cxnSp`), not degenerate zero-width freeforms.
+- **ER title corners (PPTX)** — title is a rounded rect so its top follows the container.
+- **Vertical gutter text (PPTX)** — nested-lane group label gets `bodyPr vert="vert270"`.
+- **3-D drop shadow** (owner liked it) — added to cube + cylinder in **all** writers: SVG
+  (`feDropShadow` filter), draw.io (`shadow=1`), PPTX (`a:outerShdw`).
+
+SVG-default changes (edge-label slab + shadow) → 12 win32 baselines regenerated; **linux/macOS
+pending** (CI at PR time). Tests: `tests/test_export_pptx.py` (24), `tests/test_review_fixes.py`
+(+SVG slab/shadow). Full gate green. **Arabic/English mixed-bidi spacing (review #3): confirmed
+working in PowerPoint by the owner (2026-06-15)** — `rtl` + per-run `lang` + complex-script Cairo
+font produce correct mixed Arabic/Latin spacing. PPTX manual PowerPoint close-out complete.
+
+## PPTX review round 2 (2026-06-14) — labels off the line + rounded-by-default
+
+- **Edge labels off the line (all writers).** New post-layout transform `offset_edge_labels`
+  (`model/edge_labels.py`, run in `engine.render`) nudges each `label_xy` perpendicular off its
+  nearest segment — above a horizontal segment, beside a vertical one (right LTR / left RTL) — so
+  the line never passes through the text. SVG/PPTX read the corrected point; draw.io now emits the
+  label as a **separate text cell** at `label_xy` (it otherwise centres an edge value on the line).
+  Removed the per-writer label hacks (`_LABEL_LIFT`, `verticalAlign=bottom`/`spacingBottom`,
+  pptx `label_above`). Idempotent (offset measured from the line).
+- **Rounded corners by default (all writers, all types).** `theme.nodeCorners` (new schema enum,
+  default `rounded`); `compile` maps `rect → roundrect` so every writer renders rounded with no
+  writer change. Opt out globally with `nodeCorners="sharp"`.
+- **PPTX ER title** → `ROUND_2_SAME_RECTANGLE` (rounded top, square bottom — matches the SVG;
+  the plain rounded rect rounded the bottom too).
+- **PPTX Arabic mixed (review #2)** — set each run's `lang` (+ existing `rtl`/`cs` font) so
+  PowerPoint applies bidi; **single-run only — mixed Arabic/Latin spacing may still need
+  per-script run-splitting (unverifiable without PowerPoint; flagged for re-check).**
+
+SVG-default changes (rounded rects + label positions) → all 13 win32 baselines regenerated;
+linux/macOS at PR time. Tests updated. Full gate green.
+
+**Review bundle reorganized (owner request):** `tools/build_review.py` now writes one folder per
+format — `out/{svg,png,drawio,pptx}/` — plus a single `out/index.html` (every diagram across every
+format, side by side; PPTX as a download tile since it has no headless render) and a generated
+`out/README.md`. Locked files (an open `.pptx`/`.drawio`) are skipped with a `[locked]` log.
+`out/index.html` is the one sign-off surface.
+
+## PPTX review round 3 (2026-06-14)
+
+- **PPTX Arabic font (#2) — RESOLVED via font install.** The decks name `Cairo` in the
+  complex-script slot (`a:cs`); **with Cairo installed, PowerPoint renders Latin + Arabic correctly
+  (owner-confirmed).** Fonts are not embedded (ceiling = `none`): a plain OPC embed was structurally
+  valid + deterministic + reopened in python-pptx, but **PowerPoint flagged the file for repair**, so
+  it was reverted. Zero-install embedding → **deferred future task** (below).
+- **Sequence actors rounded (#3).** `SequenceLayout` hardcoded `shape="rect"` for participant
+  heads, ignoring the compiled (rounded) shape — now uses `n.shape`, so `nodeCorners` applies.
+- **Cylinder label centring (#4).** SVG/draw.io centred the label on the bbox; now dropped onto
+  the body below the top cap (`_CYL_CAP`; draw.io `spacingTop`) to match PPTX's CAN. swimlane now
+  uses the shared `_label_center`.
+- **PPTX ER header (#1).** The container's default rounded-rect radius was large; pinned both the
+  container and the `ROUND_2_SAME_RECTANGLE` title to ~6px so the title's rounded top aligns with
+  the container (no poke-out).
+
+SVG-default changes (rounded sequence heads + cylinder label) → win32 baselines regenerated;
+linux/macOS at PR time. Tests added. Full gate green.
+
+## PDF writer (2026-06-14) — Chromium print, branch `phase-6-pptx`
+
+`src/tarseem/export/pdf.py`: a thin Chromium print-to-PDF of the **canonical SVG** (mirrors
+`png.py`). Like PNG it renders the source-of-truth SVG, so it drops nothing relative to the SVG
+and carries **no CapabilityReport** (a faithful render has nothing to report; PNG is the same —
+note: the earlier PPTX-track option text mentioned a PDF report, deliberately dropped after
+review as it would be all-`full` ceremony — if uniform per-format reports are wanted, the
+consistent fix is reports for png **and** pdf, not pdf alone). Wired into `engine.export(["pdf"])`
++ the CLI + the review bundle (`out/pdf/`, previews inline in `index.html`).
+
+The two parts of "mirror png.py" that do **not** transfer (a PDF is a paginated document, not a
+bitmap), both handled + tested:
+- **Page sizing.** `page.pdf` paginates; an inline `<svg>` adds a line-box descender that spills a
+  hairline 2nd page. Fixed with `svg{display:block}` + `ceil`'d page dims (no clip on fractional
+  extents). Asserted single-page on a **tall** (sequence) and **wide** (vertical swimlane) sample.
+- **Determinism (invariant 7).** Chromium stamps the Info dict with wall-clock `/CreationDate` +
+  `/ModDate` (14-digit, fixed-length, plaintext; **no `/ID`**). `_normalize_pdf_dates` overwrites
+  the digits with a constant of equal length → byte offsets (and the xref) untouched, no PDF dep.
+  A determinism test is load-bearing: a future Chromium that changes the date format / adds `/ID` /
+  moves dates into a compressed stream fails loudly.
+
+**Fidelity ceiling (visually verified here by rendering the PDF vs the canonical PNG — the Read
+tool renders PDFs; no separate headless PDF renderer needed):**
+
+| Aspect | Level | Note |
+|---|---|---|
+| visual fidelity | full | shapes/lanes/badges/markers/edges/colors match the SVG; **Arabic shaped + joined + RTL correctly** |
+| fonts | self-contained | Skia carries Cairo glyphs as **Type3 vector procedures** (renders with zero fonts installed) — not a TrueType embed |
+| text layer | partial | extractable/searchable text is clean for Latin but **garbled for Arabic** (Type3 has no reliable Unicode); the *picture* is correct. A searchable-Arabic layer was investigated and **deferred** — see "Searchable/selectable Arabic in PDF" below |
+| raster | minor | some compositing (e.g. semi-transparent lane fills) flattens to a small `/Image` — **not visible** at the rendered size |
+| metadata | full | provenance embedded as an Info dictionary via an append-only incremental update (sub-stage 5, 2026-06-15); not XMP — Info dict is dependency-free |
+| determinism | full | same spec ⇒ byte-identical (dates pinned) |
+
+## Deferred / future tasks
+
+- **Mermaid + PlantUML source writers (deferred 2026-06-15 → future feature).** Sub-stage 4 —
+  best-effort DSL source exports from the **logical IR** (`result.graph`) with CapabilityReports, per
+  `08-export-strategy.md` (best-effort tier) and FR-11.7/FR-11.8. **Dropped from the initial Phase-6
+  delivery** and recorded as a future feature; the design is unchanged (lossy, capability-reported
+  writers — lanes→subgraph approximation, ports dropped, Arabic diacritics quoted/stripped with a
+  warning per R-6). Synced: `11-phased-plan.md` (Phase 6 scope), `12-acceptance-criteria.md` (F7),
+  `01-requirements.md` (FR-11.7/11.8). The IR-retention comments in `engine.py`/`export/__init__.py`
+  stay valid (they exist precisely so these future writers can traverse the pre-layout graph).
+
+- **Searchable/selectable Arabic in PDF (deferred 2026-06-15, owner-approved).** Chromium prints
+  shaped Arabic as Type3 visual-order glyphs with no logical Unicode, so the committed `8098cc1` PDF
+  is visually perfect but Arabic isn't searchable. A full investigation (**`spikes/spike-5-pdf-searchable/`**,
+  report **`docs/spikes/spike-5-report.md`**) validated an invisible Type3+ToUnicode "OCR-sandwich"
+  layer over a `textAsPaths` base, Tagged PDF + `/ActualText`, deterministic, with a CTM-isolation fix
+  (`q … Q`) — it yields **selectable text + single-word Ctrl+F search** in Acrobat, but **multi-word
+  phrase search does not work** (Acrobat indexes shown-glyph ToUnicode, not `/ActualText`, and rejects
+  a synthetic RTL layout; four glyph layouts tried, none reliable; no headless Acrobat oracle). Owner
+  decision: keep the visual-only PDF. **Spike-only deps (`pikepdf`, `pdfminer.six`) are NOT in
+  `pyproject.toml` — production is unchanged.** If revisited: true per-glyph shaper positions
+  (uharfbuzz) + iterative Acrobat validation.
+
+- **PPTX zero-install font embedding (Arabic/Cairo).** Goal: embed Cairo in the `.pptx` so it
+  renders without installing the font (raise the PPTX fonts ceiling `none → full`, as done for SVG
+  + draw.io). A plain OPC embed (font part + `embeddedFontLst` + `embedTrueTypeFonts`) was
+  structurally valid and reopened in python-pptx, but **real PowerPoint flagged the file for
+  repair** → reverted (commit `8c80c01`). Likely needs PowerPoint's **font obfuscation** (the
+  `.fntdata` XOR-masked by the embed GUID) and/or a different `embeddedFontLst` placement.
+  **Must be done as an iterative loop with PowerPoint to validate after each attempt** — no
+  headless PPTX renderer exists here, so it can't be verified blind. Until then: install Cairo
+  (verified working). Owner-approved to pursue later.
+
 ## Fidelity ceiling — draw.io (Option-A + Option-B verified ✅)
 
 ✅ **Option A** (draw.io viewer / mxGraph) **and ✅ Option B** (draw.io **Desktop** engine,
@@ -253,9 +487,12 @@ Only keys believed documented in mxGraph are emitted (confirm on first round-tri
 ## Resume checklist
 
 1. Re-anchor: CLAUDE.md + `git log --oneline -8` + Phase 6 in `11-phased-plan.md` + `.venv` pytest.
-2. Writer contract is set: `write_<fmt>(diagram_or_graph, out_path, meta) -> WriteResult(path, report)`;
-   wire new formats into `RenderResult._export_writer` + the `export()` dispatch.
+2. Writer contract is set: `write_<fmt>(diagram_or_graph, out_path, meta) -> WriteResult(path, report)`
+   (png/pdf take the canonical SVG, not the IR — they faithfully render it); wire new formats into
+   `RenderResult._record` + the `export()` dispatch. Faithful SVG renderers use
+   `report.faithful_svg_render_report`.
 3. PPTX next (shares positioned-IR geometry with drawio; python-pptx already a core dep — lazy-import
-   like `png.py`). Then PDF (trivial, mirror `png.py`). Then Mermaid/PlantUML (traverse `result.graph`,
-   the retained logical IR). class+mindmap is a separate family/layout workstream — land last.
+   like `png.py`). Then PDF (trivial, mirror `png.py`). **Mermaid/PlantUML deferred to a future
+   feature** (logical-IR source writers — see "Deferred / future tasks"). class+mindmap is a separate
+   family/layout workstream — land last.
 4. No phase ships with red CI; nothing reaches `main` without a PR; new examples take the baseline cost knowingly.

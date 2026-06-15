@@ -1,12 +1,21 @@
 """Regenerate visual-regression baselines for the current platform.
 
-Usage:  python scripts/regen_baselines.py
+Usage (run with the project venv so ``tarseem`` is importable — bare ``python`` will raise
+ModuleNotFoundError):
+    .venv/bin/python scripts/regen_baselines.py            # macOS/Linux
+    .venv\\Scripts\\python.exe scripts/regen_baselines.py   # Windows
 
 Baselines are OS-specific (Chromium font rasterization differs per platform), so they are
 written under tests/baselines/<sys.platform>/. Regenerating is an explicit, reviewed action
 (R-21): run this only when an intended visual change makes the diff legitimate, and review
 the resulting PNG churn in the PR. Only the deterministic, Node-free families are baselined
 here so the regression suite stays hermetic.
+
+A baseline is a *provenance-free* pixel reference: it is rasterized via the ``svg_to_png``
+primitive from the canonical SVG, NOT via ``export(["png"])`` (which embeds a ``tEXt``
+provenance chunk). That keeps baseline bytes minimal and decoupled from the export wrapper, so
+a writer change can never silently move a visual baseline. ``test_visual_regression`` renders
+the comparison image exactly the same way.
 """
 from __future__ import annotations
 
@@ -16,6 +25,7 @@ import sys
 from pathlib import Path
 
 from tarseem.engine import Engine
+from tarseem.export import svg_to_png
 
 # Node-free families (lane-grid + sequence layouters) -> hermetic, deterministic. Includes
 # the RTL Arabic swimlane (Reference-2 rebuild), the Phase-4 pixel gate.
@@ -51,9 +61,11 @@ def _render_samples(names: list[str], out_dir: Path, engine: Engine) -> list[Pat
     written: list[Path] = []
     for name in names:
         spec = json.loads((ROOT / "examples" / f"{name}.json").read_text(encoding="utf-8"))
-        paths = engine.render(spec).export(["png"], out_dir, name)
-        written.append(paths["png"])
-        print(f"baseline: {paths['png']}")
+        out = out_dir / f"{name}.png"
+        # Canonical SVG (provenance=False) -> bare raster: a pixel reference with no tEXt.
+        svg_to_png(engine.render(spec).svg, out)
+        written.append(out)
+        print(f"baseline: {out}")
     return written
 
 

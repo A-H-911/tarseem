@@ -118,8 +118,8 @@ Per `10-documentation-plan.md`: architecture, ADRs, schema reference (generated)
 | FR-11.4 | PDF | First-class | Phase 6 |
 | FR-11.5 | draw.io XML with native shapes/lanes + embedded geometry (editable) | First-class editable | Phase 6 |
 | FR-11.6 | PPTX native shapes via python-pptx (editable in PowerPoint) | Adapter | Phase 6 |
-| FR-11.7 | Mermaid source export (regeneration) | Best-effort | Phase 6+ |
-| FR-11.8 | PlantUML source export (regeneration) | Best-effort | Phase 6+ |
+| FR-11.7 | Mermaid source export (regeneration) | Best-effort | Future (deferred 2026-06-15) |
+| FR-11.8 | PlantUML source export (regeneration) | Best-effort | Future (deferred 2026-06-15) |
 | FR-11.9 | JSON spec is always the authoritative "source output" | First-class | MVP |
 | FR-11.10 | Four output roles distinguished: publish (static) / refine (editable) / regenerate (source) / verify (browser) | MVP concept |
 

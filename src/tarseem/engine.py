@@ -30,6 +30,7 @@ from tarseem.render import render_svg
 from tarseem.validation import validate
 
 if TYPE_CHECKING:
+    from tarseem.export.result import WriteResult
     from tarseem.report import CapabilityReport, RenderReport
 
 __all__ = ["Engine", "RenderResult"]
@@ -93,39 +94,44 @@ class RenderResult:
     ) -> dict[str, Path]:
         out = Path(out_dir)
         out.mkdir(parents=True, exist_ok=True)
-        written: dict[str, Path] = {}
         svg_text = self.to_svg(provenance=True)
-        for fmt in formats:
-            if fmt == "svg":
-                path = out / f"{name}.svg"
-                path.write_text(svg_text, encoding="utf-8")
-                written["svg"] = path
-            elif fmt == "png":
-                from tarseem.export import svg_to_png
+        return {fmt: self._write(fmt, svg_text, out, name) for fmt in formats}
 
-                written["png"] = svg_to_png(svg_text, out / f"{name}.png")
-            elif fmt == "drawio":
-                written["drawio"] = self._export_writer(fmt, out / f"{name}.drawio")
-            else:
-                raise ValueError(
-                    f"unsupported export format: {fmt!r} (have: svg, png, drawio)"
-                )
-        return written
+    def _write(self, fmt: str, svg_text: str, out: Path, name: str) -> Path:
+        """Run one writer. Every artifact-with-a-report (png/pdf/drawio/pptx) flows through
+        ``_record`` so its CapabilityReport is captured uniformly (invariant 6). The canonical
+        SVG is the *reference* the others report against — it cannot be lossy w.r.t. itself —
+        so it is written directly and carries no report."""
+        if fmt == "svg":
+            path = out / f"{name}.svg"
+            path.write_text(svg_text, encoding="utf-8")
+            return path
+        if fmt == "png":
+            from tarseem.export import write_png
+            from tarseem.export.metadata import provenance
 
-    def _export_writer(self, fmt: str, path: Path) -> Path:
-        """Run an IR writer, record its CapabilityReport, and sidecar a ``.report.json`` when
-        the export is lossy so a downstream tool sees exactly what was dropped (invariant 6)."""
-        from tarseem.export import write_drawio
-        from tarseem.export.metadata import provenance
+            return self._record(write_png(svg_text, out / f"{name}.png", meta=provenance(self)))
+        if fmt == "pdf":
+            from tarseem.export import write_pdf
+            from tarseem.export.metadata import provenance
 
-        meta = provenance(self)
-        if fmt == "drawio":
-            result = write_drawio(self.diagram, path, meta)
-        else:  # pragma: no cover - guarded by export()
-            raise ValueError(f"no writer for {fmt!r}")
-        self.reports[fmt] = result.report
+            return self._record(write_pdf(svg_text, out / f"{name}.pdf", provenance(self)))
+        if fmt in ("drawio", "pptx"):
+            from tarseem.export import write_drawio, write_pptx
+            from tarseem.export.metadata import provenance
+
+            writer = write_drawio if fmt == "drawio" else write_pptx
+            return self._record(writer(self.diagram, out / f"{name}.{fmt}", provenance(self)))
+        raise ValueError(
+            f"unsupported export format: {fmt!r} (have: svg, png, pdf, drawio, pptx)"
+        )
+
+    def _record(self, result: WriteResult) -> Path:
+        """Record a writer's CapabilityReport and sidecar a ``.report.json`` when the export is
+        lossy, so a downstream tool sees exactly what was dropped (invariant 6)."""
+        self.reports[result.report.writer] = result.report
         if result.report.lossy:
-            sidecar = path.with_suffix(path.suffix + ".report.json")
+            sidecar = result.path.with_suffix(result.path.suffix + ".report.json")
             sidecar.write_text(
                 json.dumps(result.report.to_dict(), ensure_ascii=False, indent=2),
                 encoding="utf-8",
@@ -164,6 +170,10 @@ class Engine:
             with LibavoidRouter(node=self._node) as router:
                 diagram = router.reroute(graph, diagram)
                 versions["libavoid-js"] = router.capabilities()["version"]
+        # nudge edge labels off their lines so text never overlaps the route (all writers read it)
+        from tarseem.model.edge_labels import offset_edge_labels
+
+        diagram = offset_edge_labels(diagram)
         layout_ms = (time.perf_counter() - start) * 1000.0
         return RenderResult(
             diagram=diagram,

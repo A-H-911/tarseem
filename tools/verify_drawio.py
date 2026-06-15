@@ -9,12 +9,16 @@ This is Option A of the Phase-6 verification plan: no install, draw.io's real re
 image artifact the agent can actually inspect. Option B (draw.io Desktop / Docker CLI) is the
 authoritative final gate.
 
-Usage:
-    python tools/verify_drawio.py out/drawio-review/*.drawio --out out/drawio-verify
+Usage (run with the project venv so ``tarseem`` is importable):
+    .venv/bin/python tools/verify_drawio.py out/drawio-review/*.drawio --out out/drawio-verify
+    .venv\\Scripts\\python.exe tools/verify_drawio.py out/drawio-review/*.drawio  # Windows
+
+Globs are expanded by the script itself, so the ``*.drawio`` form works in PowerShell/cmd too.
 """
 from __future__ import annotations
 
 import argparse
+import glob
 import sys
 from pathlib import Path
 
@@ -103,7 +107,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     out_dir = Path(args.out)
     rc = 0
+    # Expand globs ourselves: PowerShell/cmd don't expand ``*.drawio`` for a native program.
+    sources: list[str] = []
     for raw in args.drawio:
+        matched = sorted(glob.glob(raw))
+        sources.extend(matched if matched else [raw])
+    for raw in sources:
         src = Path(raw)
         if not src.exists():
             print(f"[skip] {src} (missing)")

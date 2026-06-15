@@ -1,12 +1,23 @@
 """Export writers (raster/editable/source). One positioned IR, many writers (ADR-001).
 
-PNG via Chromium (ADR-003). Editable writers (draw.io, PPTX) and source writers (Mermaid,
-PlantUML) consume the same IR and each return a ``WriteResult`` (path + CapabilityReport).
+PNG + PDF via Chromium (ADR-003) — thin renders of the canonical SVG. Editable writers
+(draw.io, PPTX) and source writers (Mermaid, PlantUML) consume the same IR and each return a
+``WriteResult`` (path + CapabilityReport).
 """
 from __future__ import annotations
 
 from tarseem.export.drawio import write_drawio
-from tarseem.export.png import svg_to_png
+from tarseem.export.pdf import svg_to_pdf, write_pdf
+from tarseem.export.png import svg_to_png, write_png
+from tarseem.export.pptx import write_pptx
 from tarseem.export.result import WriteResult
 
-__all__ = ["svg_to_png", "write_drawio", "WriteResult"]
+__all__ = [
+    "svg_to_png",
+    "svg_to_pdf",
+    "write_png",
+    "write_pdf",
+    "write_drawio",
+    "write_pptx",
+    "WriteResult",
+]
