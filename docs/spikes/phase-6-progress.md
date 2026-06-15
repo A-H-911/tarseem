@@ -342,12 +342,24 @@ tool renders PDFs; no separate headless PDF renderer needed):**
 |---|---|---|
 | visual fidelity | full | shapes/lanes/badges/markers/edges/colors match the SVG; **Arabic shaped + joined + RTL correctly** |
 | fonts | self-contained | Skia carries Cairo glyphs as **Type3 vector procedures** (renders with zero fonts installed) — not a TrueType embed |
-| text layer | partial | extractable/searchable text is clean for Latin but **garbled for Arabic** (Type3 has no reliable Unicode); the *picture* is correct |
+| text layer | partial | extractable/searchable text is clean for Latin but **garbled for Arabic** (Type3 has no reliable Unicode); the *picture* is correct. A searchable-Arabic layer was investigated and **deferred** — see "Searchable/selectable Arabic in PDF" below |
 | raster | minor | some compositing (e.g. semi-transparent lane fills) flattens to a small `/Image` — **not visible** at the rendered size |
 | metadata | none | provenance not embedded yet (PDF XMP = sub-stage 5, "where practical") |
 | determinism | full | same spec ⇒ byte-identical (dates pinned) |
 
 ## Deferred / future tasks
+
+- **Searchable/selectable Arabic in PDF (deferred 2026-06-15, owner-approved).** Chromium prints
+  shaped Arabic as Type3 visual-order glyphs with no logical Unicode, so the committed `8098cc1` PDF
+  is visually perfect but Arabic isn't searchable. A full investigation (**`spikes/spike-5-pdf-searchable/`**,
+  report **`docs/spikes/spike-5-report.md`**) validated an invisible Type3+ToUnicode "OCR-sandwich"
+  layer over a `textAsPaths` base, Tagged PDF + `/ActualText`, deterministic, with a CTM-isolation fix
+  (`q … Q`) — it yields **selectable text + single-word Ctrl+F search** in Acrobat, but **multi-word
+  phrase search does not work** (Acrobat indexes shown-glyph ToUnicode, not `/ActualText`, and rejects
+  a synthetic RTL layout; four glyph layouts tried, none reliable; no headless Acrobat oracle). Owner
+  decision: keep the visual-only PDF. **Spike-only deps (`pikepdf`, `pdfminer.six`) are NOT in
+  `pyproject.toml` — production is unchanged.** If revisited: true per-glyph shaper positions
+  (uharfbuzz) + iterative Acrobat validation.
 
 - **PPTX zero-install font embedding (Arabic/Cairo).** Goal: embed Cairo in the `.pptx` so it
   renders without installing the font (raise the PPTX fonts ceiling `none → full`, as done for SVG
