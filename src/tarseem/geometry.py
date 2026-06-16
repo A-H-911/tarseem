@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # runtime leaf — IR types are hints only, never imported at runtime
-    from tarseem.model.ir import LaneBand, PositionedDiagram
+    from tarseem.model.ir import EntityRow, LaneBand, PositionedDiagram, PositionedNode
 
 # --- default element colours (shared by render/svg, export/drawio, export/pptx) -------------
 DEFAULT_FILL = "#FFFFFF"
@@ -122,3 +122,42 @@ def swimlane_chrome(diagram: PositionedDiagram, rtl: bool, vertical: bool) -> Sw
     m = lanes[0].x
     sep_x = (diagram.width - m - LABEL_W) if rtl else m + LABEL_W
     return SwimlaneChrome(top, bottom, (sep_x, top), (sep_x, bottom))
+
+
+# --- ER / badge / pseudostate box math ------------------------------------------------------
+_KEY_PILL_W = 22.0
+_KEY_PILL_H = 16.0
+
+
+def er_title_height(node: PositionedNode) -> float:
+    """ER entity title-bar height: the first row's top offset, or the node if attribute-less."""
+    return node.rows[0].y_offset if node.rows else node.height
+
+
+def key_pill_box(node: PositionedNode, row: EntityRow) -> Rect:
+    """PK/FK pill rect ``(x, y, w, h)`` anchored to the right edge of ``row`` (vertical centre)."""
+    cy = node.y + row.y_offset + row.height / 2
+    x = node.x + node.width - ER_PAD_X - _KEY_PILL_W
+    return (x, cy - _KEY_PILL_H / 2, _KEY_PILL_W, _KEY_PILL_H)
+
+
+def badge_center(node: PositionedNode, side: str) -> Point:
+    """Auto-number badge circle centre — the node's top-right corner (``side == "right"``) or
+    top-left (RTL default)."""
+    cx = node.x + node.width if side == "right" else node.x
+    return (cx, node.y)
+
+
+@dataclass(frozen=True)
+class Pseudostate:
+    """State-machine initial/final pseudostate circle geometry. ``inner_r`` is the final dot."""
+
+    cx: float
+    cy: float
+    r: float
+    inner_r: float
+
+
+def pseudostate_circles(node: PositionedNode) -> Pseudostate:
+    r = min(node.width, node.height) / 2
+    return Pseudostate(node.x + node.width / 2, node.y + node.height / 2, r, r * 0.5)

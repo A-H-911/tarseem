@@ -14,6 +14,8 @@ from tarseem.geometry import (
     ER_PAD_X as _PAD_X,
     ER_ROW_SEP as _ROW_SEP,
     ER_TITLE_FILL as _TITLE_FILL,
+    er_title_height,
+    key_pill_box,
 )
 from tarseem.model.ir import PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
@@ -40,22 +42,22 @@ def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
     return frozenset(chars)
 
 
-def _key_tag(key: str, x_right: float, cy: float) -> list[str]:
-    """A small PK/FK pill anchored to the right edge of a row."""
+def _key_tag(key: str, box: tuple[float, float, float, float]) -> list[str]:
+    """A small PK/FK pill (rect ``box`` from geometry.key_pill_box) with the key centred in it."""
+    bx, by, bw, bh = box
     fill = _KEY_FILL.get(key, "#777777")
-    tw = 22.0
-    tx = x_right - _PAD_X - tw
+    cx, cy = bx + bw / 2, by + bh / 2
     return [
-        f'<rect x="{_num(tx)}" y="{_num(cy - 8)}" width="{_num(tw)}" height="16" rx="3" '
+        f'<rect x="{_num(bx)}" y="{_num(by)}" width="{_num(bw)}" height="{_num(bh)}" rx="3" '
         f'fill="{fill}"/>',
-        f'<text x="{_num(tx + tw / 2)}" y="{_num(cy)}" font-size="10" font-weight="700" '
+        f'<text x="{_num(cx)}" y="{_num(cy)}" font-size="10" font-weight="700" '
         f'fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">{_esc(key)}</text>',
     ]
 
 
 def _entity(n: PositionedNode, radius: float = 6.0) -> list[str]:
     x, y, w, h = n.x, n.y, n.width, n.height
-    title_h = n.rows[0].y_offset if n.rows else h
+    title_h = er_title_height(n)
     rad = radius
     parts = [
         f'<rect x="{_num(x)}" y="{_num(y)}" width="{_num(w)}" height="{_num(h)}" rx="{_num(rad)}" '
@@ -90,7 +92,7 @@ def _entity(n: PositionedNode, radius: float = 6.0) -> list[str]:
             f'{label_attrs(r.label, anchor="start")}>{_esc(r.label.text)}</text>'
         )
         if r.key:
-            parts.extend(_key_tag(r.key, x + w, cy))
+            parts.extend(_key_tag(r.key, key_pill_box(n, r)))
     return parts
 
 

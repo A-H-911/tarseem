@@ -5,7 +5,23 @@ function is caught here, not only by the corpus/visual guards.
 from __future__ import annotations
 
 from tarseem import geometry as g
-from tarseem.model.ir import Label, LaneBand, PhaseBand, PositionedDiagram
+from tarseem.model.ir import (
+    EntityRow,
+    Label,
+    LaneBand,
+    PhaseBand,
+    PositionedDiagram,
+    PositionedNode,
+)
+
+
+def _node(x, y, w, h, *, shape="rect", rows=()) -> PositionedNode:
+    return PositionedNode(id="n", x=x, y=y, width=w, height=h, label=Label(text="n"),
+                          shape=shape, rows=tuple(rows))
+
+
+def _row(y_offset, height, key=None) -> EntityRow:
+    return EntityRow(id="r", label=Label(text="r"), key=key, y_offset=y_offset, height=height)
 
 
 def _band(x, y, w, h) -> LaneBand:
@@ -72,3 +88,30 @@ def test_swimlane_chrome_vertical_actor_separator_is_horizontal():
     c = g.swimlane_chrome(_diagram([_band(20, 50, 150, 400)]), rtl=False, vertical=True)
     # sep_y = lanes[0].y + V_HEADER = 114; runs left..right across the columns
     assert c.actor_p1 == (20.0, 114.0) and c.actor_p2 == (170.0, 114.0)
+
+
+# --- ER / badge / pseudostate ---------------------------------------------------------------
+def test_er_title_height_is_first_row_offset():
+    assert g.er_title_height(_node(0, 0, 200, 300, rows=[_row(34, 24)])) == 34.0
+
+
+def test_er_title_height_falls_back_to_node_height_when_no_rows():
+    assert g.er_title_height(_node(0, 0, 200, 300)) == 300.0
+
+
+def test_key_pill_box_anchored_to_row_right_edge():
+    node = _node(10, 20, 200, 300, rows=[_row(40, 24, key="PK")])
+    # cy = 20+40+12 = 72; x = 10+200-ER_PAD_X(10)-22 = 178; box = (178, 64, 22, 16)
+    assert g.key_pill_box(node, node.rows[0]) == (178.0, 64.0, 22.0, 16.0)
+
+
+def test_badge_center_right_and_left():
+    node = _node(10, 20, 200, 80)
+    assert g.badge_center(node, "right") == (210.0, 20.0)
+    assert g.badge_center(node, "left") == (10.0, 20.0)
+
+
+def test_pseudostate_circles():
+    ps = g.pseudostate_circles(_node(10, 20, 30, 40, shape="final"))
+    # r = min(30,40)/2 = 15; cx = 10+15 = 25; cy = 20+20 = 40; inner = 7.5
+    assert (ps.cx, ps.cy, ps.r, ps.inner_r) == (25.0, 40.0, 15.0, 7.5)

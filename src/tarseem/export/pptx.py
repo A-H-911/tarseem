@@ -51,7 +51,11 @@ from tarseem.geometry import (
     SEQ_MARGIN as _SEQ_MARGIN,
     SEQ_STEM as _SEQ_STEM,
     TITLE_FILL as _TITLE_FILL,
+    badge_center,
     chip_rect,
+    er_title_height,
+    key_pill_box,
+    pseudostate_circles,
     swimlane_chrome,
     title_bar_box,
 )
@@ -320,22 +324,22 @@ def _emit_node(b: _Builder, node: PNode, badge_side: str) -> None:
 
 def _emit_pseudostate(b: _Builder, node: PNode) -> None:
     stroke = _stroke_of(node.style)
-    r = min(node.width, node.height) / 2
-    cx, cy = node.x + node.width / 2, node.y + node.height / 2
+    ps = pseudostate_circles(node)
+    cx, cy, r = ps.cx, ps.cy, ps.r
     if node.shape == "initial":
         b.rect(MSO_SHAPE.OVAL, cx - r, cy - r, 2 * r, 2 * r, stroke, None)
         return
     b.rect(MSO_SHAPE.OVAL, cx - r, cy - r, 2 * r, 2 * r, _fill_of(node.style), stroke,
            _stroke_w_of(node.style))
-    ir = r * 0.5
+    ir = ps.inner_r
     b.rect(MSO_SHAPE.OVAL, cx - ir, cy - ir, 2 * ir, 2 * ir, stroke, None)
 
 
 def _emit_badge(b: _Builder, node: PNode, side: str) -> None:
     num = (node.badge or "").rstrip(".")
     accent = _stroke_of(node.style)
-    cx = node.x + node.width if side == "right" else node.x
-    sp = b.rect(MSO_SHAPE.OVAL, cx - _BADGE_R, node.y - _BADGE_R, 2 * _BADGE_R, 2 * _BADGE_R,
+    cx, cy = badge_center(node, side)
+    sp = b.rect(MSO_SHAPE.OVAL, cx - _BADGE_R, cy - _BADGE_R, 2 * _BADGE_R, 2 * _BADGE_R,
                 accent, "#FFFFFF", 1.5)
     b.text_in(sp, num, size=11, color="#FFFFFF", bold=True)
 
@@ -421,7 +425,7 @@ def _emit_sequence_chrome(b: _Builder, d: PositionedDiagram) -> None:
 
 def _emit_entity(b: _Builder, node: PNode) -> None:
     x, y, w, h = node.x, node.y, node.width, node.height
-    title_h = node.rows[0].y_offset if node.rows else h
+    title_h = er_title_height(node)
     container = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h, "#FFFFFF", _ER_BORDER, 1.5)
     # The container's default rounded-rect radius is large; the title's was small -> the title's
     # corners poked past the container's rounding. Pin BOTH to ~6px so the title's rounded top
@@ -438,9 +442,8 @@ def _emit_entity(b: _Builder, node: PNode) -> None:
         b.textbox(x + 10.0, ry, w - 20.0, r.height, r.label, size=12, color=_DEFAULT_TEXT,
                   align=align)
         if r.key:
-            tw = 22.0
-            ky = ry + r.height / 2
-            pill = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, x + w - 10.0 - tw, ky - 8, tw, 16,
+            px, py, pw, ph = key_pill_box(node, r)
+            pill = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, px, py, pw, ph,
                           _ER_KEY_FILL.get(r.key, "#777777"), None)
             b.text_in(pill, r.key, size=10, color="#FFFFFF", bold=True)
 

@@ -48,7 +48,11 @@ from tarseem.geometry import (
     SEQ_MARGIN as _SEQ_MARGIN,
     SEQ_STEM as _SEQ_STEM,
     TITLE_FILL as _TITLE_FILL,
+    badge_center,
     chip_rect,
+    er_title_height,
+    key_pill_box,
+    pseudostate_circles,
     swimlane_chrome,
     title_bar_box,
 )
@@ -486,8 +490,8 @@ def _emit_pseudostate(root: etree._Element, node: PositionedNode) -> None:
     entry in _SHAPE_STYLE, so they'd otherwise fall back to a plain white box). initial = a solid
     dot filled with the stroke colour; final = a bullseye (outer ring + inner solid dot)."""
     stroke = _stroke(node.style)
-    r = min(node.width, node.height) / 2
-    cx, cy = node.x + node.width / 2, node.y + node.height / 2
+    ps = pseudostate_circles(node)
+    cx, cy, r = ps.cx, ps.cy, ps.r
     if node.shape == "initial":
         _rect_cell(
             root, _cell_id("state", node.id), (cx - r, cy - r, 2 * r, 2 * r),
@@ -500,7 +504,7 @@ def _emit_pseudostate(root: etree._Element, node: PositionedNode) -> None:
         f"ellipse;html=1;fillColor={_fill(node.style)};strokeColor={stroke};"
         f"strokeWidth={_fmt(sw)};",
     )
-    ir = r * 0.5  # inner dot radius — MUST match render/svg.py final pseudostate
+    ir = ps.inner_r
     _rect_cell(
         root, _cell_id("statedot", node.id), (cx - ir, cy - ir, 2 * ir, 2 * ir),
         f"ellipse;html=1;fillColor={stroke};strokeColor=none;",
@@ -512,11 +516,11 @@ def _emit_badge(root: etree._Element, node: PositionedNode, side: str) -> None:
     by resolve_badge_side (default LTR -> right, RTL -> left; theme.badgeCorner overrides)."""
     num = (node.badge or "").rstrip(".")
     accent = str((node.style.get("border") or {}).get("color", _LANE_ACCENT_DEFAULT))
-    cx = node.x + node.width if side == "right" else node.x
+    cx, cy = badge_center(node, side)
     _rect_cell(
         root,
         _cell_id("badge", node.id),
-        (cx - _BADGE_R, node.y - _BADGE_R, 2 * _BADGE_R, 2 * _BADGE_R),
+        (cx - _BADGE_R, cy - _BADGE_R, 2 * _BADGE_R, 2 * _BADGE_R),
         f"ellipse;html=1;fillColor={accent};strokeColor=#FFFFFF;fontColor=#FFFFFF;"
         f"fontStyle=1;fontSize=11;{_FONT}",
         num,
@@ -547,7 +551,7 @@ def _emit_entity(
     header top aligns with the rounded outline (no poke-out); its bottom rounds slightly inward —
     the closest draw.io's simple styles get to the SVG's rounded-top/square-bottom header."""
     x, y, w, h = node.x, node.y, node.width, node.height
-    title_h = node.rows[0].y_offset if node.rows else h
+    title_h = er_title_height(node)
     corner = "rounded=1;absoluteArcSize=1;arcSize=6;" if rounded else "rounded=0;"
     _rect_cell(
         root,
@@ -581,13 +585,11 @@ def _emit_entity(
             r.label.text,
         )
         if r.key:
-            tw = 22.0
-            ky = ry + r.height / 2
             fill = _ER_KEY_FILL.get(r.key, "#777777")
             _rect_cell(
                 root,
                 _cell_id("erkey", rid),
-                (x + w - _ER_PAD_X - tw, ky - 8, tw, 16),
+                key_pill_box(node, r),
                 # absolute 3px radius MUST match render/er.py _key_tag rx=3 (was a 30% pill);
                 # strokeColor=none matches the fill-only SVG pill (no default black border).
                 f"rounded=1;absoluteArcSize=1;arcSize=3;html=1;fillColor={fill};strokeColor=none;"

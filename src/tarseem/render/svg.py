@@ -13,6 +13,7 @@ from tarseem.geometry import (
     DEFAULT_STROKE as _DEFAULT_STROKE,
     DEFAULT_TEXT as _DEFAULT_TEXT,
     PARALLELOGRAM_SLANT,
+    pseudostate_circles,
 )
 from tarseem.model.ir import Label, PositionedDiagram, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
@@ -98,14 +99,15 @@ def _shape_svg(n: PositionedNode) -> str:
             f'T {_p(x, y + h - wv)} Z" {st}/>'
         )
     if kind == "initial":  # state-machine start pseudostate: a solid filled dot
-        cx, cy, r = x + w / 2, y + h / 2, min(w, h) / 2
-        return f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r)}" fill="{stroke}"/>'
+        ps = pseudostate_circles(n)
+        return f'<circle cx="{_num(ps.cx)}" cy="{_num(ps.cy)}" r="{_num(ps.r)}" fill="{stroke}"/>'
     if kind == "final":  # state-machine end pseudostate: a ring around a filled dot
-        cx, cy, r = x + w / 2, y + h / 2, min(w, h) / 2
+        ps = pseudostate_circles(n)
         return (
-            f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r)}" fill="{fill}" '
+            f'<circle cx="{_num(ps.cx)}" cy="{_num(ps.cy)}" r="{_num(ps.r)}" fill="{fill}" '
             f'stroke="{stroke}" stroke-width="{_num(sw)}"/>'
-            f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r * 0.5)}" fill="{stroke}"/>'
+            f'<circle cx="{_num(ps.cx)}" cy="{_num(ps.cy)}" r="{_num(ps.inner_r)}" '
+            f'fill="{stroke}"/>'
         )
     if kind == "cube":  # deployment 3D node: front face + top + right depth faces
         d = 14.0

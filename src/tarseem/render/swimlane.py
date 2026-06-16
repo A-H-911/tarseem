@@ -17,6 +17,7 @@ from tarseem.geometry import (
     PHASE_FILL as _PHASE_FILL,
     SEPARATOR as _SEPARATOR,
     TITLE_FILL as _TITLE_FILL,
+    badge_center,
     chip_rect,
     swimlane_chrome,
     title_bar_box,
@@ -43,8 +44,7 @@ _EDGE_DEFAULT = "#2E8B57"
 def _badge_circle(n: PositionedNode, side: str, accent: str) -> list[str]:
     """Numbered badge as a small filled circle centred on the node's top corner (top-right
     for LTR, top-left for RTL by default; see resolve_badge_side), white number inside."""
-    cx = n.x + n.width if side == "right" else n.x
-    cy = n.y
+    cx, cy = badge_center(n, side)
     num = (n.badge or "").rstrip(".")
     return [
         f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(_BADGE_R)}" fill="{accent}" '
