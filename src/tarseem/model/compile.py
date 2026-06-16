@@ -32,6 +32,7 @@ _DEFAULT_SHAPE: dict[str, str] = {
     "deployment": "cube",  # deployment nodes are 3D boxes (devices/containers)
     "er": "table",  # ER entities render as attribute tables
     "class": "class",  # UML class boxes render as name/attribute/method compartments
+    "mindmap": "roundrect",  # mindmap nodes are plain rounded boxes (no chrome; spike-6)
 }
 
 

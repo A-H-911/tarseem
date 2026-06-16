@@ -1,0 +1,35 @@
+{
+  "specVersion": "1.0",
+  "diagramType": "mindmap",
+  "meta": { "title": "Engineer skills (radial mindmap)" },
+  "layout": { "mindmapStyle": "radial" },
+  "nodes": [
+    { "id": "Root", "label": { "text": "Engineer" } },
+    { "id": "Backend", "label": { "text": "Backend" } },
+    { "id": "Frontend", "label": { "text": "Frontend" } },
+    { "id": "DevOps", "label": { "text": "DevOps" } },
+    { "id": "Data", "label": { "text": "Data" } },
+    { "id": "APIs", "label": { "text": "APIs" } },
+    { "id": "DB", "label": { "text": "Databases" } },
+    { "id": "UI", "label": { "text": "UI" } },
+    { "id": "State", "label": { "text": "State" } },
+    { "id": "CI", "label": { "text": "CI/CD" } },
+    { "id": "Cloud", "label": { "text": "Cloud" } },
+    { "id": "ETL", "label": { "text": "ETL" } },
+    { "id": "ML", "label": { "text": "ML" } }
+  ],
+  "edges": [
+    { "source": "Root", "target": "Backend" },
+    { "source": "Root", "target": "Frontend" },
+    { "source": "Root", "target": "DevOps" },
+    { "source": "Root", "target": "Data" },
+    { "source": "Backend", "target": "APIs" },
+    { "source": "Backend", "target": "DB" },
+    { "source": "Frontend", "target": "UI" },
+    { "source": "Frontend", "target": "State" },
+    { "source": "DevOps", "target": "CI" },
+    { "source": "DevOps", "target": "Cloud" },
+    { "source": "Data", "target": "ETL" },
+    { "source": "Data", "target": "ML" }
+  ]
+}

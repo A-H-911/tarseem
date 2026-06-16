@@ -51,6 +51,19 @@ _INTERACTIVE_OPTIONS = {
     "elk.layered.cycleBreaking.strategy": "INTERACTIVE",
 }
 
+# Mindmap layouters (spike-6). Non-layered trees; NOT the layered _BASE_OPTIONS (so an
+# overlap is a real failure, not a layered-config artifact). mrtree = default (overlap-free on
+# deep/uneven trees); radial = opt-in (root-centred, balanced maps only).
+_MRTREE_OPTIONS = {
+    "elk.algorithm": "mrtree",
+    "elk.spacing.nodeNode": "40",
+    "elk.mrtree.spacing.nodeNode": "40",
+}
+_RADIAL_OPTIONS = {
+    "elk.algorithm": "radial",
+    "elk.spacing.nodeNode": "40",
+}
+
 _EDGE_LABEL_SIZE = 12.0
 
 
@@ -96,7 +109,7 @@ class ElkLayout:
         return {
             "engine": "elk",
             "elkjs_version": _elkjs_version(),
-            "algorithms": ["layered"],
+            "algorithms": ["layered", "mrtree", "radial"],
             "supports": {
                 "orthogonal_edges": True,
                 "edge_labels": True,
@@ -111,10 +124,20 @@ class ElkLayout:
             raise RuntimeError("ElkLayout must be used as a context manager")
         elk_graph = self._to_elk(graph)
         laid = self._proc.layout(elk_graph)
-        return self._from_elk(graph, laid)
+        diagram = self._from_elk(graph, laid)
+        # ELK radial has no overlap removal; spread a deep/uneven map outward until clean (no-op
+        # when nothing overlaps, so balanced radial maps are untouched). mrtree never overlaps.
+        if (graph.diagram_type == "mindmap"
+                and graph.layout_options.get("mindmapStyle") == "radial"):
+            from tarseem.layout.radial import remove_radial_overlaps
+
+            diagram = remove_radial_overlaps(diagram, graph)
+        return diagram
 
     # -- translation (ELK JSON confined here) ---------------------------------
     def _to_elk(self, graph: LogicalGraph) -> dict:
+        if graph.diagram_type == "mindmap":
+            return self._to_elk_mindmap(graph)
         respect = graph.respect_manual_positions
         # Per-edge preferred exit side -> a dedicated fixed-side source port on that node.
         # Collect ports per node so the node can declare FIXED_SIDE port constraints.
@@ -162,6 +185,32 @@ class ElkLayout:
         options = {**_BASE_OPTIONS, "elk.direction": direction}
         if respect:
             options = {**options, **_INTERACTIVE_OPTIONS}
+        return {"id": "root", "layoutOptions": options, "children": children, "edges": edges}
+
+    def _to_elk_mindmap(self, graph: LogicalGraph) -> dict:
+        """Mindmap → a non-layered ELK tree (spike-6). ``layout.mindmapStyle`` selects ``mrtree``
+        (default, overlap-free on deep trees) or ``radial`` (opt-in, balanced maps). Mindmap
+        nodes are plain boxes, so this emits no ports / priority / INTERACTIVE machinery (all
+        layered-only); ``_from_elk`` then consumes the result through the shared path."""
+        style = str(graph.layout_options.get("mindmapStyle", "tree"))
+        options = dict(_RADIAL_OPTIONS if style == "radial" else _MRTREE_OPTIONS)
+        if style != "radial":  # radial is rotationally symmetric -> flow direction is meaningless
+            options["elk.direction"] = _DIRECTION.get(graph.direction, "RIGHT")
+        children = [
+            {"id": n.id,
+             "width": float(n.width if n.width is not None else 84.0),
+             "height": float(n.height if n.height is not None else 44.0)}
+            for n in graph.nodes
+        ]
+        edges = []
+        for e in graph.edges:
+            elk_edge: dict = {"id": e.id, "sources": [e.source], "targets": [e.target]}
+            if e.label and e.label.text:
+                lw = self._measurer.width(e.label.text, _EDGE_LABEL_SIZE) + 12.0
+                elk_edge["labels"] = [
+                    {"id": f"{e.id}__lbl", "width": round(lw, 2), "height": 18.0}
+                ]
+            edges.append(elk_edge)
         return {"id": "root", "layoutOptions": options, "children": children, "edges": edges}
 
     def _from_elk(self, graph: LogicalGraph, laid: dict) -> PositionedDiagram:

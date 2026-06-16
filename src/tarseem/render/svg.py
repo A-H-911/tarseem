@@ -121,14 +121,21 @@ def _shape_svg(n: PositionedNode) -> str:
 
 
 def _arrowhead(p1: tuple[float, float], p2: tuple[float, float], color: str) -> str:
+    """Filled triangle at ``p2``, pointing along the true ``p1``->``p2`` direction so it follows
+    diagonal edges (mindmap mrtree/radial), not just the four orthogonal directions. For an
+    axis-aligned segment this is the same triangle as a 4-direction head (pixel-identical), so
+    orthogonal families are unchanged."""
     (x1, y1), (x2, y2) = p1, p2
     sz = 9.0
-    if abs(x2 - x1) >= abs(y2 - y1):  # horizontal-ish
-        d = 1.0 if x2 > x1 else -1.0
-        tip = [(x2, y2), (x2 - d * sz, y2 - sz * 0.6), (x2 - d * sz, y2 + sz * 0.6)]
-    else:
-        d = 1.0 if y2 > y1 else -1.0
-        tip = [(x2, y2), (x2 - sz * 0.6, y2 - d * sz), (x2 + sz * 0.6, y2 - d * sz)]
+    dx, dy = x2 - x1, y2 - y1
+    dist = (dx * dx + dy * dy) ** 0.5
+    if not dist:  # degenerate segment carries no direction
+        return ""
+    ux, uy = dx / dist, dy / dist  # unit vector toward the tip
+    px, py = -uy, ux  # left-hand perpendicular
+    half = sz * 0.6
+    bx, by = x2 - ux * sz, y2 - uy * sz  # base centre, one length back from the tip
+    tip = [(x2, y2), (bx + px * half, by + py * half), (bx - px * half, by - py * half)]
     return _poly(tip, f'fill="{color}"')
 
 
