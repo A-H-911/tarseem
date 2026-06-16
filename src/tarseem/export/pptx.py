@@ -33,8 +33,6 @@ from pptx.util import Emu, Pt
 from tarseem.export.result import WriteResult
 from tarseem.geometry import (
     BADGE_R as _BADGE_R,
-    CHIP_H as _CHIP_H,
-    CHIP_INSET as _CHIP_INSET,
     DEFAULT_EDGE as _DEFAULT_EDGE,
     DEFAULT_FILL as _DEFAULT_FILL,
     DEFAULT_STROKE as _DEFAULT_STROKE,
@@ -44,7 +42,6 @@ from tarseem.geometry import (
     ER_KEY_FILL as _ER_KEY_FILL,
     ER_ROW_SEP as _ER_ROW_SEP,
     ER_TITLE_FILL as _ER_TITLE_FILL,
-    LABEL_W as _LABEL_W,
     LANE_ACCENT_DEFAULT as _LANE_ACCENT,
     LANE_ROW_DEFAULT as _LANE_ROW,
     MARKER_BLACK as _MARKER_BLACK,
@@ -54,11 +51,11 @@ from tarseem.geometry import (
     SEQ_MARGIN as _SEQ_MARGIN,
     SEQ_STEM as _SEQ_STEM,
     TITLE_FILL as _TITLE_FILL,
-    V_CHIP_H as _V_CHIP_H,
-    V_HEADER as _V_HEADER,
+    chip_rect,
+    swimlane_chrome,
+    title_bar_box,
 )
 from tarseem.model.ir import (
-    LaneBand,
     Marker,
     PhaseBand,
     PositionedDiagram,
@@ -367,46 +364,30 @@ def _emit_swimlane_chrome(b: _Builder, d: PositionedDiagram) -> None:
         hue = band.hue or {}
         b.rect(MSO_SHAPE.RECTANGLE, band.x, band.y, band.width, band.height,
                hue.get("row", _LANE_ROW), hue.get("label", _LANE_ACCENT), 1.0, opacity=85)
-        cx, cy, cw, ch = _chip_rect(band, rtl, vertical)
+        cx, cy, cw, ch = chip_rect(band, rtl, vertical)
         chip = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, cx, cy, cw, ch,
                       hue.get("label", _LANE_ACCENT), None)
         b.text_in(chip, band.label, size=13, color="#FFFFFF", bold=True)
     _emit_separators(b, d, rtl, vertical)
 
 
-def _chip_rect(band: LaneBand, rtl: bool, vertical: bool) -> tuple[float, float, float, float]:
-    if vertical:
-        w = band.width - 16.0
-        return (band.x + 8.0, band.y + (_V_HEADER - _V_CHIP_H) / 2, w, _V_CHIP_H)
-    w = _LABEL_W - 16.0
-    x = (band.x + band.width - w - _CHIP_INSET) if rtl else band.x + _CHIP_INSET
-    return (x, band.y + (band.height - _CHIP_H) / 2, w, _CHIP_H)
-
-
 def _emit_title_bar(b: _Builder, d: PositionedDiagram) -> None:
     if not d.title or not d.lanes:
         return
-    lanes = d.lanes
-    title_x = min([bd.x for bd in lanes] + [g.x for g in d.lane_groups])
-    title_right = max(bd.x + bd.width for bd in lanes)
-    title_top = d.height - (lanes[-1].y + lanes[-1].height)
-    title_bottom = d.phases[0].y if d.phases else lanes[0].y
+    tx, ty, tw, th = title_bar_box(d)
     title = d.theme.get("title") or {}
-    sp = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, title_x, title_top, title_right - title_x,
-                title_bottom - title_top, str(title.get("fill", _TITLE_FILL)), None)
+    sp = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, tx, ty, tw, th,
+                str(title.get("fill", _TITLE_FILL)), None)
     b.text_in(sp, d.title, size=18, color=str(title.get("text", "#FFFFFF")), bold=True)
 
 
 def _emit_separators(b: _Builder, d: PositionedDiagram, rtl: bool, vertical: bool) -> None:
-    lanes = d.lanes
-    m = lanes[0].x
+    chrome = swimlane_chrome(d, rtl, vertical)
     if vertical:
-        sep_y = lanes[0].y + _V_HEADER
-        b.connector((lanes[0].x, sep_y), (lanes[-1].x + lanes[-1].width, sep_y), _SEP, 2.0)
+        b.connector(*chrome.actor_segment, _SEP, 2.0)
         return
-    top, bottom = lanes[0].y, lanes[-1].y + lanes[-1].height
-    sep_x = (d.width - m - _LABEL_W) if rtl else m + _LABEL_W
-    b.connector((sep_x, top), (sep_x, bottom), _SEP, 2.0)
+    top, bottom = chrome.lane_top, chrome.lane_bottom
+    b.connector(*chrome.actor_segment, _SEP, 2.0)
     sep = d.phase_separator or {}
     color = str(sep.get("color", _SEP))
     width = float(sep.get("width", 1.5))

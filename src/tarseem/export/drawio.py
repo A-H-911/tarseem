@@ -29,8 +29,6 @@ from lxml import etree
 from tarseem.export.result import WriteResult
 from tarseem.geometry import (
     BADGE_R as _BADGE_R,
-    CHIP_H as _CHIP_H,
-    CHIP_INSET as _CHIP_INSET,
     CHROME_RADIUS as _CHROME_RADIUS,
     DEFAULT_FILL as _DEFAULT_FILL,
     DEFAULT_STROKE as _DEFAULT_STROKE,
@@ -41,7 +39,6 @@ from tarseem.geometry import (
     ER_PAD_X as _ER_PAD_X,
     ER_ROW_SEP as _ER_ROW_SEP,
     ER_TITLE_FILL as _ER_TITLE_FILL,
-    LABEL_W as _LABEL_W,
     LANE_ACCENT_DEFAULT as _LANE_ACCENT_DEFAULT,
     LANE_ROW_DEFAULT as _LANE_ROW_DEFAULT,
     MARKER_BLACK as _MARKER_BLACK,
@@ -51,10 +48,11 @@ from tarseem.geometry import (
     SEQ_MARGIN as _SEQ_MARGIN,
     SEQ_STEM as _SEQ_STEM,
     TITLE_FILL as _TITLE_FILL,
-    V_CHIP_H as _V_CHIP_H,
-    V_HEADER as _V_HEADER,
+    chip_rect,
+    swimlane_chrome,
+    title_bar_box,
 )
-from tarseem.model.ir import Label, LaneBand, Marker, PositionedDiagram, PositionedNode
+from tarseem.model.ir import Label, Marker, PositionedDiagram, PositionedNode
 from tarseem.render.text import (
     has_rtl,
     resolve_badge_side,
@@ -357,7 +355,7 @@ def _emit_swimlane_chrome(root: etree._Element, diagram: PositionedDiagram) -> N
             (band.x, band.y, band.width, band.height),
             f"rounded=0;html=1;fillColor={row};strokeColor={accent};opacity=85;",
         )
-        chip = _chip_rect(band, rtl, vertical)
+        chip = chip_rect(band, rtl, vertical)
         # strokeColor=none: the SVG lane chip is fill-only; without this mxGraph draws a default
         # black 1px border (the "actor/user shapes have black borders" divergence).
         chip_style = _style(
@@ -370,32 +368,17 @@ def _emit_swimlane_chrome(root: etree._Element, diagram: PositionedDiagram) -> N
     _emit_separators(root, diagram, rtl, vertical)
 
 
-def _chip_rect(band: LaneBand, rtl: bool, vertical: bool) -> tuple[float, float, float, float]:
-    """Header-chip rect — MUST match render/swimlane.py _lane_band geometry."""
-    if vertical:
-        w = band.width - 16.0
-        return (band.x + 8.0, band.y + (_V_HEADER - _V_CHIP_H) / 2, w, _V_CHIP_H)
-    w = _LABEL_W - 16.0
-    x = (band.x + band.width - w - _CHIP_INSET) if rtl else band.x + _CHIP_INSET
-    return (x, band.y + (band.height - _CHIP_H) / 2, w, _CHIP_H)
-
-
 def _emit_title_bar(root: etree._Element, diagram: PositionedDiagram) -> None:
-    """Title bar — geometry MUST match render/swimlane.py render_swimlane_svg."""
+    """Title bar — geometry from the shared tarseem.geometry.title_bar_box."""
     if not diagram.title or not diagram.lanes:
         return
-    lanes = diagram.lanes
-    title_x = min([b.x for b in lanes] + [g.x for g in diagram.lane_groups])
-    title_right = max(b.x + b.width for b in lanes)
-    title_top = diagram.height - (lanes[-1].y + lanes[-1].height)
-    title_bottom = diagram.phases[0].y if diagram.phases else lanes[0].y
     title = diagram.theme.get("title") or {}
     fill = str(title.get("fill", _TITLE_FILL))
     text_color = str(title.get("text", "#FFFFFF"))
     _rect_cell(
         root,
         "title",
-        (title_x, title_top, title_right - title_x, title_bottom - title_top),
+        title_bar_box(diagram),
         _style(
             f"rounded=1;arcSize=6;html=1;fillColor={fill};strokeColor=none;fontColor={text_color};"
             "fontStyle=1;fontSize=18;",
@@ -408,19 +391,13 @@ def _emit_title_bar(root: etree._Element, diagram: PositionedDiagram) -> None:
 def _emit_separators(
     root: etree._Element, diagram: PositionedDiagram, rtl: bool, vertical: bool
 ) -> None:
-    """Actor separator + phase bands/separators — MUST match render/swimlane.py."""
-    lanes = diagram.lanes
-    m = lanes[0].x
+    """Actor separator + phase bands/separators — geometry from tarseem.geometry.swimlane_chrome."""
+    chrome = swimlane_chrome(diagram, rtl, vertical)
     if vertical:
-        sep_y = lanes[0].y + _V_HEADER
-        left = lanes[0].x
-        right = lanes[-1].x + lanes[-1].width
-        _line_cell(root, "actorsep", (left, sep_y), (right, sep_y), _SEPARATOR, 2.0)
+        _line_cell(root, "actorsep", *chrome.actor_segment, _SEPARATOR, 2.0)
         return
-    top = lanes[0].y
-    bottom = lanes[-1].y + lanes[-1].height
-    sep_x = (diagram.width - m - _LABEL_W) if rtl else m + _LABEL_W
-    _line_cell(root, "actorsep", (sep_x, top), (sep_x, bottom), _SEPARATOR, 2.0)
+    top, bottom = chrome.lane_top, chrome.lane_bottom
+    _line_cell(root, "actorsep", *chrome.actor_segment, _SEPARATOR, 2.0)
     sep = diagram.phase_separator or {}
     color = str(sep.get("color", _SEPARATOR))
     width = float(sep.get("width", 1.5))

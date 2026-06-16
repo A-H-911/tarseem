@@ -11,14 +11,15 @@ from __future__ import annotations
 from tarseem.geometry import (
     BADGE_R as _BADGE_R,
     CHROME_RADIUS as _CHROME_RADIUS,
-    LABEL_W as _LABEL_W,
     LANE_ACCENT_DEFAULT as _LANE_ACCENT_DEFAULT,
     LANE_ROW_DEFAULT as _LANE_ROW_DEFAULT,
     MARKER_BLACK as _MARKER_BLACK,
     PHASE_FILL as _PHASE_FILL,
     SEPARATOR as _SEPARATOR,
     TITLE_FILL as _TITLE_FILL,
-    V_HEADER as _V_HEADER,
+    chip_rect,
+    swimlane_chrome,
+    title_bar_box,
 )
 from tarseem.model.ir import Marker, PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
@@ -121,19 +122,9 @@ def _lane_band(band, width: float, rtl: bool = False, vertical: bool = False) ->
     c = band.hue
     row = c.get("row", _LANE_ROW_DEFAULT)
     accent = c.get("label", _LANE_ACCENT_DEFAULT)
-    if vertical:
-        # vertical lanes are columns -> header pill sits at the TOP of the column, centered
-        # in the header band (the actor/user area reserved above the first row).
-        chip_h = 48.0
-        chip_w = band.width - 16.0
-        chip_x = band.x + 8.0
-        chip_y = band.y + (_V_HEADER - chip_h) / 2
-    else:
-        chip_h = 56.0
-        chip_w = _LABEL_W - 16.0
-        # header pill sits on the flow-start side: left for LTR, right for RTL (analysis.md §R-2)
-        chip_x = (band.x + band.width - chip_w - 8.0) if rtl else band.x + 8.0
-        chip_y = band.y + (band.height - chip_h) / 2
+    # header pill: top of the column (vertical) or flow-start side of the row — left for LTR,
+    # right for RTL (analysis.md §R-2). Shared geometry so draw.io/pptx place it identically.
+    chip_x, chip_y, chip_w, chip_h = chip_rect(band, rtl, vertical)
     return [
         f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
         f'height="{_num(band.height)}" fill="{row}" stroke="{accent}" stroke-width="1" '
@@ -210,12 +201,7 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
     # the last lane's right edge) so it always reaches the swimlane's end border. It stops at
     # the phase header when phases exist, else at the first lane, so the titles never overlap.
     if diagram.lanes:
-        title_x = min([b.x for b in diagram.lanes] + [g.x for g in diagram.lane_groups])
-        title_right = max(b.x + b.width for b in diagram.lanes)
-        title_w = title_right - title_x
-        title_top = h - (diagram.lanes[-1].y + diagram.lanes[-1].height)
-        title_bottom = diagram.phases[0].y if diagram.phases else diagram.lanes[0].y
-        title_h = title_bottom - title_top
+        title_x, title_top, title_w, title_h = title_bar_box(diagram)
     else:
         title_x, title_top, title_w, title_h = 20.0, 20.0, w - 40.0, 50.0
     b64 = subset_woff2_datauri(_collect_chars(diagram))
@@ -231,7 +217,6 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
         f"<defs>{SHADOW_DEF}</defs>",
         f'<rect width="{_num(w)}" height="{_num(h)}" fill="#FFFFFF"/>',
     ]
-    m = diagram.lanes[0].x if diagram.lanes else 20.0  # lane-left, for the actor separator
     rtl = diagram.direction == "RL"
     vertical = diagram.orientation == "vertical"
     parts.extend(_title_bar(diagram, title_x, title_top, title_w, title_h))
@@ -242,18 +227,17 @@ def render_swimlane_svg(diagram: PositionedDiagram) -> str:
 
     if diagram.lanes and vertical:
         # actor/label separator runs ACROSS the columns, just below the header pills
-        sep_y = diagram.lanes[0].y + _V_HEADER
-        left = diagram.lanes[0].x
-        right = diagram.lanes[-1].x + diagram.lanes[-1].width
+        (x1, y1), (x2, y2) = swimlane_chrome(diagram, rtl, vertical).actor_segment
         parts.append(
-            f'<line x1="{_num(left)}" y1="{_num(sep_y)}" x2="{_num(right)}" y2="{_num(sep_y)}" '
+            f'<line x1="{_num(x1)}" y1="{_num(y1)}" x2="{_num(x2)}" y2="{_num(y2)}" '
             f'stroke="{_SEPARATOR}" stroke-width="2"/>'
         )
     elif diagram.lanes:
-        # actor/label separator runs down the header-column side (right under RTL)
-        sep_x = (w - m - _LABEL_W) if rtl else m + _LABEL_W
-        top = diagram.lanes[0].y
-        bottom = diagram.lanes[-1].y + diagram.lanes[-1].height
+        # actor/label separator runs down the header-column side (right under RTL); the phase
+        # separators drop through the same lane span [top, bottom].
+        chrome = swimlane_chrome(diagram, rtl, vertical)
+        sep_x = chrome.actor_p1[0]
+        top, bottom = chrome.lane_top, chrome.lane_bottom
         parts.append(
             f'<line x1="{_num(sep_x)}" y1="{_num(top)}" x2="{_num(sep_x)}" y2="{_num(bottom)}" '
             f'stroke="{_SEPARATOR}" stroke-width="2"/>'
