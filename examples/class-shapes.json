@@ -1,0 +1,49 @@
+{
+  "specVersion": "1.0",
+  "diagramType": "class",
+  "meta": { "title": "Shapes — inheritance + composition" },
+  "nodes": [
+    {
+      "id": "Shape",
+      "label": { "text": "Shape" },
+      "attributes": ["# id: int", "# stroke: Color"],
+      "methods": ["+ area(): float", "+ draw(c: Canvas): void"]
+    },
+    {
+      "id": "Circle",
+      "label": { "text": "Circle" },
+      "attributes": ["- radius: float"],
+      "methods": ["+ area(): float"]
+    },
+    {
+      "id": "Rectangle",
+      "label": { "text": "Rectangle" },
+      "attributes": ["- width: float", "- height: float"],
+      "methods": ["+ area(): float"]
+    },
+    {
+      "id": "Triangle",
+      "label": { "text": "Triangle" },
+      "attributes": ["- base: float", "- height: float"],
+      "methods": ["+ area(): float"]
+    },
+    {
+      "id": "Canvas",
+      "label": { "text": "Canvas" },
+      "attributes": ["- shapes: List<Shape>"],
+      "methods": ["+ add(s: Shape): void", "+ render(r: Renderer): void"]
+    },
+    {
+      "id": "Renderer",
+      "label": { "text": "Renderer" },
+      "methods": ["+ paint(s: Shape): void"]
+    }
+  ],
+  "edges": [
+    { "source": "Circle", "target": "Shape", "label": { "text": "extends" } },
+    { "source": "Rectangle", "target": "Shape", "label": { "text": "extends" } },
+    { "source": "Triangle", "target": "Shape", "label": { "text": "extends" } },
+    { "source": "Canvas", "target": "Shape", "label": { "text": "0..*" } },
+    { "source": "Canvas", "target": "Renderer", "label": { "text": "uses" } }
+  ]
+}

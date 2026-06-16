@@ -239,7 +239,8 @@ separated by divider lines. A node carries its members as plain strings in `attr
 
 `attributes` here are free-text class members (not the typed ER-attribute objects the `er` family
 uses). A node with only `attributes` and no `methods` simply omits the methods compartment. See
-`examples/class-shop.json`.
+`examples/class-shop.json`, and `examples/class-shapes.json` for an inheritance + composition
+model whose edges route with rounded (curved) corners.
 
 ## Capability reports, never silent drops
 
