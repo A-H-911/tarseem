@@ -7,18 +7,21 @@ never position (ADR-001). Per-label ``direction``/``xml:lang`` keep RTL first-cl
 """
 from __future__ import annotations
 
+from tarseem.geometry import (
+    DEFAULT_EDGE as _DEFAULT_EDGE,
+    DEFAULT_FILL as _DEFAULT_FILL,
+    DEFAULT_STROKE as _DEFAULT_STROKE,
+    DEFAULT_TEXT as _DEFAULT_TEXT,
+    PARALLELOGRAM_SLANT,
+    pseudostate_circles,
+)
 from tarseem.model.ir import Label, PositionedDiagram, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
-from tarseem.render.text import label_attrs as _resolve_label_attrs
-from tarseem.render.text import resolve_edge_corners
+from tarseem.render.text import label_attrs as _resolve_label_attrs, resolve_edge_corners
 
 __all__ = ["render_svg"]
 
 _MARGIN = 24.0
-_DEFAULT_FILL = "#FFFFFF"
-_DEFAULT_STROKE = "#333333"
-_DEFAULT_TEXT = "#14281D"
-_DEFAULT_EDGE = "#333333"
 _CYL_CAP = 6.0  # cylinder label drop (px) so text centres on the body, below the top ellipse cap
 # Subtle drop shadow for 3-D shapes (cube/cylinder) — owner-preferred; mirrored in draw.io/pptx.
 SHADOW_DEF = (
@@ -74,7 +77,7 @@ def _shape_svg(n: PositionedNode) -> str:
         cx, cy = x + w / 2, y + h / 2
         return _poly([(cx, y), (x + w, cy), (cx, y + h), (x, cy)], st)
     if kind == "parallelogram":
-        s = 20.0
+        s = PARALLELOGRAM_SLANT
         return _poly([(x + s, y), (x + w, y), (x + w - s, y + h), (x, y + h)], st)
     if kind == "cylinder":
         ry = 9.0
@@ -96,14 +99,15 @@ def _shape_svg(n: PositionedNode) -> str:
             f'T {_p(x, y + h - wv)} Z" {st}/>'
         )
     if kind == "initial":  # state-machine start pseudostate: a solid filled dot
-        cx, cy, r = x + w / 2, y + h / 2, min(w, h) / 2
-        return f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r)}" fill="{stroke}"/>'
+        ps = pseudostate_circles(n)
+        return f'<circle cx="{_num(ps.cx)}" cy="{_num(ps.cy)}" r="{_num(ps.r)}" fill="{stroke}"/>'
     if kind == "final":  # state-machine end pseudostate: a ring around a filled dot
-        cx, cy, r = x + w / 2, y + h / 2, min(w, h) / 2
+        ps = pseudostate_circles(n)
         return (
-            f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r)}" fill="{fill}" '
+            f'<circle cx="{_num(ps.cx)}" cy="{_num(ps.cy)}" r="{_num(ps.r)}" fill="{fill}" '
             f'stroke="{stroke}" stroke-width="{_num(sw)}"/>'
-            f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r * 0.5)}" fill="{stroke}"/>'
+            f'<circle cx="{_num(ps.cx)}" cy="{_num(ps.cy)}" r="{_num(ps.inner_r)}" '
+            f'fill="{stroke}"/>'
         )
     if kind == "cube":  # deployment 3D node: front face + top + right depth faces
         d = 14.0

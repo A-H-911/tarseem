@@ -412,6 +412,31 @@ tool renders PDFs; no separate headless PDF renderer needed):**
 | metadata | full | provenance embedded as an Info dictionary via an append-only incremental update (sub-stage 5, 2026-06-15); not XMP — Info dict is dependency-free |
 | determinism | full | same spec ⇒ byte-identical (dates pinned) |
 
+## Shared chrome-geometry extraction (2026-06-16) — pre-Sub-stage-6 cleanup
+
+Before building class + mindmap (Sub-stage 6), eliminated the ADR-007 dual/triple source-of-truth:
+the lane/ER/sequence chrome **constants + pure box-math** that `render/{svg,swimlane,er,sequence}.py`
+and the draw.io/PPTX writers each re-derived (synced only by `# MUST match` comments) now live once
+in a neutral leaf **`src/tarseem/geometry.py`** (constants + `chip_rect`, `title_bar_box`,
+`swimlane_chrome`, `er_title_height`, `key_pill_box`, `badge_center`, `pseudostate_circles`).
+`layout/{lanegrid,elk}` also import `V_HEADER` + the parallelogram slant from it. Class diagrams
+(compartment tables ≈ ER) will reuse `er_title_height`/`key_pill_box` from day one.
+
+- **Behavior-preserving, proven not assumed.** A throwaway same-environment guard
+  (`tools/refactor_guard.py`) hashed font-stripped SVG + draw.io XML + PPTX slide-XML for all 17
+  examples before/after each stage; **51/51 hashes unchanged** throughout, **zero visual-baseline
+  churn** (win32 `test_visual_regression` green). Committed golden snapshots were rejected — the
+  embedded woff2 subset (fonttools/brotli), the zip bytes (python-pptx/zlib), and the coordinates
+  themselves (uharfbuzz measurement) are floor-pinned and not reproducible across versions.
+- **Out of scope (per-writer idioms, not duplication):** edge-corner rounding (SVG quadratic vs
+  PPTX sampled segments), cube/cylinder shape drawing, `_CUBE_DEPTH`. Documented inline.
+- Branch `refactor/shared-chrome-geometry`; ADR-007 consequences updated; `tests/test_geometry.py`
+  (13 cases) pins the box-math values; ruff/mypy clean, coverage 93% (geometry.py 100%).
+- **Known remaining duplicates (follow-up):** `layout/lanegrid` still copies `LABEL_W` + a marker
+  colour (left out of this pass's approved scope). The permanent SVG-snapshot guard from the plan
+  was dropped — env-dependent coordinates make a committed cross-platform markup snapshot as fragile
+  as the per-OS pixel baselines; it would need to be per-platform.
+
 ## Deferred / future tasks
 
 - **Mermaid + PlantUML source writers (deferred 2026-06-15 → future feature).** Sub-stage 4 —

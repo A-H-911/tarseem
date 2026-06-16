@@ -27,7 +27,36 @@ from pathlib import Path
 from lxml import etree
 
 from tarseem.export.result import WriteResult
-from tarseem.model.ir import Label, LaneBand, Marker, PositionedDiagram, PositionedNode
+from tarseem.geometry import (
+    BADGE_R as _BADGE_R,
+    CHROME_RADIUS as _CHROME_RADIUS,
+    DEFAULT_FILL as _DEFAULT_FILL,
+    DEFAULT_STROKE as _DEFAULT_STROKE,
+    DEFAULT_TEXT as _DEFAULT_TEXT,
+    EDGE_WIDTH_DEFAULT as _EDGE_WIDTH_DEFAULT,
+    ER_BORDER as _ER_BORDER,
+    ER_KEY_FILL as _ER_KEY_FILL,
+    ER_PAD_X as _ER_PAD_X,
+    ER_ROW_SEP as _ER_ROW_SEP,
+    ER_TITLE_FILL as _ER_TITLE_FILL,
+    LANE_ACCENT_DEFAULT as _LANE_ACCENT_DEFAULT,
+    LANE_ROW_DEFAULT as _LANE_ROW_DEFAULT,
+    MARKER_BLACK as _MARKER_BLACK,
+    PHASE_FILL as _PHASE_FILL,
+    SEPARATOR as _SEPARATOR,
+    SEQ_ACT_BORDER as _SEQ_ACT_BORDER,
+    SEQ_MARGIN as _SEQ_MARGIN,
+    SEQ_STEM as _SEQ_STEM,
+    TITLE_FILL as _TITLE_FILL,
+    badge_center,
+    chip_rect,
+    er_title_height,
+    key_pill_box,
+    pseudostate_circles,
+    swimlane_chrome,
+    title_bar_box,
+)
+from tarseem.model.ir import Label, Marker, PositionedDiagram, PositionedNode
 from tarseem.render.text import (
     has_rtl,
     resolve_badge_side,
@@ -62,46 +91,16 @@ _SHAPE_STYLE: dict[str, str] = {
     "table": "",  # ER entity → plain box; attribute rows folded into label (reported partial)
 }
 
-_DEFAULT_FILL = "#FFFFFF"
-_DEFAULT_STROKE = "#333333"
-_DEFAULT_TEXT = "#14281D"  # MUST match render/svg.py _DEFAULT_TEXT (engine label colour)
 # Name the SVG's underlying font family so draw.io references the same face, with a sans-serif
 # fallback. draw.io can't embed fonts (fonts ceiling): exact glyphs match only where Cairo is
 # installed (e.g. draw.io Desktop); elsewhere the fallback keeps text SANS (matching Cairo's
 # style), never the browser's serif default that a bare `fontFamily=Cairo` would trigger.
 _FONT = "fontFamily=Cairo,sans-serif;"
 
-# Swimlane chrome geometry — MUST match render/swimlane.py (we draw lanes as plain rects +
-# header chips, NOT draw.io native swimlanes, per ADR-007, so the .drawio matches the canonical
-# SVG exactly incl. the RTL right-side header flip). Keep these synchronised with the SVG writer.
-_LABEL_W = 160.0  # MUST match render/swimlane.py _LABEL_W (horizontal header-column width)
-_V_HEADER = 64.0  # MUST match render/swimlane.py _V_HEADER (vertical lane header band height)
-_CHIP_H = 56.0  # horizontal header-chip height
-_CHIP_INSET = 8.0
-_V_CHIP_H = 48.0  # vertical header-chip height
-_TITLE_FILL = "#269973"  # MUST match render/swimlane.py _TITLE_FILL
-_SEPARATOR = "#B0BEC5"  # MUST match render/swimlane.py _SEPARATOR
-_PHASE_FILL = "#37474F"  # MUST match render/swimlane.py phase-band fill
-_LANE_ROW_DEFAULT = "#EEEEEE"
-_LANE_ACCENT_DEFAULT = "#333333"
-_MARKER_BLACK = "#000000"  # MUST match render/swimlane.py _MARKER_BLACK
-_BADGE_R = 11.0  # numbered-badge corner-circle radius
-_CHROME_RADIUS = 3.0  # crisp corner for phase bands + lane-group gutters — MUST match swimlane.py
-
-# ER entity table colours — MUST match render/er.py (so the .drawio matches out/er-shop.png).
-_ER_TITLE_FILL = "#37474F"
-_ER_BORDER = "#5A6B7B"
-_ER_ROW_SEP = "#CFD8DC"
-_ER_PAD_X = 10.0
-_ER_KEY_FILL = {"PK": "#C49000", "FK": "#3B7DD8"}
-# Sequence chrome — MUST match render/sequence.py (_M / _STEM / _ACT_BORDER).
-_SEQ_MARGIN = 24.0
-_SEQ_STEM = "#9AA8A2"
-_SEQ_ACT_BORDER = "#2E8B57"
-_CUBE_DEPTH = 14.0  # MUST match render/svg.py + measure._CUBE_DEPTH
-# Default edge stroke width per family — MUST match each SVG edge writer's default so a spec's
-# edge.style.width controls both writers identically.
-_EDGE_WIDTH_DEFAULT = {"swimlane": 2.0, "er": 1.5, "sequence": 1.5}
+# Lane/ER/sequence chrome constants are shared with the SVG renderers via tarseem.geometry
+# (ADR-007: draw.io reproduces render/swimlane.py + render/er.py geometry exactly). One source
+# of truth — no per-writer copies to keep in lockstep.
+_CUBE_DEPTH = 14.0  # MUST match render/svg.py + measure._CUBE_DEPTH (shape geometry, per-writer)
 
 
 def _cell_id(prefix: str, raw: str) -> str:
@@ -360,7 +359,7 @@ def _emit_swimlane_chrome(root: etree._Element, diagram: PositionedDiagram) -> N
             (band.x, band.y, band.width, band.height),
             f"rounded=0;html=1;fillColor={row};strokeColor={accent};opacity=85;",
         )
-        chip = _chip_rect(band, rtl, vertical)
+        chip = chip_rect(band, rtl, vertical)
         # strokeColor=none: the SVG lane chip is fill-only; without this mxGraph draws a default
         # black 1px border (the "actor/user shapes have black borders" divergence).
         chip_style = _style(
@@ -373,32 +372,17 @@ def _emit_swimlane_chrome(root: etree._Element, diagram: PositionedDiagram) -> N
     _emit_separators(root, diagram, rtl, vertical)
 
 
-def _chip_rect(band: LaneBand, rtl: bool, vertical: bool) -> tuple[float, float, float, float]:
-    """Header-chip rect — MUST match render/swimlane.py _lane_band geometry."""
-    if vertical:
-        w = band.width - 16.0
-        return (band.x + 8.0, band.y + (_V_HEADER - _V_CHIP_H) / 2, w, _V_CHIP_H)
-    w = _LABEL_W - 16.0
-    x = (band.x + band.width - w - _CHIP_INSET) if rtl else band.x + _CHIP_INSET
-    return (x, band.y + (band.height - _CHIP_H) / 2, w, _CHIP_H)
-
-
 def _emit_title_bar(root: etree._Element, diagram: PositionedDiagram) -> None:
-    """Title bar — geometry MUST match render/swimlane.py render_swimlane_svg."""
+    """Title bar — geometry from the shared tarseem.geometry.title_bar_box."""
     if not diagram.title or not diagram.lanes:
         return
-    lanes = diagram.lanes
-    title_x = min([b.x for b in lanes] + [g.x for g in diagram.lane_groups])
-    title_right = max(b.x + b.width for b in lanes)
-    title_top = diagram.height - (lanes[-1].y + lanes[-1].height)
-    title_bottom = diagram.phases[0].y if diagram.phases else lanes[0].y
     title = diagram.theme.get("title") or {}
     fill = str(title.get("fill", _TITLE_FILL))
     text_color = str(title.get("text", "#FFFFFF"))
     _rect_cell(
         root,
         "title",
-        (title_x, title_top, title_right - title_x, title_bottom - title_top),
+        title_bar_box(diagram),
         _style(
             f"rounded=1;arcSize=6;html=1;fillColor={fill};strokeColor=none;fontColor={text_color};"
             "fontStyle=1;fontSize=18;",
@@ -411,19 +395,13 @@ def _emit_title_bar(root: etree._Element, diagram: PositionedDiagram) -> None:
 def _emit_separators(
     root: etree._Element, diagram: PositionedDiagram, rtl: bool, vertical: bool
 ) -> None:
-    """Actor separator + phase bands/separators — MUST match render/swimlane.py."""
-    lanes = diagram.lanes
-    m = lanes[0].x
+    """Actor separator + phase bands/separators — geometry from tarseem.geometry.swimlane_chrome."""
+    chrome = swimlane_chrome(diagram, rtl, vertical)
     if vertical:
-        sep_y = lanes[0].y + _V_HEADER
-        left = lanes[0].x
-        right = lanes[-1].x + lanes[-1].width
-        _line_cell(root, "actorsep", (left, sep_y), (right, sep_y), _SEPARATOR, 2.0)
+        _line_cell(root, "actorsep", *chrome.actor_segment, _SEPARATOR, 2.0)
         return
-    top = lanes[0].y
-    bottom = lanes[-1].y + lanes[-1].height
-    sep_x = (diagram.width - m - _LABEL_W) if rtl else m + _LABEL_W
-    _line_cell(root, "actorsep", (sep_x, top), (sep_x, bottom), _SEPARATOR, 2.0)
+    top, bottom = chrome.lane_top, chrome.lane_bottom
+    _line_cell(root, "actorsep", *chrome.actor_segment, _SEPARATOR, 2.0)
     sep = diagram.phase_separator or {}
     color = str(sep.get("color", _SEPARATOR))
     width = float(sep.get("width", 1.5))
@@ -512,8 +490,8 @@ def _emit_pseudostate(root: etree._Element, node: PositionedNode) -> None:
     entry in _SHAPE_STYLE, so they'd otherwise fall back to a plain white box). initial = a solid
     dot filled with the stroke colour; final = a bullseye (outer ring + inner solid dot)."""
     stroke = _stroke(node.style)
-    r = min(node.width, node.height) / 2
-    cx, cy = node.x + node.width / 2, node.y + node.height / 2
+    ps = pseudostate_circles(node)
+    cx, cy, r = ps.cx, ps.cy, ps.r
     if node.shape == "initial":
         _rect_cell(
             root, _cell_id("state", node.id), (cx - r, cy - r, 2 * r, 2 * r),
@@ -526,7 +504,7 @@ def _emit_pseudostate(root: etree._Element, node: PositionedNode) -> None:
         f"ellipse;html=1;fillColor={_fill(node.style)};strokeColor={stroke};"
         f"strokeWidth={_fmt(sw)};",
     )
-    ir = r * 0.5  # inner dot radius — MUST match render/svg.py final pseudostate
+    ir = ps.inner_r
     _rect_cell(
         root, _cell_id("statedot", node.id), (cx - ir, cy - ir, 2 * ir, 2 * ir),
         f"ellipse;html=1;fillColor={stroke};strokeColor=none;",
@@ -538,11 +516,11 @@ def _emit_badge(root: etree._Element, node: PositionedNode, side: str) -> None:
     by resolve_badge_side (default LTR -> right, RTL -> left; theme.badgeCorner overrides)."""
     num = (node.badge or "").rstrip(".")
     accent = str((node.style.get("border") or {}).get("color", _LANE_ACCENT_DEFAULT))
-    cx = node.x + node.width if side == "right" else node.x
+    cx, cy = badge_center(node, side)
     _rect_cell(
         root,
         _cell_id("badge", node.id),
-        (cx - _BADGE_R, node.y - _BADGE_R, 2 * _BADGE_R, 2 * _BADGE_R),
+        (cx - _BADGE_R, cy - _BADGE_R, 2 * _BADGE_R, 2 * _BADGE_R),
         f"ellipse;html=1;fillColor={accent};strokeColor=#FFFFFF;fontColor=#FFFFFF;"
         f"fontStyle=1;fontSize=11;{_FONT}",
         num,
@@ -573,7 +551,7 @@ def _emit_entity(
     header top aligns with the rounded outline (no poke-out); its bottom rounds slightly inward —
     the closest draw.io's simple styles get to the SVG's rounded-top/square-bottom header."""
     x, y, w, h = node.x, node.y, node.width, node.height
-    title_h = node.rows[0].y_offset if node.rows else h
+    title_h = er_title_height(node)
     corner = "rounded=1;absoluteArcSize=1;arcSize=6;" if rounded else "rounded=0;"
     _rect_cell(
         root,
@@ -607,13 +585,11 @@ def _emit_entity(
             r.label.text,
         )
         if r.key:
-            tw = 22.0
-            ky = ry + r.height / 2
             fill = _ER_KEY_FILL.get(r.key, "#777777")
             _rect_cell(
                 root,
                 _cell_id("erkey", rid),
-                (x + w - _ER_PAD_X - tw, ky - 8, tw, 16),
+                key_pill_box(node, r),
                 # absolute 3px radius MUST match render/er.py _key_tag rx=3 (was a 30% pill);
                 # strokeColor=none matches the fill-only SVG pill (no default black border).
                 f"rounded=1;absoluteArcSize=1;arcSize=3;html=1;fillColor={fill};strokeColor=none;"

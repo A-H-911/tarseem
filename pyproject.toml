@@ -57,6 +57,11 @@ extend-exclude = ["spikes"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.isort]
+# Combine aliased imports (``from m import a as _a``) into one block instead of one ``from``
+# statement each — keeps the shared-constant imports from tarseem.geometry tidy.
+combine-as-imports = true
+
 [tool.mypy]
 python_version = "3.10"
 packages = ["tarseem"]

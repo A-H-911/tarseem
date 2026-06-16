@@ -31,8 +31,41 @@ from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
 from tarseem.export.result import WriteResult
-from tarseem.model.ir import LaneBand, Marker, PhaseBand, PositionedDiagram, PositionedEdge
-from tarseem.model.ir import PositionedNode as PNode
+from tarseem.geometry import (
+    BADGE_R as _BADGE_R,
+    DEFAULT_EDGE as _DEFAULT_EDGE,
+    DEFAULT_FILL as _DEFAULT_FILL,
+    DEFAULT_STROKE as _DEFAULT_STROKE,
+    DEFAULT_TEXT as _DEFAULT_TEXT,
+    EDGE_WIDTH_DEFAULT as _EDGE_WIDTH_DEFAULT,
+    ER_BORDER as _ER_BORDER,
+    ER_KEY_FILL as _ER_KEY_FILL,
+    ER_ROW_SEP as _ER_ROW_SEP,
+    ER_TITLE_FILL as _ER_TITLE_FILL,
+    LANE_ACCENT_DEFAULT as _LANE_ACCENT,
+    LANE_ROW_DEFAULT as _LANE_ROW,
+    MARKER_BLACK as _MARKER_BLACK,
+    PHASE_FILL as _PHASE_FILL,
+    SEPARATOR as _SEP,
+    SEQ_ACT_BORDER as _SEQ_ACT_BORDER,
+    SEQ_MARGIN as _SEQ_MARGIN,
+    SEQ_STEM as _SEQ_STEM,
+    TITLE_FILL as _TITLE_FILL,
+    badge_center,
+    chip_rect,
+    er_title_height,
+    key_pill_box,
+    pseudostate_circles,
+    swimlane_chrome,
+    title_bar_box,
+)
+from tarseem.model.ir import (
+    Marker,
+    PhaseBand,
+    PositionedDiagram,
+    PositionedEdge,
+    PositionedNode as PNode,
+)
 from tarseem.render.text import (
     has_rtl,
     resolve_badge_side,
@@ -49,34 +82,12 @@ __all__ = ["write_pptx", "to_pptx_bytes"]
 EMU_PER_PX = 9525  # 914400 EMU/inch ÷ 96 px/inch
 _FONT = "Cairo"  # names the SVG face; PowerPoint substitutes if absent (fonts ceiling)
 _FIXED_TS = datetime(2001, 1, 1, tzinfo=timezone.utc)  # constant (invariant 7: no wall-clock)
-_EDGE_RADIUS = 8.0  # corner-rounding radius — MUST match render/svg.py _EDGE_RADIUS
-
-# Colours — MUST match the SVG/draw.io writers so all writers agree.
-_DEFAULT_FILL = "#FFFFFF"
-_DEFAULT_STROKE = "#333333"
-_DEFAULT_TEXT = "#14281D"
-_DEFAULT_EDGE = "#333333"
-_SEP = "#B0BEC5"
-_PHASE_FILL = "#37474F"
-_TITLE_FILL = "#269973"
-_MARKER_BLACK = "#000000"
-_LANE_ROW = "#EEEEEE"
-_LANE_ACCENT = "#333333"
-_ER_TITLE_FILL = "#37474F"
-_ER_BORDER = "#5A6B7B"
-_ER_ROW_SEP = "#CFD8DC"
-_ER_KEY_FILL = {"PK": "#C49000", "FK": "#3B7DD8"}
-_SEQ_STEM = "#9AA8A2"
-_SEQ_ACT_BORDER = "#2E8B57"
-
-_BADGE_R = 11.0
-_CUBE_DEPTH = 14.0
-_LABEL_W = 160.0
-_V_HEADER = 64.0
-_CHIP_H = 56.0
-_V_CHIP_H = 48.0
-_CHIP_INSET = 8.0
-_EDGE_WIDTH_DEFAULT = {"swimlane": 2.0, "er": 1.5, "sequence": 1.5}
+# corner-rounding radius — shared value with render/svg.py, but per-writer construction (the SVG
+# draws a quadratic; the freeform samples it into segments), so the radius stays a local literal.
+_EDGE_RADIUS = 8.0
+_CUBE_DEPTH = 14.0  # cube depth — shape geometry, per-writer (MUST match render/svg.py)
+# Default colours + lane/ER/sequence chrome constants are shared with the SVG/draw.io writers via
+# tarseem.geometry — one source of truth, no per-writer copies to keep in lockstep.
 _SHADOW_SHAPES = ("cube", "cylinder")  # 3-D shapes get a drop shadow (matches SVG/draw.io)
 
 # python-pptx autoshape per IR shape (documented MSO_SHAPE members only).
@@ -313,22 +324,22 @@ def _emit_node(b: _Builder, node: PNode, badge_side: str) -> None:
 
 def _emit_pseudostate(b: _Builder, node: PNode) -> None:
     stroke = _stroke_of(node.style)
-    r = min(node.width, node.height) / 2
-    cx, cy = node.x + node.width / 2, node.y + node.height / 2
+    ps = pseudostate_circles(node)
+    cx, cy, r = ps.cx, ps.cy, ps.r
     if node.shape == "initial":
         b.rect(MSO_SHAPE.OVAL, cx - r, cy - r, 2 * r, 2 * r, stroke, None)
         return
     b.rect(MSO_SHAPE.OVAL, cx - r, cy - r, 2 * r, 2 * r, _fill_of(node.style), stroke,
            _stroke_w_of(node.style))
-    ir = r * 0.5
+    ir = ps.inner_r
     b.rect(MSO_SHAPE.OVAL, cx - ir, cy - ir, 2 * ir, 2 * ir, stroke, None)
 
 
 def _emit_badge(b: _Builder, node: PNode, side: str) -> None:
     num = (node.badge or "").rstrip(".")
     accent = _stroke_of(node.style)
-    cx = node.x + node.width if side == "right" else node.x
-    sp = b.rect(MSO_SHAPE.OVAL, cx - _BADGE_R, node.y - _BADGE_R, 2 * _BADGE_R, 2 * _BADGE_R,
+    cx, cy = badge_center(node, side)
+    sp = b.rect(MSO_SHAPE.OVAL, cx - _BADGE_R, cy - _BADGE_R, 2 * _BADGE_R, 2 * _BADGE_R,
                 accent, "#FFFFFF", 1.5)
     b.text_in(sp, num, size=11, color="#FFFFFF", bold=True)
 
@@ -357,46 +368,30 @@ def _emit_swimlane_chrome(b: _Builder, d: PositionedDiagram) -> None:
         hue = band.hue or {}
         b.rect(MSO_SHAPE.RECTANGLE, band.x, band.y, band.width, band.height,
                hue.get("row", _LANE_ROW), hue.get("label", _LANE_ACCENT), 1.0, opacity=85)
-        cx, cy, cw, ch = _chip_rect(band, rtl, vertical)
+        cx, cy, cw, ch = chip_rect(band, rtl, vertical)
         chip = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, cx, cy, cw, ch,
                       hue.get("label", _LANE_ACCENT), None)
         b.text_in(chip, band.label, size=13, color="#FFFFFF", bold=True)
     _emit_separators(b, d, rtl, vertical)
 
 
-def _chip_rect(band: LaneBand, rtl: bool, vertical: bool) -> tuple[float, float, float, float]:
-    if vertical:
-        w = band.width - 16.0
-        return (band.x + 8.0, band.y + (_V_HEADER - _V_CHIP_H) / 2, w, _V_CHIP_H)
-    w = _LABEL_W - 16.0
-    x = (band.x + band.width - w - _CHIP_INSET) if rtl else band.x + _CHIP_INSET
-    return (x, band.y + (band.height - _CHIP_H) / 2, w, _CHIP_H)
-
-
 def _emit_title_bar(b: _Builder, d: PositionedDiagram) -> None:
     if not d.title or not d.lanes:
         return
-    lanes = d.lanes
-    title_x = min([bd.x for bd in lanes] + [g.x for g in d.lane_groups])
-    title_right = max(bd.x + bd.width for bd in lanes)
-    title_top = d.height - (lanes[-1].y + lanes[-1].height)
-    title_bottom = d.phases[0].y if d.phases else lanes[0].y
+    tx, ty, tw, th = title_bar_box(d)
     title = d.theme.get("title") or {}
-    sp = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, title_x, title_top, title_right - title_x,
-                title_bottom - title_top, str(title.get("fill", _TITLE_FILL)), None)
+    sp = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, tx, ty, tw, th,
+                str(title.get("fill", _TITLE_FILL)), None)
     b.text_in(sp, d.title, size=18, color=str(title.get("text", "#FFFFFF")), bold=True)
 
 
 def _emit_separators(b: _Builder, d: PositionedDiagram, rtl: bool, vertical: bool) -> None:
-    lanes = d.lanes
-    m = lanes[0].x
+    chrome = swimlane_chrome(d, rtl, vertical)
     if vertical:
-        sep_y = lanes[0].y + _V_HEADER
-        b.connector((lanes[0].x, sep_y), (lanes[-1].x + lanes[-1].width, sep_y), _SEP, 2.0)
+        b.connector(*chrome.actor_segment, _SEP, 2.0)
         return
-    top, bottom = lanes[0].y, lanes[-1].y + lanes[-1].height
-    sep_x = (d.width - m - _LABEL_W) if rtl else m + _LABEL_W
-    b.connector((sep_x, top), (sep_x, bottom), _SEP, 2.0)
+    top, bottom = chrome.lane_top, chrome.lane_bottom
+    b.connector(*chrome.actor_segment, _SEP, 2.0)
     sep = d.phase_separator or {}
     color = str(sep.get("color", _SEP))
     width = float(sep.get("width", 1.5))
@@ -418,8 +413,8 @@ def _emit_phase(b: _Builder, phase: PhaseBand) -> None:
 
 def _emit_sequence_chrome(b: _Builder, d: PositionedDiagram) -> None:
     if d.title:
-        b.textbox(0.0, 0.0, d.width, 24.0, d.title, size=18, color=_DEFAULT_TEXT, bold=True)
-    bottom = d.height - 24.0
+        b.textbox(0.0, 0.0, d.width, _SEQ_MARGIN, d.title, size=18, color=_DEFAULT_TEXT, bold=True)
+    bottom = d.height - _SEQ_MARGIN
     for node in d.nodes:
         cx = node.x + node.width / 2
         b.connector((cx, node.y + node.height), (cx, bottom), _SEQ_STEM, 1.5, dashed=True)
@@ -430,7 +425,7 @@ def _emit_sequence_chrome(b: _Builder, d: PositionedDiagram) -> None:
 
 def _emit_entity(b: _Builder, node: PNode) -> None:
     x, y, w, h = node.x, node.y, node.width, node.height
-    title_h = node.rows[0].y_offset if node.rows else h
+    title_h = er_title_height(node)
     container = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h, "#FFFFFF", _ER_BORDER, 1.5)
     # The container's default rounded-rect radius is large; the title's was small -> the title's
     # corners poked past the container's rounding. Pin BOTH to ~6px so the title's rounded top
@@ -447,9 +442,8 @@ def _emit_entity(b: _Builder, node: PNode) -> None:
         b.textbox(x + 10.0, ry, w - 20.0, r.height, r.label, size=12, color=_DEFAULT_TEXT,
                   align=align)
         if r.key:
-            tw = 22.0
-            ky = ry + r.height / 2
-            pill = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, x + w - 10.0 - tw, ky - 8, tw, 16,
+            px, py, pw, ph = key_pill_box(node, r)
+            pill = b.rect(MSO_SHAPE.ROUNDED_RECTANGLE, px, py, pw, ph,
                           _ER_KEY_FILL.get(r.key, "#777777"), None)
             b.text_in(pill, r.key, size=10, color="#FFFFFF", bold=True)
 

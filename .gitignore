@@ -32,6 +32,9 @@ artifacts/
 gallery-dist/
 *.local.*
 
+# Refactor guard (throwaway same-environment behavior baseline)
+.refactor_guard_baseline.json
+
 # Dev verification cache (draw.io viewer lib for the render-fidelity loop; not packaged)
 .cache/
 

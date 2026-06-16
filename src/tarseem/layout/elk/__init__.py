@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from types import TracebackType
 
+from tarseem.geometry import PARALLELOGRAM_SLANT as _PARALLELOGRAM_SLANT
 from tarseem.layout.elk._server import ElkServerProcess, vendored_bundle
 from tarseem.measure import TextMeasurer
 from tarseem.model.ir import (
@@ -51,7 +52,6 @@ _INTERACTIVE_OPTIONS = {
 }
 
 _EDGE_LABEL_SIZE = 12.0
-_PARALLELOGRAM_SLANT = 20.0  # must match the renderer's parallelogram skew
 
 
 @functools.lru_cache(maxsize=1)
