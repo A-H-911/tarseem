@@ -36,6 +36,11 @@ _ER_KEY_W = 30.0  # right-side room for a PK/FK tag
 _CLASS_TITLE_H = 30.0
 _CLASS_ROW_H = 22.0
 _CLASS_PAD_X = 14.0
+# Left-aligned member lines are sized with headroom so they stay inside the box when a viewer
+# renders the (non-embedded) font slightly wider than the bundled Cairo we measure with — e.g.
+# PowerPoint with the installed Cairo. The SVG embeds the exact subset and is unaffected by the
+# extra right margin. Without ANY Cairo, wider substitutes are the documented PPTX fonts ceiling.
+_CLASS_W_HEADROOM = 1.15
 
 _FONTS_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
 
@@ -114,7 +119,8 @@ class TextMeasurer:
         size = float((node.style.get("text") or {}).get("size", _DEFAULT_SIZE))
         title_w = self.width(node.label.text, size)
         member_w = max((self.width(m.label.text, size) for m in node.members), default=0.0)
-        w = max(max(title_w, member_w) + 2 * _CLASS_PAD_X, _MIN_W)
+        content_w = max(title_w, member_w * _CLASS_W_HEADROOM)
+        w = max(content_w + 2 * _CLASS_PAD_X, _MIN_W)
         h = _CLASS_TITLE_H + len(node.members) * _CLASS_ROW_H
         members = tuple(
             replace(m, y_offset=_CLASS_TITLE_H + i * _CLASS_ROW_H, height=_CLASS_ROW_H)

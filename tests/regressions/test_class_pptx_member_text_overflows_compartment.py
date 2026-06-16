@@ -77,3 +77,16 @@ def test_class_pptx_member_rows_keep_stamped_non_overlapping_geometry():
     row_h_emu = round(node.members[0].height * 9525)
     for a, b in zip(tops, tops[1:], strict=False):
         assert b - a >= row_h_emu - 1, "member textboxes must not overlap vertically"
+
+
+def test_class_member_boxes_have_horizontal_headroom_for_wider_renderers():
+    # The box must be wider than the bundled-Cairo text so a viewer that renders the
+    # (non-embedded) font slightly wider — e.g. PowerPoint with the installed Cairo — keeps the
+    # left-aligned member inside its right border (the "text floating outside the class" bug).
+    from tarseem.measure import _shared_measurer
+
+    node = Engine().render(SPEC).diagram.nodes[0]
+    measurer = _shared_measurer()
+    inner = node.width - 24.0  # geometry CLASS_PAD_X (12) each side
+    widest = max(measurer.width(m.label.text, 12.0) for m in node.members)
+    assert inner >= widest * 1.10, "class box lacks headroom for wider non-embedded fonts"
