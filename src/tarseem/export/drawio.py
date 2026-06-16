@@ -27,6 +27,33 @@ from pathlib import Path
 from lxml import etree
 
 from tarseem.export.result import WriteResult
+from tarseem.geometry import (
+    BADGE_R as _BADGE_R,
+    CHIP_H as _CHIP_H,
+    CHIP_INSET as _CHIP_INSET,
+    CHROME_RADIUS as _CHROME_RADIUS,
+    DEFAULT_FILL as _DEFAULT_FILL,
+    DEFAULT_STROKE as _DEFAULT_STROKE,
+    DEFAULT_TEXT as _DEFAULT_TEXT,
+    EDGE_WIDTH_DEFAULT as _EDGE_WIDTH_DEFAULT,
+    ER_BORDER as _ER_BORDER,
+    ER_KEY_FILL as _ER_KEY_FILL,
+    ER_PAD_X as _ER_PAD_X,
+    ER_ROW_SEP as _ER_ROW_SEP,
+    ER_TITLE_FILL as _ER_TITLE_FILL,
+    LABEL_W as _LABEL_W,
+    LANE_ACCENT_DEFAULT as _LANE_ACCENT_DEFAULT,
+    LANE_ROW_DEFAULT as _LANE_ROW_DEFAULT,
+    MARKER_BLACK as _MARKER_BLACK,
+    PHASE_FILL as _PHASE_FILL,
+    SEPARATOR as _SEPARATOR,
+    SEQ_ACT_BORDER as _SEQ_ACT_BORDER,
+    SEQ_MARGIN as _SEQ_MARGIN,
+    SEQ_STEM as _SEQ_STEM,
+    TITLE_FILL as _TITLE_FILL,
+    V_CHIP_H as _V_CHIP_H,
+    V_HEADER as _V_HEADER,
+)
 from tarseem.model.ir import Label, LaneBand, Marker, PositionedDiagram, PositionedNode
 from tarseem.render.text import (
     has_rtl,
@@ -62,46 +89,16 @@ _SHAPE_STYLE: dict[str, str] = {
     "table": "",  # ER entity → plain box; attribute rows folded into label (reported partial)
 }
 
-_DEFAULT_FILL = "#FFFFFF"
-_DEFAULT_STROKE = "#333333"
-_DEFAULT_TEXT = "#14281D"  # MUST match render/svg.py _DEFAULT_TEXT (engine label colour)
 # Name the SVG's underlying font family so draw.io references the same face, with a sans-serif
 # fallback. draw.io can't embed fonts (fonts ceiling): exact glyphs match only where Cairo is
 # installed (e.g. draw.io Desktop); elsewhere the fallback keeps text SANS (matching Cairo's
 # style), never the browser's serif default that a bare `fontFamily=Cairo` would trigger.
 _FONT = "fontFamily=Cairo,sans-serif;"
 
-# Swimlane chrome geometry — MUST match render/swimlane.py (we draw lanes as plain rects +
-# header chips, NOT draw.io native swimlanes, per ADR-007, so the .drawio matches the canonical
-# SVG exactly incl. the RTL right-side header flip). Keep these synchronised with the SVG writer.
-_LABEL_W = 160.0  # MUST match render/swimlane.py _LABEL_W (horizontal header-column width)
-_V_HEADER = 64.0  # MUST match render/swimlane.py _V_HEADER (vertical lane header band height)
-_CHIP_H = 56.0  # horizontal header-chip height
-_CHIP_INSET = 8.0
-_V_CHIP_H = 48.0  # vertical header-chip height
-_TITLE_FILL = "#269973"  # MUST match render/swimlane.py _TITLE_FILL
-_SEPARATOR = "#B0BEC5"  # MUST match render/swimlane.py _SEPARATOR
-_PHASE_FILL = "#37474F"  # MUST match render/swimlane.py phase-band fill
-_LANE_ROW_DEFAULT = "#EEEEEE"
-_LANE_ACCENT_DEFAULT = "#333333"
-_MARKER_BLACK = "#000000"  # MUST match render/swimlane.py _MARKER_BLACK
-_BADGE_R = 11.0  # numbered-badge corner-circle radius
-_CHROME_RADIUS = 3.0  # crisp corner for phase bands + lane-group gutters — MUST match swimlane.py
-
-# ER entity table colours — MUST match render/er.py (so the .drawio matches out/er-shop.png).
-_ER_TITLE_FILL = "#37474F"
-_ER_BORDER = "#5A6B7B"
-_ER_ROW_SEP = "#CFD8DC"
-_ER_PAD_X = 10.0
-_ER_KEY_FILL = {"PK": "#C49000", "FK": "#3B7DD8"}
-# Sequence chrome — MUST match render/sequence.py (_M / _STEM / _ACT_BORDER).
-_SEQ_MARGIN = 24.0
-_SEQ_STEM = "#9AA8A2"
-_SEQ_ACT_BORDER = "#2E8B57"
-_CUBE_DEPTH = 14.0  # MUST match render/svg.py + measure._CUBE_DEPTH
-# Default edge stroke width per family — MUST match each SVG edge writer's default so a spec's
-# edge.style.width controls both writers identically.
-_EDGE_WIDTH_DEFAULT = {"swimlane": 2.0, "er": 1.5, "sequence": 1.5}
+# Lane/ER/sequence chrome constants are shared with the SVG renderers via tarseem.geometry
+# (ADR-007: draw.io reproduces render/swimlane.py + render/er.py geometry exactly). One source
+# of truth — no per-writer copies to keep in lockstep.
+_CUBE_DEPTH = 14.0  # MUST match render/svg.py + measure._CUBE_DEPTH (shape geometry, per-writer)
 
 
 def _cell_id(prefix: str, raw: str) -> str:

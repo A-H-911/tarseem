@@ -8,6 +8,18 @@ RTL variant (Phase 4) a geometry-only change.
 """
 from __future__ import annotations
 
+from tarseem.geometry import (
+    BADGE_R as _BADGE_R,
+    CHROME_RADIUS as _CHROME_RADIUS,
+    LABEL_W as _LABEL_W,
+    LANE_ACCENT_DEFAULT as _LANE_ACCENT_DEFAULT,
+    LANE_ROW_DEFAULT as _LANE_ROW_DEFAULT,
+    MARKER_BLACK as _MARKER_BLACK,
+    PHASE_FILL as _PHASE_FILL,
+    SEPARATOR as _SEPARATOR,
+    TITLE_FILL as _TITLE_FILL,
+    V_HEADER as _V_HEADER,
+)
 from tarseem.model.ir import Marker, PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
 from tarseem.render.svg import (
@@ -24,16 +36,7 @@ from tarseem.render.text import bidi_attrs, resolve_badge_side, resolve_edge_cor
 
 __all__ = ["render_swimlane_svg"]
 
-_LABEL_W = 160.0  # left header-column width (matches lanegrid geometry)
-_V_HEADER = 64.0  # vertical-orientation lane header band height (MUST match lanegrid _V_HEADER)
-_TITLE_FILL = "#269973"
-_SEPARATOR = "#B0BEC5"
 _EDGE_DEFAULT = "#2E8B57"
-_MARKER_BLACK = "#000000"
-_BADGE_R = 11.0  # auto-number badge corner-circle radius (MUST match export/drawio.py _BADGE_R)
-# Crisp/pointy corner for phase bands + nested-lane group gutters (owner-preferred style; was a
-# softer 5–6px). MUST match export/drawio.py _CHROME_RADIUS (emitted there as absoluteArcSize).
-_CHROME_RADIUS = 3.0
 
 
 def _badge_circle(n: PositionedNode, side: str, accent: str) -> list[str]:
@@ -106,7 +109,8 @@ def _phase_band(band, lanes_top: float, lanes_bottom: float, sep: dict) -> list[
         f'<line x1="{_num(band.x)}" y1="{_num(lanes_top)}" x2="{_num(band.x)}" '
         f'y2="{_num(lanes_bottom)}" {_phase_sep_attrs(sep)}/>',
         f'<rect x="{_num(band.x)}" y="{_num(band.y)}" width="{_num(band.width)}" '
-        f'height="{_num(band.height)}" rx="{_num(_CHROME_RADIUS)}" fill="#37474F" opacity="0.92"/>',
+        f'height="{_num(band.height)}" rx="{_num(_CHROME_RADIUS)}" '
+        f'fill="{_PHASE_FILL}" opacity="0.92"/>',
         f'<text x="{_num(cx)}" y="{_num(band.y + band.height / 2)}" font-size="13" '
         f'font-weight="700" fill="#FFFFFF" {_label_attrs(band.label)}>'
         f"{_esc(band.label.text)}</text>",
@@ -115,8 +119,8 @@ def _phase_band(band, lanes_top: float, lanes_bottom: float, sep: dict) -> list[
 
 def _lane_band(band, width: float, rtl: bool = False, vertical: bool = False) -> list[str]:
     c = band.hue
-    row = c.get("row", "#EEEEEE")
-    accent = c.get("label", "#333333")
+    row = c.get("row", _LANE_ROW_DEFAULT)
+    accent = c.get("label", _LANE_ACCENT_DEFAULT)
     if vertical:
         # vertical lanes are columns -> header pill sits at the TOP of the column, centered
         # in the header band (the actor/user area reserved above the first row).
@@ -145,7 +149,7 @@ def _lane_band(band, width: float, rtl: bool = False, vertical: bool = False) ->
 def _lane_group_band(band) -> list[str]:
     """Outer parent-group header for nested lanes (best-effort, AM-6): a narrow coloured
     gutter bar to the left of the child lanes, with the group label rotated to read upward."""
-    fill = band.hue.get("label", "#37474F")  # group bar uses the accent tint
+    fill = band.hue.get("label", _PHASE_FILL)  # group bar uses the accent tint
     cx = band.x + band.width / 2
     cy = band.y + band.height / 2
     return [

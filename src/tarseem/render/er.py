@@ -8,6 +8,13 @@ labels. Per-label direction/lang keeps Arabic first-class (geometry-only RTL).
 """
 from __future__ import annotations
 
+from tarseem.geometry import (
+    ER_BORDER as _BORDER,
+    ER_KEY_FILL as _KEY_FILL,
+    ER_PAD_X as _PAD_X,
+    ER_ROW_SEP as _ROW_SEP,
+    ER_TITLE_FILL as _TITLE_FILL,
+)
 from tarseem.model.ir import PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
 from tarseem.render.svg import _arrowhead, _esc, _num, edge_svg_line
@@ -16,14 +23,9 @@ from tarseem.render.text import label_attrs, resolve_edge_corners, resolve_entit
 __all__ = ["render_er_svg"]
 
 _MARGIN = 24.0
-_TITLE_FILL = "#37474F"
 _TITLE_TEXT = "#FFFFFF"
-_BORDER = "#5A6B7B"
 _ROW_FILL = "#FFFFFF"
-_ROW_SEP = "#CFD8DC"
 _EDGE_DEFAULT = "#5A6B7B"
-_PAD_X = 10.0
-_KEY_FILL = {"PK": "#C49000", "FK": "#3B7DD8"}
 
 
 def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:

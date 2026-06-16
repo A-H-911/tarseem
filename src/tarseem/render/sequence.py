@@ -8,6 +8,7 @@ translate. Per-label direction/lang keep an RTL variant a geometry-only change l
 """
 from __future__ import annotations
 
+from tarseem.geometry import SEQ_ACT_BORDER as _ACT_BORDER, SEQ_MARGIN as _M, SEQ_STEM as _STEM
 from tarseem.model.ir import PositionedDiagram, PositionedEdge, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
 from tarseem.render.svg import _arrowhead, _esc, _label_attrs, _num, _shape_svg, edge_svg_line
@@ -15,10 +16,7 @@ from tarseem.render.text import bidi_attrs, resolve_edge_corners
 
 __all__ = ["render_sequence_svg"]
 
-_M = 24.0
-_STEM = "#9AA8A2"
 _ACT_FILL = "#FFFFFF"
-_ACT_BORDER = "#2E8B57"
 _EDGE_DEFAULT = "#2E8B57"
 
 

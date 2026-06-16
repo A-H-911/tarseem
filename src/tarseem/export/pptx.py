@@ -31,8 +31,40 @@ from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
 from tarseem.export.result import WriteResult
-from tarseem.model.ir import LaneBand, Marker, PhaseBand, PositionedDiagram, PositionedEdge
-from tarseem.model.ir import PositionedNode as PNode
+from tarseem.geometry import (
+    BADGE_R as _BADGE_R,
+    CHIP_H as _CHIP_H,
+    CHIP_INSET as _CHIP_INSET,
+    DEFAULT_EDGE as _DEFAULT_EDGE,
+    DEFAULT_FILL as _DEFAULT_FILL,
+    DEFAULT_STROKE as _DEFAULT_STROKE,
+    DEFAULT_TEXT as _DEFAULT_TEXT,
+    EDGE_WIDTH_DEFAULT as _EDGE_WIDTH_DEFAULT,
+    ER_BORDER as _ER_BORDER,
+    ER_KEY_FILL as _ER_KEY_FILL,
+    ER_ROW_SEP as _ER_ROW_SEP,
+    ER_TITLE_FILL as _ER_TITLE_FILL,
+    LABEL_W as _LABEL_W,
+    LANE_ACCENT_DEFAULT as _LANE_ACCENT,
+    LANE_ROW_DEFAULT as _LANE_ROW,
+    MARKER_BLACK as _MARKER_BLACK,
+    PHASE_FILL as _PHASE_FILL,
+    SEPARATOR as _SEP,
+    SEQ_ACT_BORDER as _SEQ_ACT_BORDER,
+    SEQ_MARGIN as _SEQ_MARGIN,
+    SEQ_STEM as _SEQ_STEM,
+    TITLE_FILL as _TITLE_FILL,
+    V_CHIP_H as _V_CHIP_H,
+    V_HEADER as _V_HEADER,
+)
+from tarseem.model.ir import (
+    LaneBand,
+    Marker,
+    PhaseBand,
+    PositionedDiagram,
+    PositionedEdge,
+    PositionedNode as PNode,
+)
 from tarseem.render.text import (
     has_rtl,
     resolve_badge_side,
@@ -49,34 +81,12 @@ __all__ = ["write_pptx", "to_pptx_bytes"]
 EMU_PER_PX = 9525  # 914400 EMU/inch ÷ 96 px/inch
 _FONT = "Cairo"  # names the SVG face; PowerPoint substitutes if absent (fonts ceiling)
 _FIXED_TS = datetime(2001, 1, 1, tzinfo=timezone.utc)  # constant (invariant 7: no wall-clock)
-_EDGE_RADIUS = 8.0  # corner-rounding radius — MUST match render/svg.py _EDGE_RADIUS
-
-# Colours — MUST match the SVG/draw.io writers so all writers agree.
-_DEFAULT_FILL = "#FFFFFF"
-_DEFAULT_STROKE = "#333333"
-_DEFAULT_TEXT = "#14281D"
-_DEFAULT_EDGE = "#333333"
-_SEP = "#B0BEC5"
-_PHASE_FILL = "#37474F"
-_TITLE_FILL = "#269973"
-_MARKER_BLACK = "#000000"
-_LANE_ROW = "#EEEEEE"
-_LANE_ACCENT = "#333333"
-_ER_TITLE_FILL = "#37474F"
-_ER_BORDER = "#5A6B7B"
-_ER_ROW_SEP = "#CFD8DC"
-_ER_KEY_FILL = {"PK": "#C49000", "FK": "#3B7DD8"}
-_SEQ_STEM = "#9AA8A2"
-_SEQ_ACT_BORDER = "#2E8B57"
-
-_BADGE_R = 11.0
-_CUBE_DEPTH = 14.0
-_LABEL_W = 160.0
-_V_HEADER = 64.0
-_CHIP_H = 56.0
-_V_CHIP_H = 48.0
-_CHIP_INSET = 8.0
-_EDGE_WIDTH_DEFAULT = {"swimlane": 2.0, "er": 1.5, "sequence": 1.5}
+# corner-rounding radius — shared value with render/svg.py, but per-writer construction (the SVG
+# draws a quadratic; the freeform samples it into segments), so the radius stays a local literal.
+_EDGE_RADIUS = 8.0
+_CUBE_DEPTH = 14.0  # cube depth — shape geometry, per-writer (MUST match render/svg.py)
+# Default colours + lane/ER/sequence chrome constants are shared with the SVG/draw.io writers via
+# tarseem.geometry — one source of truth, no per-writer copies to keep in lockstep.
 _SHADOW_SHAPES = ("cube", "cylinder")  # 3-D shapes get a drop shadow (matches SVG/draw.io)
 
 # python-pptx autoshape per IR shape (documented MSO_SHAPE members only).
@@ -418,8 +428,8 @@ def _emit_phase(b: _Builder, phase: PhaseBand) -> None:
 
 def _emit_sequence_chrome(b: _Builder, d: PositionedDiagram) -> None:
     if d.title:
-        b.textbox(0.0, 0.0, d.width, 24.0, d.title, size=18, color=_DEFAULT_TEXT, bold=True)
-    bottom = d.height - 24.0
+        b.textbox(0.0, 0.0, d.width, _SEQ_MARGIN, d.title, size=18, color=_DEFAULT_TEXT, bold=True)
+    bottom = d.height - _SEQ_MARGIN
     for node in d.nodes:
         cx = node.x + node.width / 2
         b.connector((cx, node.y + node.height), (cx, bottom), _SEQ_STEM, 1.5, dashed=True)
