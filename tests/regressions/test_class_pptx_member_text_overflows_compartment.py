@@ -79,6 +79,18 @@ def test_class_pptx_member_rows_keep_stamped_non_overlapping_geometry():
         assert b - a >= row_h_emu - 1, "member textboxes must not overlap vertically"
 
 
+def test_class_member_font_is_px_scaled_to_points_not_oversized():
+    # The layout is CSS px @ 96 dpi; the PPTX run font size must be px * 72/96 pt. Setting Pt(px)
+    # directly renders every label 1.33x too large (16 px for a 12 px size) → members overflow
+    # their box. This is the root cause of the "text floating outside the class" report.
+    from pptx.util import Pt
+
+    prs = Presentation(io.BytesIO(to_pptx_bytes(Engine().render(SPEC).diagram)))
+    box = next(_member_textboxes(prs))
+    run = box.text_frame.paragraphs[0].runs[0]
+    assert run.font.size == Pt(12 * 72 / 96), "12 px member must render at 9 pt, not 12 pt"
+
+
 def test_class_member_boxes_have_horizontal_headroom_for_wider_renderers():
     # The box must be wider than the bundled-Cairo text so a viewer that renders the
     # (non-embedded) font slightly wider — e.g. PowerPoint with the installed Cairo — keeps the

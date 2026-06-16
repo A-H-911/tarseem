@@ -86,6 +86,10 @@ if TYPE_CHECKING:  # `Presentation` is a factory fn; the instance type lives her
 __all__ = ["write_pptx", "to_pptx_bytes"]
 
 EMU_PER_PX = 9525  # 914400 EMU/inch ÷ 96 px/inch
+# The IR/SVG measure + lay out in CSS px @ 96 dpi (font-size="12" == 12 px). PowerPoint font
+# sizes are POINTS (72/inch), so a px size must be scaled by 72/96 or every label renders 1.33x
+# too large (== overflow). 12 px -> 9 pt.
+_PX_TO_PT = 72.0 / 96.0
 _FONT = "Cairo"  # names the SVG face; PowerPoint substitutes if absent (fonts ceiling)
 _FIXED_TS = datetime(2001, 1, 1, tzinfo=timezone.utc)  # constant (invariant 7: no wall-clock)
 # corner-rounding radius — shared value with render/svg.py, but per-writer construction (the SVG
@@ -278,7 +282,7 @@ class _Builder:
         p.alignment = align
         run = p.add_run()
         run.text = label if isinstance(label, str) else label.text
-        run.font.size = Pt(size)
+        run.font.size = Pt(size * _PX_TO_PT)  # px (96 dpi) -> pt, else text renders 1.33x too big
         run.font.bold = bold
         _set_run_font(run, _FONT)
         run.font.color.rgb = _rgb(color)
