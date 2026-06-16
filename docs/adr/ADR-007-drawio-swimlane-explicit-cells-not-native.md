@@ -42,9 +42,16 @@ present, title bar present. Verified through draw.io's own renderer on LTR + RTL
 **Lost / ceilings (reported in every CapabilityReport, never silent — invariant 6):**
 - Lanes are **static rects, not draggable draw.io swimlane containers**; moving a "lane" does
   not move its nodes. Flagged as an `editability-limited` warning on the `lanes` feature.
-- Two visual-truth sources (SVG writer + draw.io writer) must stay synchronised; the
-  "MUST match" constants are the guard. A future refactor may extract shared lane-chrome
-  geometry into one module consumed by both writers.
+- Two visual-truth sources (SVG writer + draw.io writer) must stay synchronised.
+
+**Update (2026-06-16): the anticipated shared-geometry module now exists.** The "MUST match"
+constants + box-math this ADR created (lane chip rect, title-bar box, separator/phase geometry,
+ER title height + key-pill rect, badge corner, pseudostate circles) were extracted into the
+neutral leaf `src/tarseem/geometry.py`, consumed by `render/{svg,swimlane,er}.py`,
+`export/{drawio,pptx}.py`, and (for `V_HEADER` + the parallelogram slant) `layout/{lanegrid,elk}`.
+There is now **one definition**, not synchronised copies — the SVG and draw.io/PPTX writers
+cannot drift on the extracted geometry. The extraction was behavior-preserving (same-environment
+byte-identical output across the example corpus; zero visual-baseline churn).
 
 **Unchanged:** invariants 1–4, 6, 7, 8 hold. Other writers (PPTX, etc.) are unaffected. The SVG
 writer is untouched (no visual-baseline churn).
