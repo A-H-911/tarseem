@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 
+from tarseem.geometry import PARALLELOGRAM_SLANT as _PARALLELOGRAM_SLANT, V_HEADER as _V_HEADER
 from tarseem.model.ir import (
     LaneBand,
     LogicalEdge,
@@ -47,9 +48,9 @@ _GROUP_W = 34.0  # outer gutter width for a nested-lane parent group header (AM-
 _MARKER_BLACK = "#000000"
 _ROUTE_CORRIDOR = 16.0  # clearance below/above all nodes for back-edge detour channels
 # Vertical orientation (lanes = columns, flow top->bottom; landscape node shapes kept). Lane
-# columns are relaxed to the widest node + padding so shapes are NOT rotated (bug #7). _V_HEADER
-# MUST match the swimlane renderer's vertical header constant.
-_V_HEADER = 64.0  # lane header band (the actor/user area) at the top of each column
+# columns are relaxed to the widest node + padding so shapes are NOT rotated (bug #7).
+# _V_HEADER (lane header band / actor area) is imported from tarseem.geometry — one source of
+# truth shared with the swimlane renderer.
 _V_COL_PAD = 28.0  # horizontal padding inside a lane column (relaxes the width)
 _V_ROW_GAP = 60.0  # gap between flow rows
 _V_END_H = 72.0  # gutter above/below the flow for UML start/end markers
@@ -515,9 +516,6 @@ def _with_lane_groups(d: PositionedDiagram, graph: LogicalGraph) -> PositionedDi
     )
 
 
-_PARALLELOGRAM_SLANT = 20.0  # must match the renderer's parallelogram skew
-
-
 def _anchors(g: dict) -> dict:
     x, y, w, h = g["x"], g["y"], g["w"], g["h"]
     return {"cx": x + w / 2, "cy": y + h / 2, "l": x, "r": x + w, "t": y, "b": y + h}
@@ -697,9 +695,10 @@ def _polyline_midpoint(points: list[tuple[float, float]]) -> tuple[float, float]
     return points[len(points) // 2]
 
 
-# Edge-label background dimensions — MUST match the swimlane renderer's `_edge_svg`
-# (half = max(10, len*3.6); rect height 18 => half-height 9), so the layout-time clearance
-# check matches the box actually drawn.
+# Edge-label clearance footprint, used ONLY at layout time to nudge labels off nodes/edges.
+# NOTE: the swimlane renderer no longer draws a label background (the halo was removed in the
+# PPTX review), so this is a self-contained layout heuristic — it intentionally matches no
+# renderer constant. (Values unchanged: changing them would move layout.)
 _LABEL_HALF_H = 9.0
 _LABEL_CLEAR_MARGIN = 2.0
 _LABEL_SAMPLES = 80
