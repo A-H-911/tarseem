@@ -269,12 +269,21 @@ class _Builder:
         return sp
 
     def text_in(self, sp, label, *, size: float = 12.0, color: str = _DEFAULT_TEXT,
-                bold: bool = False, align=PP_ALIGN.CENTER, wrap: bool = True) -> None:
+                bold: bool = False, align=PP_ALIGN.CENTER, wrap: bool = True,
+                shrink: bool = False) -> None:
         tf = sp.text_frame
-        tf.word_wrap = wrap
-        # Never resize the shape to fit text: add_textbox defaults to <a:spAutoFit/>, which grows
-        # a wrapped textbox taller and makes it overlap its neighbour (class member overlap bug).
-        tf.auto_size = MSO_AUTO_SIZE.NONE
+        if shrink:
+            # Keep text inside the box no matter how the viewer renders the (non-embedded) font:
+            # wrap=True means a long line wraps at the box edge instead of spilling past the right
+            # border, and normAutofit shrinks the font to fit the fixed box height (no vertical
+            # overflow). The shape never grows (that is spAutoFit, the original overlap bug).
+            tf.word_wrap = True
+            tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+        else:
+            tf.word_wrap = wrap
+            # Never resize the shape to fit text: add_textbox defaults to <a:spAutoFit/>, which
+            # grows a wrapped textbox taller and makes it overlap its neighbour.
+            tf.auto_size = MSO_AUTO_SIZE.NONE
         for side in ("left", "right", "top", "bottom"):
             setattr(tf, f"margin_{side}", 0)
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -509,10 +518,10 @@ def _emit_class(b: _Builder, node: PNode) -> None:
             b.connector((x, my), (x + w, my), _CLASS_DIVIDER, 1.0)
             prev_group = m.group
         align = PP_ALIGN.RIGHT if _rtl_label(m.label) else PP_ALIGN.LEFT
-        # wrap=False: members stay one line, so a long member can never wrap and overflow its row
-        # (overlap bug). Horizontal spill without Cairo installed is the documented fonts ceiling.
+        # shrink=True: wrap within the box width (never spill past the right border) + shrink the
+        # font to fit the row — keeps members inside regardless of the viewer's exact font metrics.
         b.textbox(x + _CLASS_PAD_X, my, w - 2 * _CLASS_PAD_X, m.height, m.label,
-                  size=12, color=_DEFAULT_TEXT, align=align, wrap=False)
+                  size=12, color=_DEFAULT_TEXT, align=align, shrink=True)
 
 
 def _build(diagram: PositionedDiagram) -> _Prs:

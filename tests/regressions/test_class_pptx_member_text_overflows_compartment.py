@@ -52,19 +52,19 @@ def _member_textboxes(prs):
             yield sh
 
 
-def test_class_pptx_member_textboxes_do_not_wrap_or_autogrow():
+def test_class_pptx_member_textboxes_wrap_and_shrink_to_stay_inside():
     prs = Presentation(io.BytesIO(to_pptx_bytes(Engine().render(SPEC).diagram)))
     boxes = list(_member_textboxes(prs))
     assert len(boxes) == 4, "expected one textbox per class member"
     for sh in boxes:
         body = sh.text_frame._txBody.find(qn("a:bodyPr"))
         assert body is not None
-        # single line: no word wrap (else a long member wraps and overflows the row)
-        assert body.get("wrap") == "none", f"{sh.text_frame.text!r} should not word-wrap"
-        # fixed box: no spAutoFit (else the box grows to fit wrapped text and overlaps the next)
+        # wrap ON: a long member wraps at the box edge instead of spilling past the right border
+        assert body.get("wrap") == "square", f"{sh.text_frame.text!r} should word-wrap"
         autofit = [c.tag.split("}")[-1] for c in body]
-        assert "spAutoFit" not in autofit, f"{sh.text_frame.text!r} must not auto-grow"
-        assert "noAutofit" in autofit, f"{sh.text_frame.text!r} should pin auto_size=NONE"
+        # shrink-to-fit, never grow: normAutofit shrinks the text; spAutoFit (grow box) is the bug
+        assert "spAutoFit" not in autofit, f"{sh.text_frame.text!r} must not grow the box"
+        assert "normAutofit" in autofit, f"{sh.text_frame.text!r} should shrink-to-fit"
 
 
 def test_class_pptx_member_rows_keep_stamped_non_overlapping_geometry():
