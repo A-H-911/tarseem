@@ -211,6 +211,12 @@ def render_svg(diagram: PositionedDiagram) -> str:
 
         return render_er_svg(diagram)
 
+    # UML class boxes are name/attribute/method compartments -> dedicated writer
+    if diagram.diagram_type == "class":
+        from tarseem.render.class_ import render_class_svg
+
+        return render_class_svg(diagram)
+
     dx, dy = _MARGIN, _MARGIN
     width = diagram.width + 2 * _MARGIN
     height = diagram.height + 2 * _MARGIN

@@ -7,6 +7,7 @@ mutates the input spec.
 from __future__ import annotations
 
 from tarseem.model.ir import (
+    ClassMember,
     EntityRow,
     Label,
     LogicalEdge,
@@ -30,6 +31,7 @@ _DEFAULT_SHAPE: dict[str, str] = {
     "state": "roundrect",  # states are rounded boxes; initial/final use marker shapes
     "deployment": "cube",  # deployment nodes are 3D boxes (devices/containers)
     "er": "table",  # ER entities render as attribute tables
+    "class": "class",  # UML class boxes render as name/attribute/method compartments
 }
 
 
@@ -65,6 +67,21 @@ def _rows(raw: dict) -> tuple[EntityRow, ...]:
     return tuple(out)
 
 
+def _members(raw: dict) -> tuple[ClassMember, ...]:
+    """UML class member lines from a node's ``attributes`` + ``methods`` (geometry stamped at
+    measure). Each item is a plain string (the member text) or a ``{label: {...}}`` / ``{text}``
+    dict. The two groups render as separate compartments with a divider between them."""
+    out: list[ClassMember] = []
+    for group, key in (("attr", "attributes"), ("method", "methods")):
+        for i, item in enumerate(raw.get(key) or []):
+            if isinstance(item, str):
+                label: Label = Label(text=item)
+            else:
+                label = _label(item.get("label")) or Label(text=str(item.get("text", "")))
+            out.append(ClassMember(id=f"{group}{i}", label=label, group=group))
+    return tuple(out)
+
+
 def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     """Build the logical IR from a validated spec. Run :func:`tarseem.validation.validate`
     first; this assumes structural/referential integrity."""
@@ -81,6 +98,8 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
     # globally with theme.nodeCorners="sharp". Mapping rect->roundrect here means every writer
     # renders the rounded shape with no per-writer change (one positioned IR, many writers).
     node_corners = str(theme_ref.get("nodeCorners") or "rounded")
+    # class nodes use `attributes`/`methods` as UML compartment members, not ER attribute rows.
+    is_class = diagram_type == "class"
 
     nodes: list[LogicalNode] = []
     for raw in spec.get("nodes", []) or []:
@@ -97,7 +116,8 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
                 lane=raw.get("lane"),
                 phase=raw.get("phase"),
                 show_badge=bool(raw.get("badge", True)),
-                rows=_rows(raw),
+                rows=() if is_class else _rows(raw),
+                members=_members(raw) if is_class else (),
                 style=resolve_node_style(spec, raw, theme),
                 position=_position(raw.get("position")),
             )
