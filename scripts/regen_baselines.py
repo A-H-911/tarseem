@@ -48,6 +48,7 @@ ELK_SAMPLES = [
     "state-order-lifecycle",   # Phase 5: state family
     "deployment-web-stack",    # Phase 5: deployment family
     "er-shop",                 # Phase 5: ER family
+    "class-shop",              # Phase 6: UML class family
 ]
 
 ROOT = Path(__file__).resolve().parent.parent
