@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
-from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
@@ -268,6 +268,9 @@ class _Builder:
                 bold: bool = False, align=PP_ALIGN.CENTER, wrap: bool = True) -> None:
         tf = sp.text_frame
         tf.word_wrap = wrap
+        # Never resize the shape to fit text: add_textbox defaults to <a:spAutoFit/>, which grows
+        # a wrapped textbox taller and makes it overlap its neighbour (class member overlap bug).
+        tf.auto_size = MSO_AUTO_SIZE.NONE
         for side in ("left", "right", "top", "bottom"):
             setattr(tf, f"margin_{side}", 0)
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -502,8 +505,10 @@ def _emit_class(b: _Builder, node: PNode) -> None:
             b.connector((x, my), (x + w, my), _CLASS_DIVIDER, 1.0)
             prev_group = m.group
         align = PP_ALIGN.RIGHT if _rtl_label(m.label) else PP_ALIGN.LEFT
+        # wrap=False: members stay one line, so a long member can never wrap and overflow its row
+        # (overlap bug). Horizontal spill without Cairo installed is the documented fonts ceiling.
         b.textbox(x + _CLASS_PAD_X, my, w - 2 * _CLASS_PAD_X, m.height, m.label,
-                  size=12, color=_DEFAULT_TEXT, align=align)
+                  size=12, color=_DEFAULT_TEXT, align=align, wrap=False)
 
 
 def _build(diagram: PositionedDiagram) -> _Prs:
