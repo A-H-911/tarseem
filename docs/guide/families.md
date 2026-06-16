@@ -14,6 +14,7 @@ The MVP supports four diagram families plus sequence. Every family ships a golde
 | State | `state` | ELK | yes | `examples/state-order-lifecycle.json` |
 | Deployment | `deployment` | ELK | yes | `examples/deployment-web-stack.json` |
 | ER | `er` | ELK + per-row ports | yes | `examples/er-shop.json` |
+| Class (UML) | `class` | ELK | yes | `examples/class-shop.json` |
 
 All families share the same spec vocabulary (`nodes` / `edges` / `label` / `style` …) and the
 same positioned IR; only the layouter and a few family-specific fields differ.
@@ -217,6 +218,29 @@ are placed by ELK; the per-row connectors attach on the facing sides.
 ```
 
 Cardinality is conveyed with the edge `label` (e.g. `"N:1"`). See `examples/er-shop.json`.
+
+## Class (UML)
+
+A UML class box is a name bar plus an **attributes** compartment and a **methods** compartment,
+separated by divider lines. A node carries its members as plain strings in `attributes` and
+`methods`; relationships are ordinary `edges` (label them with cardinality/role as needed).
+
+```jsonc
+{
+  "specVersion": "1.0", "diagramType": "class", "meta": {"title": "Shop domain model"},
+  "nodes": [
+    {"id": "Order", "label": {"text": "Order"},
+     "attributes": ["- id: int", "- total: Money"],
+     "methods": ["+ addLine(p: Product)", "+ checkout()"]}
+  ],
+  "edges": [{"source": "Customer", "target": "Order", "label": {"text": "1..*"}}]
+}
+```
+
+`attributes` here are free-text class members (not the typed ER-attribute objects the `er` family
+uses). A node with only `attributes` and no `methods` simply omits the methods compartment. See
+`examples/class-shop.json`, and `examples/class-shapes.json` for an inheritance + composition
+model whose edges route with rounded (curved) corners.
 
 ## Capability reports, never silent drops
 

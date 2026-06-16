@@ -30,6 +30,11 @@ from tarseem.export.result import WriteResult
 from tarseem.geometry import (
     BADGE_R as _BADGE_R,
     CHROME_RADIUS as _CHROME_RADIUS,
+    CLASS_BORDER as _CLASS_BORDER,
+    CLASS_DIVIDER as _CLASS_DIVIDER,
+    CLASS_PAD_X as _CLASS_PAD_X,
+    CLASS_TITLE_FILL as _CLASS_TITLE_FILL,
+    CLASS_TITLE_TEXT as _CLASS_TITLE_TEXT,
     DEFAULT_FILL as _DEFAULT_FILL,
     DEFAULT_STROKE as _DEFAULT_STROKE,
     DEFAULT_TEXT as _DEFAULT_TEXT,
@@ -50,6 +55,7 @@ from tarseem.geometry import (
     TITLE_FILL as _TITLE_FILL,
     badge_center,
     chip_rect,
+    class_title_height,
     er_title_height,
     key_pill_box,
     pseudostate_circles,
@@ -89,6 +95,7 @@ _SHAPE_STYLE: dict[str, str] = {
     # cell (see _emit_cube_label) which flipH leaves untouched.
     "cube": "shape=cube;size=14;flipH=1;shadow=1;",
     "table": "",  # ER entity → plain box; attribute rows folded into label (reported partial)
+    "class": "",  # UML class → explicit compartment cells (see _emit_class); never a plain box
 }
 
 # Name the SVG's underlying font family so draw.io references the same face, with a sans-serif
@@ -262,6 +269,9 @@ def to_drawio_xml(diagram: PositionedDiagram, meta: dict[str, str] | None = None
     for node in diagram.nodes:
         if node.rows:  # ER entity → explicit table cells matching render/er.py (bug #2)
             _emit_entity(root, node, rtl, entity_round)
+            continue
+        if node.members:  # UML class box → compartment cells matching render/class_.py
+            _emit_class(root, node)
             continue
         if node.shape in ("initial", "final"):  # state pseudostates → ellipses, not a plain box
             _emit_pseudostate(root, node)
@@ -540,6 +550,42 @@ def _emit_cube_label(root: etree._Element, node: PositionedNode) -> None:
         style,
         node.label.text,
     )
+
+
+def _emit_class(root: etree._Element, node: PositionedNode) -> None:
+    """UML class box as explicit cells matching render/class_.py: square container + grey name
+    bar + attribute/method member text with a divider above the first member of each group."""
+    x, y, w, h = node.x, node.y, node.width, node.height
+    title_h = class_title_height(node)
+    _rect_cell(
+        root, _cell_id("class", node.id), (x, y, w, h),
+        f"rounded=0;html=1;fillColor=#FFFFFF;strokeColor={_CLASS_BORDER};strokeWidth=1.5;",
+    )
+    _rect_cell(
+        root, _cell_id("classtitle", node.id), (x, y, w, title_h),
+        _style(
+            f"rounded=0;html=1;fillColor={_CLASS_TITLE_FILL};strokeColor=none;"
+            f"fontColor={_CLASS_TITLE_TEXT};fontStyle=1;fontSize=13;",
+            node.label,
+        ),
+        node.label.text,
+    )
+    prev_group: str | None = None
+    for m in node.members:
+        my = y + m.y_offset
+        mid = f"{node.id}_{m.id}"
+        if m.group != prev_group:  # divider above the first member of each compartment group
+            _line_cell(root, _cell_id("classdiv", mid), (x, my), (x + w, my), _CLASS_DIVIDER, 1.0)
+            prev_group = m.group
+        align = "right" if _rtl(m.label) else "left"
+        wd = "writingDirection=rtl;" if _rtl(m.label) else ""
+        _rect_cell(
+            root, _cell_id("classmember", mid),
+            (x + _CLASS_PAD_X, my, w - 2 * _CLASS_PAD_X, m.height),
+            f"text;html=1;align={align};verticalAlign=middle;fontColor={_DEFAULT_TEXT};"
+            f"fontSize=12;{wd}{_FONT}",
+            m.label.text,
+        )
 
 
 def _emit_entity(

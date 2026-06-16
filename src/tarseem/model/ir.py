@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 __all__ = [
     "Label",
     "EntityRow",
+    "ClassMember",
     "LogicalLane",
     "LogicalPhase",
     "LogicalNode",
@@ -53,6 +54,20 @@ class EntityRow:
 
 
 @dataclass(frozen=True)
+class ClassMember:
+    """A member line in a UML class box (family: class). ``group`` is ``"attr"`` | ``"method"``;
+    a divider is drawn above the first member of each group. ``y_offset``/``height`` are the
+    line's vertical geometry relative to the node top, stamped once by the measurement stage so
+    the renderer and writers share one source of truth (mirrors :class:`EntityRow`)."""
+
+    id: str
+    label: Label
+    group: str  # "attr" | "method"
+    y_offset: float = 0.0
+    height: float = 0.0
+
+
+@dataclass(frozen=True)
 class LogicalNode:
     id: str
     label: Label
@@ -62,6 +77,7 @@ class LogicalNode:
     phase: str | None = None  # swimlane phase-column membership (FR-6.3)
     show_badge: bool = True  # False = auto-number badge exempt (start/terminal pills)
     rows: tuple[EntityRow, ...] = ()  # ER entity attribute rows (family: er)
+    members: tuple[ClassMember, ...] = ()  # UML class member lines (family: class)
     style: dict = field(default_factory=dict)
     # manual placement (x, y) for respectManualPositions layouts; None = engine-placed (FR-5.x)
     position: tuple[float, float] | None = None
@@ -133,6 +149,7 @@ class PositionedNode:
     style: dict = field(default_factory=dict)
     badge: str | None = None  # auto-number badge text (e.g. "2."); None = exempt
     rows: tuple[EntityRow, ...] = ()  # ER entity attribute rows, with stamped row geometry
+    members: tuple[ClassMember, ...] = ()  # UML class member lines, with stamped geometry
 
 
 @dataclass(frozen=True)

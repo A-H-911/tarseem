@@ -31,7 +31,8 @@ BASELINE_SAMPLES = ["sequence-login", "swimlane-bug-triage", "swimlane-pipeline"
 # ELK (graph) goldens — Node-gated; the pinned elkjs makes layout deterministic per OS.
 # Includes the Phase-5 state/deployment/ER families.
 ELK_BASELINE_SAMPLES = ["arabic-flowchart", "arabic-architecture", "arabic-mixed",
-                        "state-order-lifecycle", "deployment-web-stack", "er-shop"]
+                        "state-order-lifecycle", "deployment-web-stack", "er-shop",
+                        "class-shop", "class-shapes"]
 
 
 # ---- compare_png unit tests (OS-independent) --------------------------------

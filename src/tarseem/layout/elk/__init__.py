@@ -182,6 +182,7 @@ class ElkLayout:
                     shape=src.shape,
                     style=src.style,
                     rows=src.rows,  # ER entity rows (with stamped geometry) for the table writer
+                    members=src.members,  # UML class member lines (stamped) for the class writer
                 )
             )
 

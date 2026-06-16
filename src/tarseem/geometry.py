@@ -49,6 +49,13 @@ ER_ROW_SEP = "#CFD8DC"
 ER_PAD_X = 10.0
 ER_KEY_FILL = {"PK": "#C49000", "FK": "#3B7DD8"}
 
+# --- UML class box (render/class_.py, export/drawio, export/pptx) ----------------------------
+CLASS_TITLE_FILL = "#ECEFF1"  # light-grey name bar
+CLASS_TITLE_TEXT = "#14281D"
+CLASS_BORDER = "#5A6B7B"
+CLASS_DIVIDER = "#90A4AE"  # line between the name / attributes / methods compartments
+CLASS_PAD_X = 12.0
+
 # --- sequence chrome (render/sequence.py, export/drawio, export/pptx) ------------------------
 SEQ_MARGIN = 24.0
 SEQ_STEM = "#9AA8A2"
@@ -132,6 +139,11 @@ _KEY_PILL_H = 16.0
 def er_title_height(node: PositionedNode) -> float:
     """ER entity title-bar height: the first row's top offset, or the node if attribute-less."""
     return node.rows[0].y_offset if node.rows else node.height
+
+
+def class_title_height(node: PositionedNode) -> float:
+    """UML class name-bar height: the first member's top offset, or the node if memberless."""
+    return node.members[0].y_offset if node.members else node.height
 
 
 def key_pill_box(node: PositionedNode, row: EntityRow) -> Rect:

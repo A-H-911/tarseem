@@ -1,0 +1,28 @@
+{
+  "specVersion": "1.0",
+  "diagramType": "class",
+  "meta": { "title": "Shop domain model" },
+  "nodes": [
+    {
+      "id": "Customer",
+      "label": { "text": "Customer" },
+      "attributes": ["- id: int", "- name: String", "- email: String"],
+      "methods": ["+ placeOrder(): Order"]
+    },
+    {
+      "id": "Order",
+      "label": { "text": "Order" },
+      "attributes": ["- id: int", "- total: Money", "- status: Status"],
+      "methods": ["+ addLine(p: Product)", "+ checkout()"]
+    },
+    {
+      "id": "Product",
+      "label": { "text": "Product" },
+      "attributes": ["- sku: String", "- price: Money"]
+    }
+  ],
+  "edges": [
+    { "source": "Customer", "target": "Order", "label": { "text": "1..*" } },
+    { "source": "Order", "target": "Product", "label": { "text": "*" } }
+  ]
+}

@@ -77,7 +77,10 @@ _NODE = {
         "lane": {"type": "string"},
         "phase": {"type": "string"},
         "label": _LABEL,
-        "attributes": {"type": "array", "items": _ATTRIBUTE},  # ER entity rows (family: er)
+        # `attributes` carries ER entity rows (objects, family: er) OR UML class attribute lines
+        # (plain strings, family: class). `methods` carries UML class method lines (family: class).
+        "attributes": {"type": "array", "items": {"oneOf": [_ATTRIBUTE, {"type": "string"}]}},
+        "methods": {"type": "array", "items": {"type": "string"}},
         "styleRefs": {"type": "array", "items": {"type": "string"}},
         "style": {"type": "object"},
         "size": {"type": "object"},

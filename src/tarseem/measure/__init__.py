@@ -13,7 +13,7 @@ from pathlib import Path
 
 import uharfbuzz as hb
 
-from tarseem.model.ir import EntityRow, LogicalGraph, LogicalNode, replace
+from tarseem.model.ir import ClassMember, EntityRow, LogicalGraph, LogicalNode, replace
 
 __all__ = ["TextMeasurer", "measure_graph", "default_font_path"]
 
@@ -32,6 +32,15 @@ _ER_TITLE_H = 30.0
 _ER_ROW_H = 24.0
 _ER_PAD_X = 14.0
 _ER_KEY_W = 30.0  # right-side room for a PK/FK tag
+# UML class box geometry (family: class). Name bar + fixed-height member lines.
+_CLASS_TITLE_H = 30.0
+_CLASS_ROW_H = 22.0
+_CLASS_PAD_X = 14.0
+# Left-aligned member lines are sized with headroom so they stay inside the box when a viewer
+# renders the (non-embedded) font slightly wider than the bundled Cairo we measure with — e.g.
+# PowerPoint with the installed Cairo. The SVG embeds the exact subset and is unaffected by the
+# extra right margin. Without ANY Cairo, wider substitutes are the documented PPTX fonts ceiling.
+_CLASS_W_HEADROOM = 1.15
 
 _FONTS_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
 
@@ -99,6 +108,26 @@ class TextMeasurer:
         )
         return round(w, 2), round(h, 2), rows
 
+    def class_size(
+        self, node: LogicalNode
+    ) -> tuple[float, float, tuple[ClassMember, ...]]:
+        """Size a UML class box and stamp each member line's vertical geometry (y_offset/height).
+
+        Width fits the class name and the widest member line; height is the name bar plus one
+        fixed-height line per member. A divider (drawn at render) separates the attribute and
+        method groups."""
+        size = float((node.style.get("text") or {}).get("size", _DEFAULT_SIZE))
+        title_w = self.width(node.label.text, size)
+        member_w = max((self.width(m.label.text, size) for m in node.members), default=0.0)
+        content_w = max(title_w, member_w * _CLASS_W_HEADROOM)
+        w = max(content_w + 2 * _CLASS_PAD_X, _MIN_W)
+        h = _CLASS_TITLE_H + len(node.members) * _CLASS_ROW_H
+        members = tuple(
+            replace(m, y_offset=_CLASS_TITLE_H + i * _CLASS_ROW_H, height=_CLASS_ROW_H)
+            for i, m in enumerate(node.members)
+        )
+        return round(w, 2), round(h, 2), members
+
 
 @functools.lru_cache(maxsize=1)
 def _shared_measurer() -> TextMeasurer:
@@ -116,6 +145,10 @@ def measure_graph(graph: LogicalGraph, measurer: TextMeasurer | None = None) -> 
     for node in graph.nodes:
         if node.width is not None and node.height is not None:
             sized.append(node)
+            continue
+        if node.members:  # UML class box: size from member lines + stamp per-line geometry
+            w, h, members = m.class_size(node)
+            sized.append(replace(node, width=w, height=h, members=members))
             continue
         if node.rows:  # ER entity table: size from rows + stamp per-row geometry
             w, h, rows = m.table_size(node)
@@ -143,7 +176,7 @@ def _apply_uniform_size(graph: LogicalGraph, uniform: bool | str | dict) -> Logi
         fixed_w = fixed_h = None
     eligible = [
         n for n in graph.nodes
-        if not n.rows and n.shape not in _STATE_MARKER and n.width is not None
+        if not n.rows and not n.members and n.shape not in _STATE_MARKER and n.width is not None
     ]
     if not eligible:
         return graph

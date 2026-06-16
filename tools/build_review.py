@@ -42,41 +42,46 @@ from tarseem.export import svg_to_png  # noqa: E402
 _FORMATS = ("svg", "png", "pdf", "drawio", "pptx")
 
 
-def _safe(fn, label: str) -> str | None:
-    """Run a write step; on a locked file (PowerPoint open) or render error, skip + report."""
+def _safe(fn, label: str, locked: list[str] | None = None) -> str | None:
+    """Run a write step. A LOCKED target (e.g. an open ``.pptx`` in PowerPoint) is recorded in
+    ``locked`` so the run can fail loudly — a silently-skipped write leaves a STALE file that
+    looks freshly regenerated (the exact trap that masks a fix). Other render failures stay
+    best-effort warnings (the bundle is still usable without one preview)."""
     try:
         fn()
         return None
     except PermissionError:
-        print(f"[locked] {label} (file open elsewhere — skipped)")
+        print(f"[locked] {label} (file open elsewhere — NOT regenerated)")
+        if locked is not None:
+            locked.append(label)
         return "locked"
     except Exception as exc:  # render is best-effort for the bundle
         print(f"[warn]  {label}: {exc}")
         return str(exc)
 
 
-def _build_one(spec_path: Path, out: Path, engine: Engine) -> dict:
+def _build_one(spec_path: Path, out: Path, engine: Engine, locked: list[str]) -> dict:
     name = spec_path.stem
     result = engine.render(json.loads(spec_path.read_text(encoding="utf-8")))
     entry: dict = {"name": name, "type": result.diagram.diagram_type, "drawio_png": False}
     svg_text = result.to_svg(provenance=True)
 
     _safe(lambda: (out / "svg" / f"{name}.svg").write_text(svg_text, encoding="utf-8"),
-          f"{name}.svg")
-    _safe(lambda: svg_to_png(svg_text, out / "png" / f"{name}.png"), f"{name}.png")
-    _safe(lambda: result.export(["pdf"], out / "pdf", name=name), f"{name}.pdf")
+          f"{name}.svg", locked)
+    _safe(lambda: svg_to_png(svg_text, out / "png" / f"{name}.png"), f"{name}.png", locked)
+    _safe(lambda: result.export(["pdf"], out / "pdf", name=name), f"{name}.pdf", locked)
 
     if _safe(lambda: result.export(["drawio"], out / "drawio", name=name),
-             f"{name}.drawio") is None:
+             f"{name}.drawio", locked) is None:
         if _safe(
             lambda: render_to_png(
                 out / "drawio" / f"{name}.drawio", out / "drawio" / f"{name}.png",
                 Path(VIEWER_JS), inject_font=False,
             ),
-            f"{name}.drawio.png",
+            f"{name}.drawio.png", locked,
         ) is None:
             entry["drawio_png"] = True
-    _safe(lambda: result.export(["pptx"], out / "pptx", name=name), f"{name}.pptx")
+    _safe(lambda: result.export(["pptx"], out / "pptx", name=name), f"{name}.pptx", locked)
 
     rep = result.reports
     entry["drawio_lossy"] = bool(rep.get("drawio") and rep["drawio"].lossy)
@@ -171,7 +176,9 @@ the source of truth; other formats are compared against it.
 PPTX has no headless renderer, so `index.html` shows it as a download tile — open the `.pptx`
 in PowerPoint (see `docs/pptx-manual-checklist.md`).
 
-Close any open `.pptx`/`.drawio` before regenerating, or the rebuild logs `[locked]` and skips it.
+Close any open `.pptx`/`.drawio` before regenerating: a locked file is **not** rewritten, so the
+script fails loudly — it prints a `STALE BUNDLE` summary of the skipped files and exits non-zero,
+so a stale preview can never masquerade as freshly generated.
 """
 
 
@@ -185,6 +192,7 @@ def main(argv: list[str] | None = None) -> int:
         (out / fmt).mkdir(parents=True, exist_ok=True)
     engine = Engine()
     entries: list[dict] = []
+    locked: list[str] = []  # files an open app held — recorded so we can fail loudly (not skip)
     # Expand globs ourselves: PowerShell/cmd don't expand `examples/*.json` for a native
     # program (only POSIX shells do), so a literal pattern would otherwise be skipped.
     specs: list[str] = []
@@ -197,13 +205,25 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[skip] {path}")
             continue
         try:
-            entries.append(_build_one(path, out, engine))
+            entries.append(_build_one(path, out, engine, locked))
             print(f"[ok]   {path.name}")
         except Exception as exc:
             print(f"[FAIL] {path.name}: {exc}")
     (out / "index.html").write_text(_index_html(entries), encoding="utf-8")
     (out / "README.md").write_text(_README, encoding="utf-8")
     print(f"\nreview bundle: {out / 'index.html'}  ({len(entries)} diagrams)")
+    if locked:
+        # Fail loudly: a locked file kept its OLD contents, so those previews are STALE. Without
+        # this a silent skip looks like a successful regenerate — and masks whatever you fixed.
+        bar = "!" * 68
+        print(f"\n{bar}")
+        print(f"STALE BUNDLE — {len(locked)} file(s) were LOCKED and NOT regenerated:")
+        for label in locked:
+            print(f"    - {label}")
+        print("These previews still show the OLD output. Close the file(s) (an open .pptx in")
+        print("PowerPoint / .drawio in diagrams.net) and re-run.")
+        print(bar)
+        return 1
     return 0
 
 

@@ -26,13 +26,18 @@ from typing import TYPE_CHECKING
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
-from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
 from tarseem.export.result import WriteResult
 from tarseem.geometry import (
     BADGE_R as _BADGE_R,
+    CLASS_BORDER as _CLASS_BORDER,
+    CLASS_DIVIDER as _CLASS_DIVIDER,
+    CLASS_PAD_X as _CLASS_PAD_X,
+    CLASS_TITLE_FILL as _CLASS_TITLE_FILL,
+    CLASS_TITLE_TEXT as _CLASS_TITLE_TEXT,
     DEFAULT_EDGE as _DEFAULT_EDGE,
     DEFAULT_FILL as _DEFAULT_FILL,
     DEFAULT_STROKE as _DEFAULT_STROKE,
@@ -53,6 +58,7 @@ from tarseem.geometry import (
     TITLE_FILL as _TITLE_FILL,
     badge_center,
     chip_rect,
+    class_title_height,
     er_title_height,
     key_pill_box,
     pseudostate_circles,
@@ -80,6 +86,10 @@ if TYPE_CHECKING:  # `Presentation` is a factory fn; the instance type lives her
 __all__ = ["write_pptx", "to_pptx_bytes"]
 
 EMU_PER_PX = 9525  # 914400 EMU/inch ÷ 96 px/inch
+# The IR/SVG measure + lay out in CSS px @ 96 dpi (font-size="12" == 12 px). PowerPoint font
+# sizes are POINTS (72/inch), so a px size must be scaled by 72/96 or every label renders 1.33x
+# too large (== overflow). 12 px -> 9 pt.
+_PX_TO_PT = 72.0 / 96.0
 _FONT = "Cairo"  # names the SVG face; PowerPoint substitutes if absent (fonts ceiling)
 _FIXED_TS = datetime(2001, 1, 1, tzinfo=timezone.utc)  # constant (invariant 7: no wall-clock)
 # corner-rounding radius — shared value with render/svg.py, but per-writer construction (the SVG
@@ -259,9 +269,21 @@ class _Builder:
         return sp
 
     def text_in(self, sp, label, *, size: float = 12.0, color: str = _DEFAULT_TEXT,
-                bold: bool = False, align=PP_ALIGN.CENTER, wrap: bool = True) -> None:
+                bold: bool = False, align=PP_ALIGN.CENTER, wrap: bool = True,
+                shrink: bool = False) -> None:
         tf = sp.text_frame
-        tf.word_wrap = wrap
+        if shrink:
+            # Keep text inside the box no matter how the viewer renders the (non-embedded) font:
+            # wrap=True means a long line wraps at the box edge instead of spilling past the right
+            # border, and normAutofit shrinks the font to fit the fixed box height (no vertical
+            # overflow). The shape never grows (that is spAutoFit, the original overlap bug).
+            tf.word_wrap = True
+            tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+        else:
+            tf.word_wrap = wrap
+            # Never resize the shape to fit text: add_textbox defaults to <a:spAutoFit/>, which
+            # grows a wrapped textbox taller and makes it overlap its neighbour.
+            tf.auto_size = MSO_AUTO_SIZE.NONE
         for side in ("left", "right", "top", "bottom"):
             setattr(tf, f"margin_{side}", 0)
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -269,7 +291,7 @@ class _Builder:
         p.alignment = align
         run = p.add_run()
         run.text = label if isinstance(label, str) else label.text
-        run.font.size = Pt(size)
+        run.font.size = Pt(size * _PX_TO_PT)  # px (96 dpi) -> pt, else text renders 1.33x too big
         run.font.bold = bold
         _set_run_font(run, _FONT)
         run.font.color.rgb = _rgb(color)
@@ -481,6 +503,27 @@ def _freeform(b: _Builder, pts: list[tuple[float, float]], color: str, width: fl
     ln.append(ln.makeelement(qn("a:tailEnd"), {"type": "triangle", "w": "med", "len": "med"}))
 
 
+def _emit_class(b: _Builder, node: PNode) -> None:
+    """UML class box: square container + grey name bar + attribute/method member textboxes with
+    a connector divider above the first member of each group (matches render/class_.py)."""
+    x, y, w, h = node.x, node.y, node.width, node.height
+    title_h = class_title_height(node)
+    b.rect(MSO_SHAPE.RECTANGLE, x, y, w, h, "#FFFFFF", _CLASS_BORDER, 1.5)
+    title = b.rect(MSO_SHAPE.RECTANGLE, x, y, w, title_h, _CLASS_TITLE_FILL, None)
+    b.text_in(title, node.label, size=13, color=_CLASS_TITLE_TEXT, bold=True)
+    prev_group: str | None = None
+    for m in node.members:
+        my = y + m.y_offset
+        if m.group != prev_group:
+            b.connector((x, my), (x + w, my), _CLASS_DIVIDER, 1.0)
+            prev_group = m.group
+        align = PP_ALIGN.RIGHT if _rtl_label(m.label) else PP_ALIGN.LEFT
+        # shrink=True: wrap within the box width (never spill past the right border) + shrink the
+        # font to fit the row — keeps members inside regardless of the viewer's exact font metrics.
+        b.textbox(x + _CLASS_PAD_X, my, w - 2 * _CLASS_PAD_X, m.height, m.label,
+                  size=12, color=_DEFAULT_TEXT, align=align, shrink=True)
+
+
 def _build(diagram: PositionedDiagram) -> _Prs:
     b = _Builder(diagram)
     if diagram.lanes:
@@ -495,6 +538,8 @@ def _build(diagram: PositionedDiagram) -> _Prs:
     for node in diagram.nodes:
         if node.rows:
             _emit_entity(b, node)
+        elif node.members:
+            _emit_class(b, node)
         else:
             _emit_node(b, node, badge_side)
     for marker in diagram.markers:
@@ -560,8 +605,9 @@ def _report(diagram: PositionedDiagram):
         "metadata": "full",  # provenance in core properties
     }
     unknown = sorted({n.shape for n in diagram.nodes
-                      if n.shape not in _SHAPE and n.shape not in ("initial", "final", "table")
-                      and not getattr(n, "rows", ())})
+                      if n.shape not in _SHAPE
+                      and n.shape not in ("initial", "final", "table", "class")
+                      and not getattr(n, "rows", ()) and not getattr(n, "members", ())})
     for shape in unknown:
         supports["shapes"] = "partial"
         warnings.append(CapabilityWarning("feature-approximated", "shapes",
