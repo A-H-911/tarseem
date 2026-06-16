@@ -30,7 +30,7 @@ Verification is the **viewer** (Option A), not yet the Desktop editor (Option B)
 | 3 | **PDF** via Chromium CDP (print-to-PDF, mirrors `png.py`) | ✅ done; visually verified vs canonical PNG (incl. Arabic) | `export/pdf.py`, `tests/test_export_pdf.py` |
 | 4 | **Mermaid + PlantUML** source writers (logical IR) with CapabilityReports | ⛔ deferred → future feature (2026-06-15) | see "Deferred / future tasks" |
 | 5 | Export metadata embedded in **all** artifacts (SVG comment; PNG `tEXt`; PDF Info dict; PPTX core-props; drawio comment) | ✅ done | `png.py`, `pdf.py`, `metadata.py`, `engine.py` |
-| 6 | **class + mindmap** profiles (family/layout workstream; mindmap needs a non-layered ELK tree/radial algo — the real risk) | ⏳ | — |
+| 6 | **class + mindmap** profiles (family/layout workstream; mindmap needs a non-layered ELK tree/radial algo — the real risk) | ✅ class merged (PR #7); **mindmap built** — spike-6 PASS → owner chose `mrtree` default + `radial` opt-in; family wired through schema/compile/ELK/render + 2 examples + 3-OS baselines + 9 tests | `docs/spikes/spike-6-report.md`, `layout/elk/__init__.py`, `examples/mindmap-*.json`, `tests/test_family_mindmap.py` |
 
 Gate green throughout: ruff + mypy clean; `pytest` full suite passes; coverage 92% (≥80 gate).
 New example specs deliberately NOT added — writers are exercised against the existing corpus
@@ -436,6 +436,80 @@ in a neutral leaf **`src/tarseem/geometry.py`** (constants + `chip_rect`, `title
   colour (left out of this pass's approved scope). The permanent SVG-snapshot guard from the plan
   was dropped — env-dependent coordinates make a committed cross-platform markup snapshot as fragile
   as the per-OS pixel baselines; it would need to be per-platform.
+
+## Mindmap layout spike (2026-06-16) — Sub-stage 6 de-risking
+
+The flagged "real risk" of Sub-stage 6 was whether the pinned elkjs can do a non-layered
+tree/radial layout for mindmaps. **Spike-6 (`docs/spikes/spike-6-report.md`,
+`spikes/spike-6-mindmap-layout/run.py`) settled it: PASS.** Both `mrtree` and `radial` are
+registered in the pinned `elk.bundled.js` (0.11.1) and run through the **production**
+`ElkServerProcess` with only `elk.algorithm` changed (no server/protocol change).
+
+- Tested on **two** graphs (a balanced 15-node tree + a lopsided 18-node fan-out with a deep
+  chain). `mrtree` = **0 overlaps on both**, deterministic across a *fresh subprocess spawn*,
+  ELK-routed edges (bend points). `radial` = clean + pretty on the balanced tree but **3 node
+  overlaps on the deep/uneven tree** (concentric-ring-by-depth crushes a deep branch).
+- **Recommendation (owner sign-off): `mrtree` as the mindmap default; `radial` opt-in for
+  shallow/balanced maps only.** No mindmap *visual* oracle exists (F1 = gallery completeness
+  only), so the default is a recommendation, not a self-certified fact.
+- **Architectural finding:** both algorithms return ELK `sections` for every edge → the
+  mindmap family reuses the existing `_from_elk` edge path; **no custom edge router needed**
+  (unlike sequence/lanegrid). Adapter change is small + localized (parameterize `ElkLayout`'s
+  algorithm + a mrtree option set; dispatch `mindmap` in `engine.py`). No `src/` change in the
+  spike itself.
+
+### Mindmap family built (2026-06-16) — owner picked mrtree default + radial opt-in
+
+Built straight after the spike (owner: "mrtree default + radial opt-in now"). **Smaller than the
+class family** — mindmap nodes are plain labelled boxes, so they reuse the **generic** render +
+draw.io/PPTX writers (the `render_svg` non-dedicated tail); the layouter is the only new logic:
+
+- `layout/elk/__init__.py`: `_to_elk_mindmap` emits a plain tree (no ports/priority/INTERACTIVE —
+  those are layered-only) with `_MRTREE_OPTIONS` (default, honours `direction`) or `_RADIAL_OPTIONS`
+  (`mindmapStyle="radial"`, direction-free). `capabilities().algorithms` now `[layered, mrtree, radial]`.
+  Dispatch is in `_to_elk` (diagram_type), not `engine.py` — mindmap already routes to the ELK branch.
+- `schema/core.py`: `layout.mindmapStyle` enum `tree|radial`. `compile.py`: `_DEFAULT_SHAPE["mindmap"]
+  = "roundrect"`. No render/writer/measure change (generic path). No ADR (ELK mrtree is within
+  invariant 2).
+- Examples: `mindmap-roadmap.json` (deep tree, default — depth-3 chain stays overlap-free),
+  `mindmap-skills-radial.json` (balanced radial), and `mindmap-arabic.json` (**RTL parity** —
+  `direction: "RL"`, root mirrored to the right, branches fan left, shaped/joined Arabic; verified
+  by rendering, not assumed). win32 baselines added; **15 existing baselines re-rendered
+  byte-identically (zero churn)** → determinism intact. **linux/macOS baselines pending** via
+  `baselines.yml` at PR time (same as class).
+- Tests: `tests/test_family_mindmap.py` (11) — validate/compile/measure/capabilities + mrtree
+  0-overlap on a deep tree + determinism **across both styles** (tree+radial) + radial opt-in
+  distinctness + RTL root-mirrors-right + generic SVG.
+- **RTL/Arabic (invariant 4) confirmed by observation:** mrtree honours `elk.direction=LEFT` (root
+  rightmost), and Arabic shapes/joins via the shared generic renderer (same path as `arabic-flowchart`).
+
+### Mindmap bug-fix round (2026-06-16) — owner review of the renders
+
+Two defects from the owner's render review, both fixed + regression-tested:
+
+- **Arrowheads ignored angled edges (bugs 1–3).** `render/svg._arrowhead` snapped every head to one
+  of FOUR orthogonal directions (`abs(dx) >= abs(dy)`) — exact for orthogonally-routed families,
+  wrong for mindmap's diagonal mrtree/radial edges (a −59° segment drew a −90° head). Now the head
+  points along the **true `p1→p2` angle**; for an axis-aligned segment it is the *same triangle*
+  (pixel-identical → **zero orthogonal-family baseline churn, verified**). `tests/regressions/
+  test_arrowhead_follows_angled_edges.py` (7).
+- **Radial overlapped deep branches (bug 4) — owner: "I do not accept the overlap."** Added a
+  deterministic post-pass `tarseem.layout.radial.remove_radial_overlaps`, applied in `ElkLayout.layout`
+  for radial mindmaps only: it nudges overlapping pairs apart along the least-penetration axis
+  (compact — a first cut using uniform centroid rescale blew a 14-node map to 4690px; the pairwise
+  version keeps it ~730px), with a uniform-expansion *guarantee* fallback. **No-op when nothing
+  overlaps** (balanced maps untouched). `tests/regressions/test_radial_mindmap_overlap.py` (6).
+  mrtree (default) was already overlap-free.
+  - **Scope decision (owner, 2026-06-16):** the post-pass removes node↔node overlaps but **not
+    node↔edge grazes** (a deep chain crammed into one radial wedge can clip a non-incident edge —
+    the 3rd cosmetic symptom of forcing a deep tree into radial). Rather than chase node-edge
+    separation, **radial is positioned as balanced/shallow-only**; **mrtree (default) is the
+    graze-free choice for deep/uneven trees.** The `mindmap-deep-radial` example (radial's worst
+    case) was **dropped**; the post-pass stays as a safety net (proven by the regression tests on a
+    deep inline spec). Documented in `families.md`.
+- **Process note:** the first round reported "fixed" while the owner still saw the bug — the reviewed
+  `out/*.png` were **stale** (rendered before the fix, into different filenames). Now every reviewed
+  filename is regenerated through the real engine. (Repeat of the earlier stale-artifact trap.)
 
 ## Deferred / future tasks
 

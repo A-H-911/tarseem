@@ -50,6 +50,9 @@ ELK_SAMPLES = [
     "er-shop",                 # Phase 5: ER family
     "class-shop",              # Phase 6: UML class family
     "class-shapes",            # Phase 6: UML class — inheritance + curved edges
+    "mindmap-roadmap",         # Phase 6: mindmap — ELK mrtree (deep tree, default)
+    "mindmap-skills-radial",   # Phase 6: mindmap — ELK radial (balanced, opt-in)
+    "mindmap-arabic",          # Phase 6: mindmap — RTL/Arabic (root mirrored to the right)
 ]
 
 ROOT = Path(__file__).resolve().parent.parent

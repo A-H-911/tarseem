@@ -32,7 +32,8 @@ BASELINE_SAMPLES = ["sequence-login", "swimlane-bug-triage", "swimlane-pipeline"
 # Includes the Phase-5 state/deployment/ER families.
 ELK_BASELINE_SAMPLES = ["arabic-flowchart", "arabic-architecture", "arabic-mixed",
                         "state-order-lifecycle", "deployment-web-stack", "er-shop",
-                        "class-shop", "class-shapes"]
+                        "class-shop", "class-shapes",
+                        "mindmap-roadmap", "mindmap-skills-radial", "mindmap-arabic"]
 
 
 # ---- compare_png unit tests (OS-independent) --------------------------------

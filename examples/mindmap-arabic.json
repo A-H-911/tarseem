@@ -1,0 +1,25 @@
+{
+  "specVersion": "1.0",
+  "diagramType": "mindmap",
+  "direction": "RL",
+  "meta": { "title": "خريطة ذهنية (ترسيم)" },
+  "nodes": [
+    { "id": "Root", "label": { "text": "ترسيم", "lang": "ar" } },
+    { "id": "Layout", "label": { "text": "تخطيط", "lang": "ar" } },
+    { "id": "Render", "label": { "text": "عرض", "lang": "ar" } },
+    { "id": "Export", "label": { "text": "تصدير", "lang": "ar" } },
+    { "id": "Seq", "label": { "text": "تسلسل", "lang": "ar" } },
+    { "id": "Lanes", "label": { "text": "مسارات", "lang": "ar" } },
+    { "id": "Svg", "label": { "text": "صور متجهة", "lang": "ar" } },
+    { "id": "Pdf", "label": { "text": "ملف PDF", "lang": "ar" } }
+  ],
+  "edges": [
+    { "source": "Root", "target": "Layout" },
+    { "source": "Root", "target": "Render" },
+    { "source": "Root", "target": "Export" },
+    { "source": "Layout", "target": "Seq" },
+    { "source": "Layout", "target": "Lanes" },
+    { "source": "Render", "target": "Svg" },
+    { "source": "Export", "target": "Pdf" }
+  ]
+}

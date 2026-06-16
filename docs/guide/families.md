@@ -15,6 +15,7 @@ The MVP supports four diagram families plus sequence. Every family ships a golde
 | Deployment | `deployment` | ELK | yes | `examples/deployment-web-stack.json` |
 | ER | `er` | ELK + per-row ports | yes | `examples/er-shop.json` |
 | Class (UML) | `class` | ELK | yes | `examples/class-shop.json` |
+| Mindmap | `mindmap` | ELK mrtree / radial | yes | `examples/mindmap-roadmap.json`, `mindmap-skills-radial.json`, `mindmap-arabic.json` |
 
 All families share the same spec vocabulary (`nodes` / `edges` / `label` / `style` …) and the
 same positioned IR; only the layouter and a few family-specific fields differ.
@@ -241,6 +242,43 @@ separated by divider lines. A node carries its members as plain strings in `attr
 uses). A node with only `attributes` and no `methods` simply omits the methods compartment. See
 `examples/class-shop.json`, and `examples/class-shapes.json` for an inheritance + composition
 model whose edges route with rounded (curved) corners.
+
+## Mindmap
+
+A mindmap is a tree of plain labelled boxes radiating from a root — no chrome, so it reuses the
+generic node/edge rendering. The root is the node with no incoming edge; every other node descends
+from its parent edge. Two layout styles (selected by `layout.mindmapStyle`, validated by spike-6):
+
+- **`tree`** (default) — ELK **mrtree**, a hierarchical tree. Honours `direction` (`LR` reads as a
+  classic left-to-right mind map; `RL` mirrors it for RTL). **Overlap-free even on deep/uneven
+  trees** — the recommended default.
+- **`radial`** (opt-in) — ELK **radial**, root-centred concentric rings. **Designed for balanced,
+  shallow maps** (e.g. `mindmap-skills-radial.json`); `direction` is ignored (radial is rotationally
+  symmetric). ELK radial has no overlap removal, so a deterministic post-pass
+  (`tarseem.layout.radial`) is applied as a **safety net** — it spreads any overlapping node boxes
+  apart so radial output never has node-on-node overlaps. It does **not** resolve node-on-edge
+  grazes, and a deep chain still ends up cramped in its wedge: **radial is not intended for
+  deep/uneven trees — use `tree` (mrtree, the default) for those** (it is overlap- and graze-free
+  and reads better). `result.report.overlaps` stays available as a quality signal.
+
+```jsonc
+{
+  "specVersion": "1.0", "diagramType": "mindmap", "direction": "LR",
+  "layout": {"mindmapStyle": "tree"},          // or "radial"
+  "nodes": [
+    {"id": "Root", "label": {"text": "Tarseem"}},
+    {"id": "Layout", "label": {"text": "Layout"}}, {"id": "ELK", "label": {"text": "ELK"}}
+  ],
+  "edges": [
+    {"source": "Root", "target": "Layout"}, {"source": "Layout", "target": "ELK"}
+  ]
+}
+```
+
+See `examples/mindmap-roadmap.json` (deep tree, default mrtree),
+`examples/mindmap-skills-radial.json` (balanced radial), and `examples/mindmap-arabic.json`
+(`direction: "RL"` — the root anchors on the right and branches fan left, with shaped/joined
+Arabic). Edges are ordinary `edges` and may carry labels; nodes take the usual `shape`/`style`.
 
 ## Capability reports, never silent drops
 

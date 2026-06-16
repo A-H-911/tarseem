@@ -179,6 +179,9 @@ _LAYOUT = {
         },
         # optional post-placement re-router; "elk" (default) or "libavoid" (experimental, ADR-006)
         "router": {"enum": ["elk", "libavoid"]},
+        # mindmap layouter (spike-6): "tree" (default, ELK mrtree — overlap-free on deep trees)
+        # or "radial" (ELK radial — root-centred; balanced maps only, may overlap deep branches).
+        "mindmapStyle": {"enum": ["tree", "radial"]},
     },
     "additionalProperties": True,  # forward-compat for later routing/layout hints
 }

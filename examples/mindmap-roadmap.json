@@ -1,0 +1,39 @@
+{
+  "specVersion": "1.0",
+  "diagramType": "mindmap",
+  "direction": "LR",
+  "meta": { "title": "Tarseem roadmap (mindmap)" },
+  "nodes": [
+    { "id": "Root", "label": { "text": "Tarseem" } },
+    { "id": "Layout", "label": { "text": "Layout" } },
+    { "id": "Render", "label": { "text": "Render" } },
+    { "id": "Export", "label": { "text": "Export" } },
+    { "id": "Quality", "label": { "text": "Quality" } },
+    { "id": "ELK", "label": { "text": "ELK" } },
+    { "id": "Sequence", "label": { "text": "Sequence" } },
+    { "id": "LaneGrid", "label": { "text": "Lane-grid" } },
+    { "id": "SVG", "label": { "text": "SVG" } },
+    { "id": "Raster", "label": { "text": "Raster" } },
+    { "id": "Drawio", "label": { "text": "draw.io" } },
+    { "id": "Pptx", "label": { "text": "PowerPoint" } },
+    { "id": "Pdf", "label": { "text": "PDF" } },
+    { "id": "Tests", "label": { "text": "Tests" } },
+    { "id": "Goldens", "label": { "text": "Golden corpus" } }
+  ],
+  "edges": [
+    { "source": "Root", "target": "Layout" },
+    { "source": "Root", "target": "Render" },
+    { "source": "Root", "target": "Export" },
+    { "source": "Root", "target": "Quality" },
+    { "source": "Layout", "target": "ELK" },
+    { "source": "Layout", "target": "Sequence" },
+    { "source": "Layout", "target": "LaneGrid" },
+    { "source": "Render", "target": "SVG" },
+    { "source": "Render", "target": "Raster" },
+    { "source": "Export", "target": "Drawio" },
+    { "source": "Export", "target": "Pptx" },
+    { "source": "Export", "target": "Pdf" },
+    { "source": "Quality", "target": "Tests" },
+    { "source": "Tests", "target": "Goldens" }
+  ]
+}
