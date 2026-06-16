@@ -65,3 +65,28 @@ def test_render_class_svg_has_compartments_and_dividers():
     # name|attributes|methods dividers (>=2 lines for the User box) plus the edge
     assert svg.count("<line") >= 2
     assert "owns" in svg
+
+
+@requires_node
+def test_class_drawio_emits_explicit_compartment_cells():
+    from tarseem.export.drawio import to_drawio_xml
+
+    xml = to_drawio_xml(Engine().render(SPEC).diagram)
+    assert "class_User" in xml  # container
+    assert "classtitle_User" in xml  # grey name bar
+    assert "classmember_User_" in xml  # member text cells
+    assert "classdiv_User_" in xml  # compartment dividers
+    assert "+ getName(): String" in xml
+
+
+@requires_node
+def test_class_pptx_is_a_valid_deck():
+    import io
+
+    from pptx import Presentation
+
+    from tarseem.export.pptx import to_pptx_bytes
+
+    prs = Presentation(io.BytesIO(to_pptx_bytes(Engine().render(SPEC).diagram)))
+    assert len(prs.slides) == 1
+    assert "getName" in prs.slides[0]._element.xml
