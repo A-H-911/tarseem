@@ -18,11 +18,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "lts/*"
       - name: Install package + dev tooling
@@ -32,7 +32,7 @@ jobs:
       - name: Regenerate baselines for this platform
         run: python scripts/regen_baselines.py
       - name: Upload baselines
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: baselines-${{ matrix.os }}
           path: tests/baselines/

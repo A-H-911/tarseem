@@ -16,17 +16,17 @@ jobs:
     name: headless draw.io open + re-export
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Python/Node run on the HOST. We do NOT run inside the draw.io image: its base glibc is
       # older than the interpreter actions/setup-python installs, so `python` won't start there.
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Set up Node (ELK layout - ADR-002)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "lts/*"
 
