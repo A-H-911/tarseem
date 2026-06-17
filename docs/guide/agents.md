@@ -84,6 +84,13 @@ tarseem generate spec.json -f svg,png -o build/   # -> JSON payload on stdout (e
 tarseem schema -o tarseem.schema.json             # -> the JSON-Schema bundle
 ```
 
+## Reference skill
+
+[`integrations/claude-skill/SKILL.md`](../../integrations/claude-skill/SKILL.md) is a ready-to-use
+skill that drives this surface: it tells an agent to discover the schema (`tarseem schema`), author
+a spec, render it (`tarseem generate`), and self-repair against the JSON error contract (read each
+error's `path` + `hint`, fix, retry). Copy it into an agent's skills directory as a starting point.
+
 ## Extending what agents can draw
 
 A new diagram type registered as a plugin (see [`../extending/clone-a-type.md`](../extending/clone-a-type.md))

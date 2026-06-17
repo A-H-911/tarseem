@@ -15,7 +15,8 @@ same `tarseem.types` entry-point group third parties use (ADR-008).
 | 1 | **Plugin registry + dogfood** — `DiagramTypePlugin` contract; `tarseem.types` entry-point registry; 10 built-ins converted to plugins + declared as entry points; 6 hardcoded dispatch sites → registry lookups; public alias `tarseem.plugins`; ADR-008 | ✅ done (PR1) | `families/`, `plugins/__init__.py`, `pyproject.toml`, `docs/adr/ADR-008-*.md` |
 | 2 | **incident-flow plugin + clone tutorial** — external "incident-flow" family built from flowchart via the docs (plugin exercise #1, F9 benchmark); `docs/extending/clone-a-type.md` + installable `examples/plugins/incident-flow/` | ✅ done (PR2) | `docs/extending/clone-a-type.md`, `examples/plugins/incident-flow/` |
 | 3 | **Agent surface** — single `generate(spec) -> artifacts + report`; JSON error contract `{code,path,message,hint}`; published schema bundle for LLM tool-use; SVG-default + raster-subprocess guard for the Chromium pool | ✅ done (PR3) | `agent.py`, `schema/__init__.py`, `cli/__init__.py` |
-| 4 | **Reference slash-command / skill integration** (F11) | ⏳ (PR4) | — |
+| 4 | **Reference slash-command / skill integration** (F11) | ✅ done (PR4) | `integrations/claude-skill/SKILL.md` |
+| 4b | **Plugin exercise #2** — a family stressing a *different* extension point (custom renderer/layouter) than the cosmetic incident-flow clone (second freeze gate) | ⏳ next | — |
 | 5 | **Schema v1.0 freeze proposal + `migrate` command** — diff shipped schema vs `05-schema-strategy.md`; list breaking decisions; build `engine migrate`; freeze only after the two plugin exercises pass (F12) | ⏳ (PR5, gated) | — |
 
 ## PR1 — Plugin registry + entry-point dogfood (2026-06-17)
@@ -95,6 +96,20 @@ The slash-command/skill reference (PR4) wraps this.
 - Tests: `tests/test_agent_surface.py` (11) — inline-SVG shape, JSON-serializable payload, the
   error contract, `E_OUTPUT` without `out_dir`, in-process draw.io export, raster-via-subprocess
   PNG, bundle enum, and both CLI commands. Full suite green; ruff + mypy clean.
+
+## PR4 — reference skill integration (2026-06-17)
+
+Completes the **F11** deliverable list (… + reference slash-command/skill integration).
+
+- **`integrations/claude-skill/SKILL.md`** — a copy-pasteable agent skill that drives the agent
+  surface: discover the schema (`tarseem schema`), author a spec, render (`tarseem generate`), and
+  **self-repair** against the JSON contract (read each error's `path` JSON-Pointer + `hint`, fix,
+  retry). Trigger-rich frontmatter description; worked self-repair example inline. Pointer added to
+  `docs/guide/agents.md`.
+- **Integration test** `tests/test_skill_integration.py` (4): frontmatter present; a **rot guard**
+  asserting every `tarseem <sub>` the skill names is a real CLI subcommand (and that `schema` +
+  `generate` are referenced); the prescribed flow rendered end-to-end through the real CLI; and the
+  documented self-repair loop (invalid → coded error with path+hint → corrected → `ok`). ruff clean.
 
 ## Resume checklist
 
