@@ -1,0 +1,28 @@
+{
+  "specVersion": "1.0",
+  "diagramType": "activity",
+  "direction": "TB",
+  "meta": { "title": "Purchase Approval" },
+  "nodes": [
+    { "id": "start", "shape": "initial", "label": { "text": "" } },
+    { "id": "submit", "label": { "text": "Submit Request" } },
+    { "id": "validate", "label": { "text": "Validate Budget" } },
+    { "id": "decide", "shape": "diamond", "label": { "text": "Over $1k?" } },
+    { "id": "manager", "label": { "text": "Manager Review" } },
+    { "id": "auto", "label": { "text": "Auto-Approve" } },
+    { "id": "merge", "shape": "diamond", "label": { "text": "" } },
+    { "id": "provision", "label": { "text": "Provision" } },
+    { "id": "end", "shape": "final", "label": { "text": "" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start", "target": "submit" },
+    { "id": "e2", "source": "submit", "target": "validate" },
+    { "id": "e3", "source": "validate", "target": "decide" },
+    { "id": "e4", "source": "decide", "target": "manager", "label": { "text": "yes" } },
+    { "id": "e5", "source": "decide", "target": "auto", "label": { "text": "no" } },
+    { "id": "e6", "source": "manager", "target": "merge" },
+    { "id": "e7", "source": "auto", "target": "merge" },
+    { "id": "e8", "source": "merge", "target": "provision" },
+    { "id": "e9", "source": "provision", "target": "end" }
+  ]
+}

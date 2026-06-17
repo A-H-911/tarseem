@@ -16,6 +16,7 @@ The MVP supports four diagram families plus sequence. Every family ships a golde
 | ER | `er` | ELK + per-row ports | yes | `examples/er-shop.json` |
 | Class (UML) | `class` | ELK | yes | `examples/class-shop.json` |
 | Mindmap | `mindmap` | ELK mrtree / radial | yes | `examples/mindmap-roadmap.json`, `mindmap-skills-radial.json`, `mindmap-arabic.json` |
+| Activity (UML) | `activity` | ELK | yes | `examples/activity-order-approval.json` |
 
 All families share the same spec vocabulary (`nodes` / `edges` / `label` / `style` …) and the
 same positioned IR; only the layouter and a few family-specific fields differ.
@@ -279,6 +280,32 @@ See `examples/mindmap-roadmap.json` (deep tree, default mrtree),
 `examples/mindmap-skills-radial.json` (balanced radial), and `examples/mindmap-arabic.json`
 (`direction: "RL"` — the root anchors on the right and branches fan left, with shaped/joined
 Arabic). Edges are ordinary `edges` and may carry labels; nodes take the usual `shape`/`style`.
+
+## Activity (UML)
+
+Control flow over actions, laid out by ELK. Like the state family it reuses the shared shape
+vocabulary: actions are rounded boxes (the default), `initial`/`final` mark start/stop, and
+`diamond` nodes are decision/merge points. Fork/join can be modelled as dark-filled `rect` bars
+via node `style`. No dedicated layouter or renderer — it is a plain plugin.
+
+```jsonc
+{
+  "specVersion": "1.0", "diagramType": "activity", "direction": "TB",
+  "nodes": [
+    {"id": "start", "shape": "initial", "label": {"text": ""}},
+    {"id": "submit", "label": {"text": "Submit Request"}},
+    {"id": "decide", "shape": "diamond", "label": {"text": "Over $1k?"}},
+    {"id": "end", "shape": "final", "label": {"text": ""}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "start", "target": "submit"},
+    {"id": "e2", "source": "submit", "target": "decide"},
+    {"id": "e3", "source": "decide", "target": "end", "label": {"text": "no"}}
+  ]
+}
+```
+
+See `examples/activity-order-approval.json`.
 
 ## Capability reports, never silent drops
 

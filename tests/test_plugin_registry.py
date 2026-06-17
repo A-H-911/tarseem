@@ -22,7 +22,7 @@ requires_node = pytest.mark.skipif(
 
 BUILTINS = {
     "flowchart", "architecture", "dependency", "swimlane", "sequence",
-    "state", "deployment", "er", "class", "mindmap",
+    "state", "deployment", "er", "class", "mindmap", "activity",
 }
 
 
