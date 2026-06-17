@@ -14,7 +14,7 @@ same `tarseem.types` entry-point group third parties use (ADR-008).
 |---|---|---|---|
 | 1 | **Plugin registry + dogfood** — `DiagramTypePlugin` contract; `tarseem.types` entry-point registry; 10 built-ins converted to plugins + declared as entry points; 6 hardcoded dispatch sites → registry lookups; public alias `tarseem.plugins`; ADR-008 | ✅ done (PR1) | `families/`, `plugins/__init__.py`, `pyproject.toml`, `docs/adr/ADR-008-*.md` |
 | 2 | **incident-flow plugin + clone tutorial** — external "incident-flow" family built from flowchart via the docs (plugin exercise #1, F9 benchmark); `docs/extending/clone-a-type.md` + installable `examples/plugins/incident-flow/` | ✅ done (PR2) | `docs/extending/clone-a-type.md`, `examples/plugins/incident-flow/` |
-| 3 | **Agent surface** — single `generate(spec) -> artifacts + report`; JSON error contract `{code,path,message,hint}` (already in `errors.Issue`); published schema bundle for LLM tool-use; SVG-default + subprocess guard for the Chromium pool | ⏳ (PR3) | — |
+| 3 | **Agent surface** — single `generate(spec) -> artifacts + report`; JSON error contract `{code,path,message,hint}`; published schema bundle for LLM tool-use; SVG-default + raster-subprocess guard for the Chromium pool | ✅ done (PR3) | `agent.py`, `schema/__init__.py`, `cli/__init__.py` |
 | 4 | **Reference slash-command / skill integration** (F11) | ⏳ (PR4) | — |
 | 5 | **Schema v1.0 freeze proposal + `migrate` command** — diff shipped schema vs `05-schema-strategy.md`; list breaking decisions; build `engine migrate`; freeze only after the two plugin exercises pass (F12) | ⏳ (PR5, gated) | — |
 
@@ -69,6 +69,32 @@ party adds a diagram type with zero engine edits.
   (now neutralised to a generic `my-flow` placeholder).
 - **PR1 tests relaxed:** `all_plugins()` assertions moved from `== BUILTINS` to `BUILTINS <= …`
   (external plugins may now be installed). Tests: `tests/test_external_plugin_incident_flow.py` (4).
+
+## PR3 — agent surface: generate() + JSON errors + schema bundle (2026-06-17)
+
+Lands **F11** (agent-ready: pure-function generate API, JSON errors, published schema bundle).
+The slash-command/skill reference (PR4) wraps this.
+
+- **`tarseem.generate(spec, formats=("svg",), out_dir=None, name=...)`** (`agent.py`) — one call,
+  JSON in / JSON-serializable out, **never raises for a bad spec**: invalid input returns
+  `{"ok": false, "errors": [{code, path, message, hint, severity}], "warnings": [...]}` (the 05 §5
+  contract, reusing `errors.Issue`). Success returns `{ok, diagramType, svg (inline), artifacts,
+  report, capabilities, warnings, provenance, versions}`.
+- **SVG-default + raster-subprocess guard.** SVG/draw.io/PPTX are pure-Python and run in-process;
+  PNG/PDF (the Chromium pool) are **always** run in a fresh `python -m tarseem.agent` subprocess,
+  so the sync Playwright pool never collides with a caller's asyncio loop (the documented agent
+  constraint). File formats require `out_dir`; SVG is inline. The subprocess speaks the same JSON
+  payload on stdout (ASCII-escaped for Windows cp1252 safety).
+- **`tarseem.schema_bundle()`** (`schema/__init__.py`) — the core JSON Schema (2020-12) with
+  `diagramType` enriched by the **live registry** (built-ins + installed plugins) as an `enum`,
+  for LLM tool-use / IDE `$schema`. The internal validation schema stays permissive; the bundle is
+  a publishing view.
+- **CLI** (`cli/__init__.py`): `tarseem generate <spec> [-f …] [-o …]` (JSON payload, exit 1 if
+  `!ok`) and `tarseem schema [-o …]` (emit the bundle). Public API: `from tarseem import generate,
+  schema_bundle`. Guide: `docs/guide/agents.md`.
+- Tests: `tests/test_agent_surface.py` (11) — inline-SVG shape, JSON-serializable payload, the
+  error contract, `E_OUTPUT` without `out_dir`, in-process draw.io export, raster-via-subprocess
+  PNG, bundle enum, and both CLI commands. Full suite green; ruff + mypy clean.
 
 ## Resume checklist
 

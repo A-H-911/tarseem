@@ -14,7 +14,9 @@ from tarseem import Engine, __version__
 from tarseem.errors import SpecValidationError
 from tarseem.validation import validate
 
-SUBCOMMANDS = ("validate", "render", "export", "doctor", "examples", "gallery")
+SUBCOMMANDS = (
+    "validate", "render", "export", "generate", "schema", "doctor", "examples", "gallery"
+)
 
 
 def _load(path: str) -> dict:
@@ -56,6 +58,30 @@ def _cmd_export(args: argparse.Namespace) -> int:
             for w in report.warnings:
                 where = f" ({w.element})" if w.element else ""
                 print(f"    - {w.feature}: {w.message}{where}")
+    return 0
+
+
+def _cmd_generate(args: argparse.Namespace) -> int:
+    """Agent surface from the CLI: JSON payload (artifacts + report) to stdout, never raises."""
+    from tarseem import generate
+
+    payload = generate(
+        _load(args.spec), formats=args.formats, out_dir=args.out, name=args.name, node=args.node
+    )
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0 if payload.get("ok") else 1
+
+
+def _cmd_schema(args: argparse.Namespace) -> int:
+    """Emit the published JSON-Schema bundle (IDE ``$schema`` / LLM tool-use)."""
+    from tarseem.schema import schema_bundle
+
+    text = json.dumps(schema_bundle(), ensure_ascii=False, indent=2)
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8")
+        print(f"wrote {args.out}")
+    else:
+        print(text)
     return 0
 
 
@@ -123,6 +149,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p_exp.add_argument("-n", "--name", default="diagram", help="output basename")
     p_exp.add_argument("--node", default="node", help="Node.js executable (graph families)")
     p_exp.set_defaults(func=_cmd_export)
+
+    p_gen = sub.add_parser("generate", help="agent surface: render -> JSON {artifacts, report}")
+    p_gen.add_argument("spec")
+    p_gen.add_argument("-f", "--formats", default="svg", help="comma list: svg,png,pdf,drawio,pptx")
+    p_gen.add_argument("-o", "--out", help="output directory (required for non-SVG formats)")
+    p_gen.add_argument("-n", "--name", default="diagram", help="output basename")
+    p_gen.add_argument("--node", default="node", help="Node.js executable (graph families)")
+    p_gen.set_defaults(func=_cmd_generate)
+
+    p_sch = sub.add_parser("schema", help="emit the JSON-Schema bundle (IDE / LLM tool-use)")
+    p_sch.add_argument("-o", "--out", help="output .json path (default: stdout)")
+    p_sch.set_defaults(func=_cmd_schema)
 
     p_doc = sub.add_parser("doctor", help="verify Node/elkjs/Playwright/fonts")
     p_doc.add_argument("--json", action="store_true", help="emit a machine-readable report")
