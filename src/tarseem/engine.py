@@ -20,9 +20,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from tarseem import __version__
+from tarseem.families import get_plugin
 from tarseem.layout.elk import ElkLayout
-from tarseem.layout.lanegrid import LaneGridLayout
-from tarseem.layout.sequence import SequenceLayout
 from tarseem.measure import measure_graph
 from tarseem.model import PositionedDiagram, compile_spec
 from tarseem.model.ir import LogicalGraph
@@ -34,9 +33,6 @@ if TYPE_CHECKING:
     from tarseem.report import CapabilityReport, RenderReport
 
 __all__ = ["Engine", "RenderResult"]
-
-_SWIMLANE_TYPES = {"swimlane"}
-_SEQUENCE_TYPES = {"sequence"}
 
 
 def spec_hash(spec: dict) -> str:
@@ -178,10 +174,11 @@ class Engine:
         graph = measure_graph(compile_spec(spec))
         versions = {"tarseem": __version__}
         start = time.perf_counter()
-        if graph.diagram_type in _SWIMLANE_TYPES:
-            diagram = LaneGridLayout().layout(graph)
-        elif graph.diagram_type in _SEQUENCE_TYPES:
-            diagram = SequenceLayout().layout(graph)
+        # The family's plugin selects the layouter: a one-shot Python layouter (lane-grid,
+        # sequence) via its factory, or ELK (factory is None) on the engine-managed subprocess.
+        layouter_factory = get_plugin(graph.diagram_type).layouter_factory
+        if layouter_factory is not None:
+            diagram = layouter_factory().layout(graph)
         elif self._session:
             # Batch session: open one ELK Node subprocess on first graph render, reuse it after.
             if self._elk is None:

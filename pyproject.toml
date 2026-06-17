@@ -38,8 +38,19 @@ dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "mypy>=1.11", "build>=1.2", "p
 [project.scripts]
 tarseem = "tarseem.cli:main"
 
-# Built-in diagram-type plugins register here in Phase 2 (dogfood the public plugin API; ADR-002, invariant #8).
+# Built-in diagram types dogfood the public plugin API: they register through the same
+# `tarseem.types` entry-point group third-party families use (ADR-002, ADR-008, invariant #8).
 [project.entry-points."tarseem.types"]
+flowchart = "tarseem.families.flowchart:PLUGIN"
+architecture = "tarseem.families.architecture:PLUGIN"
+dependency = "tarseem.families.dependency:PLUGIN"
+swimlane = "tarseem.families.swimlane:PLUGIN"
+sequence = "tarseem.families.sequence:PLUGIN"
+state = "tarseem.families.state:PLUGIN"
+deployment = "tarseem.families.deployment:PLUGIN"
+er = "tarseem.families.er:PLUGIN"
+class = "tarseem.families.class_:PLUGIN"
+mindmap = "tarseem.families.mindmap:PLUGIN"
 
 [project.urls]
 Homepage = "https://github.com/AnasHammo/tarseem"

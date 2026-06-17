@@ -6,6 +6,7 @@ mutates the input spec.
 """
 from __future__ import annotations
 
+from tarseem.families import get_plugin
 from tarseem.model.ir import (
     ClassMember,
     EntityRow,
@@ -20,20 +21,6 @@ from tarseem.themes import LANE_PALETTE, get_theme
 from tarseem.themes.cascade import resolve_edge_style, resolve_node_style
 
 __all__ = ["compile_spec"]
-
-# Per-family default node shape when a node omits ``shape``.
-_DEFAULT_SHAPE: dict[str, str] = {
-    "flowchart": "roundrect",
-    "architecture": "rect",
-    "dependency": "rect",
-    "swimlane": "roundrect",
-    "sequence": "rect",  # participant head boxes
-    "state": "roundrect",  # states are rounded boxes; initial/final use marker shapes
-    "deployment": "cube",  # deployment nodes are 3D boxes (devices/containers)
-    "er": "table",  # ER entities render as attribute tables
-    "class": "class",  # UML class boxes render as name/attribute/method compartments
-    "mindmap": "roundrect",  # mindmap nodes are plain rounded boxes (no chrome; spike-6)
-}
 
 
 def _label(raw: dict | None) -> Label | None:
@@ -94,13 +81,14 @@ def compile_spec(spec: dict, theme: dict | None = None) -> LogicalGraph:
         if theme_ref.get(key) is not None:
             theme = {**theme, key: theme_ref[key]}
     diagram_type = spec.get("diagramType", "flowchart")
-    default_shape = _DEFAULT_SHAPE.get(diagram_type, "rect")
+    plugin = get_plugin(diagram_type)
+    default_shape = plugin.default_shape
     # Rounded rectangle corners are the default across all node shapes (owner directive); opt out
     # globally with theme.nodeCorners="sharp". Mapping rect->roundrect here means every writer
     # renders the rounded shape with no per-writer change (one positioned IR, many writers).
     node_corners = str(theme_ref.get("nodeCorners") or "rounded")
     # class nodes use `attributes`/`methods` as UML compartment members, not ER attribute rows.
-    is_class = diagram_type == "class"
+    is_class = plugin.member_compartments
 
     nodes: list[LogicalNode] = []
     for raw in spec.get("nodes", []) or []:
