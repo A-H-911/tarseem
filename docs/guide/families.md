@@ -28,7 +28,7 @@ set per node (`stadium`, `roundrect`, `diamond`, `cylinder`, `parallelogram`, `d
 
 ```json
 {
-  "specVersion": "0.1",
+  "specVersion": "1.0",
   "diagramType": "flowchart",
   "direction": "TB",
   "nodes": [
@@ -53,7 +53,7 @@ terminal) from numbering; `layout.markers: true` adds UML start/end markers.
 
 ```json
 {
-  "specVersion": "0.1", "diagramType": "swimlane", "direction": "LR",
+  "specVersion": "1.0", "diagramType": "swimlane", "direction": "LR",
   "meta": {"title": "Bug Triage"},
   "lanes": [{"id": "rep", "label": {"text": "Reporter"}},
             {"id": "tri", "label": {"text": "Triage"}}],
@@ -146,7 +146,7 @@ order); a `dashed: true` edge is a **return** (open arrowhead), a solid edge is 
 
 ```json
 {
-  "specVersion": "0.1", "diagramType": "sequence", "meta": {"title": "Login"},
+  "specVersion": "1.0", "diagramType": "sequence", "meta": {"title": "Login"},
   "nodes": [{"id": "ui", "label": {"text": "Browser"}},
             {"id": "api", "label": {"text": "API"}}],
   "edges": [
@@ -166,7 +166,7 @@ labelled edges. Two pseudostate marker shapes are available:
 
 ```json
 {
-  "specVersion": "0.1", "diagramType": "state", "direction": "LR",
+  "specVersion": "1.0", "diagramType": "state", "direction": "LR",
   "nodes": [{"id": "start", "shape": "initial", "label": {"text": ""}},
             {"id": "pending", "label": {"text": "Pending"}},
             {"id": "done", "shape": "final", "label": {"text": ""}}],
@@ -185,7 +185,7 @@ other shape from the graph set is available. Edges are communication paths.
 
 ```json
 {
-  "specVersion": "0.1", "diagramType": "deployment", "direction": "TB",
+  "specVersion": "1.0", "diagramType": "deployment", "direction": "TB",
   "nodes": [{"id": "lb", "label": {"text": "Load Balancer"}},
             {"id": "db", "shape": "cylinder", "label": {"text": "PostgreSQL"}}],
   "edges": [{"id": "e1", "source": "lb", "target": "db"}]
@@ -204,7 +204,7 @@ are placed by ELK; the per-row connectors attach on the facing sides.
 
 ```json
 {
-  "specVersion": "0.1", "diagramType": "er", "direction": "LR",
+  "specVersion": "1.0", "diagramType": "er", "direction": "LR",
   "nodes": [
     {"id": "customer", "label": {"text": "Customer"}, "attributes": [
       {"id": "id", "label": {"text": "id"}, "key": "PK"},

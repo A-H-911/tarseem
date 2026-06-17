@@ -1,7 +1,15 @@
 # JSON Schema Strategy
 
-Status: Proposed · 2026-06-11
+Status: Proposed · 2026-06-11 · **§1–§3 frozen as-built at v1.0 by [ADR-009](../adr/ADR-009-schema-v1-freeze.md) (2026-06-17).**
 Resolves FR-2 and risk R-26 (too-generic vs. too-rigid tension).
+
+> **Superseded where it differs from what shipped (ADR-009).** This doc was written pre-build; the
+> v1.0 freeze ratifies the as-built schema. Differences from the §3 sketch below: `diagramType` is
+> **flat** (`swimlane`), not dotted (`swimlane.process`); `meta` is an open object; the node `kind`
+> field was dropped (unread); `specVersion` must be `1.x`. The §1 model (small core + profiles +
+> extensions), §2 versioning/migration, §4 validation layers, and §5 agent ergonomics all hold —
+> profiles are enforced via each plugin's `schema_extension` (ADR-008/009), and migration ships as
+> `tarseem migrate`. Treat ADR-009 + `schema/core.py` as authoritative over the §3 example.
 
 ---
 

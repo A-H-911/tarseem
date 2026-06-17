@@ -12,9 +12,16 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from tarseem.errors import Issue, ValidationResult
+from tarseem.families import get_plugin
 from tarseem.schema import CORE_SCHEMA
 
 _VALIDATOR = Draft202012Validator(CORE_SCHEMA)
+
+
+def _profile_hint(err: Any, diagram_type: str) -> str:
+    if err.validator == "required":
+        return f"the '{diagram_type}' diagram type requires the missing property"
+    return f"not allowed for the '{diagram_type}' diagram type"
 
 
 def _ptr(parts: Iterable[Any]) -> str:
@@ -62,6 +69,17 @@ def validate(spec: dict) -> ValidationResult:
     errors: list[Issue] = []
     warnings: list[Issue] = []
 
+    # Layer 0 - version. v1.0 reads only the current MAJOR; a pre-1.0 spec gets a clear,
+    # actionable error (with the migrate hint) instead of a cryptic pattern mismatch (ADR-009).
+    sv = spec.get("specVersion")
+    if isinstance(sv, str) and sv.startswith("0."):
+        return ValidationResult(
+            errors=[Issue("E_VERSION", "/specVersion",
+                          f"specVersion {sv!r} is pre-1.0 and no longer supported",
+                          hint="run `tarseem migrate` to upgrade this spec to 1.0")],
+            warnings=[],
+        )
+
     # Layer 1 - structural (JSON Schema)
     structural = sorted(_VALIDATOR.iter_errors(spec), key=lambda e: list(e.absolute_path))
     for e in structural:
@@ -69,6 +87,16 @@ def validate(spec: dict) -> ValidationResult:
     if structural:
         # shape is unreliable; do not run referential checks on it
         return ValidationResult(errors=errors, warnings=warnings)
+
+    # Layer 1b - per-family profile (the diagram type's plugin schema_extension; 05 §1 anti-generic
+    # guard, e.g. a sequence spec may not carry lanes). Enforced once the core shape is valid.
+    profile = get_plugin(spec.get("diagramType", "")).schema_extension
+    if profile is not None:
+        dt = str(spec.get("diagramType", ""))
+        for e in sorted(Draft202012Validator(profile).iter_errors(spec),
+                        key=lambda e: list(e.absolute_path)):
+            errors.append(Issue("E_PROFILE", _ptr(e.absolute_path),
+                                f"{dt}: {e.message}", hint=_profile_hint(e, dt)))
 
     nodes = spec.get("nodes", []) or []
     edges = spec.get("edges", []) or []

@@ -15,7 +15,7 @@ from tarseem.model import compile_spec
 from tarseem.render import render_svg
 
 NESTED = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "swimlane",
     "direction": "LR",
     "meta": {"title": "Service Delivery"},

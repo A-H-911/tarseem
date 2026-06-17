@@ -37,7 +37,7 @@ _ENTITY = {
 
 
 def _spec(nodes, edges) -> dict:
-    return {"specVersion": "0.1", "diagramType": "er", "nodes": nodes, "edges": edges}
+    return {"specVersion": "1.0", "diagramType": "er", "nodes": nodes, "edges": edges}
 
 
 # ---- compile ----------------------------------------------------------------

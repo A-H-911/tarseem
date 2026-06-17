@@ -16,7 +16,7 @@ from tarseem.model import PositionedDiagram, compile_spec
 from tarseem.render import render_svg
 
 PHASED = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "swimlane",
     "direction": "LR",
     "meta": {"title": "Order Flow"},

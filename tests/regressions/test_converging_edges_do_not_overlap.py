@@ -14,7 +14,7 @@ from tarseem.model import compile_spec
 # s1 and s2 are both in the lower lane and both point UP at t in the top lane; they sit at
 # earlier columns than t, so both enter t from its LEFT side -> a convergence group of two.
 SPEC = {
-    "specVersion": "0.1", "diagramType": "swimlane", "direction": "LR",
+    "specVersion": "1.0", "diagramType": "swimlane", "direction": "LR",
     "meta": {"title": "Converge"},
     "lanes": [{"id": "top", "label": {"text": "Top"}}, {"id": "bot", "label": {"text": "Bot"}}],
     "nodes": [

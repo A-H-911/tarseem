@@ -17,7 +17,7 @@ same `tarseem.types` entry-point group third parties use (ADR-008).
 | 3 | **Agent surface** — single `generate(spec) -> artifacts + report`; JSON error contract `{code,path,message,hint}`; published schema bundle for LLM tool-use; SVG-default + raster-subprocess guard for the Chromium pool | ✅ done (PR3) | `agent.py`, `schema/__init__.py`, `cli/__init__.py` |
 | 4 | **Reference slash-command / skill integration** (F11) | ✅ done (PR4) | `integrations/claude-skill/SKILL.md` |
 | 4b | **Plugin exercise #2** — `timeline`: external family with a custom `layouter_factory` (pure-Python single-axis layout, RTL-aware), stressing the *layout* extension point (second freeze gate) | ✅ done | `examples/plugins/timeline/` |
-| 5 | **Schema v1.0 freeze proposal + `migrate` command** — diff shipped schema vs `05-schema-strategy.md`; list breaking decisions; build `engine migrate`; freeze only after the two plugin exercises pass (F12) | ⏳ (PR5, gated) | — |
+| 5 | **Schema v1.0 freeze + `migrate` command + F1–F12 audit** — ratify as-built, require 1.x, drop `kind`, enforce profiles (owner decisions 2026-06-17); `tarseem migrate`; ADR-009; exit audit (F12) | ✅ done (PR5) | `schema/core.py`, `migrate.py`, `validation/__init__.py`, `docs/adr/ADR-009-*.md`, `docs/phase-7-acceptance-audit.md` |
 
 ## PR1 — Plugin registry + entry-point dogfood (2026-06-17)
 
@@ -132,6 +132,36 @@ both exercises passing, the v1.0 freeze (PR5) is now unblocked (R-26/R-29: two r
 - **Two extension points now proven externally:** incident-flow (compile/`default_shape`) +
   timeline (layout/`layouter_factory`). The remaining declared plugin field not yet exercised by an
   external is `svg_renderer` (the built-in er/class/sequence use it); noted for PR5's audit.
+
+## PR5 — schema v1.0 freeze + migrate + F1–F12 audit (2026-06-17)
+
+Lands **F12** and the Phase-7 exit audit. Owner decisions (2026-06-17): **ratify as-built**,
+**require 1.x**, **drop `kind`**, **enforce profiles** (ADR-009).
+
+- **Schema** (`schema/core.py`): `$id` → `…/1.0/core.json`; `specVersion` pattern `^1\.\d+$`; node
+  `kind` removed (confirmed unread — only `marker.kind` exists). Module docstring updated.
+- **Version gate** (`validation/__init__.py`): a pre-1.0 spec returns a dedicated **`E_VERSION`**
+  with a `tarseem migrate` hint (clearer than a pattern mismatch).
+- **Profiles** (decision 4): each plugin may declare `schema_extension`, validated after the core →
+  **`E_PROFILE`** with the offending JSON-Pointer path. swimlane `{"required":["lanes"]}`; sequence
+  `{"properties":{"lanes":{"maxItems":0},"phases":{"maxItems":0}}}` (the 05 §1 anti-generic guard).
+- **Migration** (`migrate.py` + CLI `tarseem migrate`): pure, idempotent — bumps `specVersion` to
+  `1.0`, strips `kind`.
+- **Sweep:** all committed specs bumped `0.x → 1.0` (58 files: examples, tests, docs, plugin
+  examples). No example used `kind`; no swimlane lacked lanes; no sequence carried lanes — so the
+  freeze broke nothing. Full suite byte-identical pixels (version bump touches only provenance).
+- **Docs:** ADR-009; `05-schema-strategy.md` annotated as superseded-where-it-differs;
+  `docs/phase-7-acceptance-audit.md` (the F1–F12 table). Tests: `tests/test_schema_freeze.py` (incl.
+  a parametrized check that **every** `examples/*.json` validates at v1).
+
+## Phase 7 outcome (F1–F12)
+
+See `docs/phase-7-acceptance-audit.md`. **10/12 fully met.** Phase-7 scope (F9 extensibility, F11
+agent-readiness, F12 freeze) complete. Honest gaps, neither a Phase-7 deliverable:
+- **F1 partial (10/11):** no `activity` family — now addable as a plugin (the v1.0 extension model).
+- **F10:** doc set present but not re-audited line-by-line vs `10-documentation-plan.md`.
+
+v1.0 tag is gated on closing those two; flagged for the owner.
 
 ## Resume checklist
 

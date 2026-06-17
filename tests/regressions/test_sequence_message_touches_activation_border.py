@@ -13,7 +13,7 @@ from tarseem.model import compile_spec
 
 # a -> b opens b's activation; b -> b is a self-call while active; b -> a returns (closes it).
 SPEC = {
-    "specVersion": "0.1", "diagramType": "sequence", "meta": {"title": "Act"},
+    "specVersion": "1.0", "diagramType": "sequence", "meta": {"title": "Act"},
     "nodes": [{"id": "a", "label": {"text": "A"}}, {"id": "b", "label": {"text": "B"}}],
     "edges": [
         {"id": "m1", "source": "a", "target": "b", "label": {"text": "call"}},

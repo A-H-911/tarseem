@@ -12,7 +12,7 @@ from tarseem.themes.cascade import resolve_edge_style, resolve_node_style
 
 
 def _spec(node, **top):
-    return {"specVersion": "0.1", "diagramType": "flowchart", "nodes": [node], **top}
+    return {"specVersion": "1.0", "diagramType": "flowchart", "nodes": [node], **top}
 
 
 def test_theme_default_applies():
@@ -62,7 +62,7 @@ def test_theme_overrides_dotted_keys_apply():
 
 def test_edge_style_resolves():
     spec = {
-        "specVersion": "0.1", "diagramType": "flowchart",
+        "specVersion": "1.0", "diagramType": "flowchart",
         "nodes": [{"id": "a", "label": {"text": "x"}}, {"id": "b", "label": {"text": "y"}}],
         "edges": [{"id": "e", "source": "a", "target": "b", "style": {"stroke": "#FF0000"}}],
     }

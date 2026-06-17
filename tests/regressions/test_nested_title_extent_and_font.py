@@ -19,7 +19,7 @@ from tarseem.render import render_svg
 from tarseem.render.swimlane import _collect_chars
 
 NESTED = {
-    "specVersion": "0.1", "diagramType": "swimlane", "direction": "LR",
+    "specVersion": "1.0", "diagramType": "swimlane", "direction": "LR",
     "meta": {"title": "Service Delivery"},
     "lanes": [
         {"id": "eng", "label": {"text": "Engineering"}},

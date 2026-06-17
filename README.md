@@ -62,7 +62,7 @@ Write a spec — `hello.json`:
 
 ```json
 {
-  "specVersion": "0.1",
+  "specVersion": "1.0",
   "diagramType": "flowchart",
   "direction": "TB",
   "meta": { "title": "Order processing" },

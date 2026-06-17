@@ -37,13 +37,13 @@ def _diagram(nodes, family: str) -> PositionedDiagram:
 
 # ---- defaults + sizing ------------------------------------------------------
 def test_state_default_shape_is_roundrect():
-    g = compile_spec({"specVersion": "0.1", "diagramType": "state",
+    g = compile_spec({"specVersion": "1.0", "diagramType": "state",
                       "nodes": [{"id": "a", "label": {"text": "A"}}], "edges": []})
     assert g.nodes[0].shape == "roundrect"
 
 
 def test_deployment_default_shape_is_cube():
-    g = compile_spec({"specVersion": "0.1", "diagramType": "deployment",
+    g = compile_spec({"specVersion": "1.0", "diagramType": "deployment",
                       "nodes": [{"id": "a", "label": {"text": "A"}}], "edges": []})
     assert g.nodes[0].shape == "cube"
 

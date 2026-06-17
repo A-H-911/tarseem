@@ -12,7 +12,7 @@ from tarseem.measure import measure_graph
 from tarseem.model import compile_spec
 
 VSPEC = {
-    "specVersion": "0.1", "diagramType": "swimlane", "direction": "TB",
+    "specVersion": "1.0", "diagramType": "swimlane", "direction": "TB",
     "meta": {"title": "Release"}, "layout": {"laneOrientation": "vertical"},
     "lanes": [{"id": "dev", "label": {"text": "Dev"}}, {"id": "ci", "label": {"text": "CI"}},
               {"id": "ops", "label": {"text": "Ops"}}],

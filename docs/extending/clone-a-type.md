@@ -83,7 +83,7 @@ and exports to draw.io/PPTX through the same pipeline as the built-ins:
 
 ```jsonc
 {
-  "specVersion": "0.1",
+  "specVersion": "1.0",
   "diagramType": "incident-flow",
   "meta": { "title": "Incident Response" },
   "nodes": [

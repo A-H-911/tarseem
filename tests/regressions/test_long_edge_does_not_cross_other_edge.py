@@ -16,7 +16,7 @@ from tarseem.model import compile_spec
 # col2 -- inside that span -- and points up to t in the top lane. The naive route runs s->t's
 # vertical up s's column (col2), crossing a->b. The fix must avoid that.
 SPEC = {
-    "specVersion": "0.1", "diagramType": "swimlane", "direction": "LR",
+    "specVersion": "1.0", "diagramType": "swimlane", "direction": "LR",
     "meta": {"title": "Cross"},
     "lanes": [{"id": "top", "label": {"text": "T"}}, {"id": "mid", "label": {"text": "M"}},
               {"id": "bot", "label": {"text": "B"}}],

@@ -17,7 +17,7 @@ from tarseem.render import render_svg
 
 # Reference-1: Bug Triage (LTR, 4 lanes; back-edge + long cross-lane edges + labels)
 BUG_TRIAGE = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "swimlane",
     "direction": "LR",
     "meta": {"title": "Bug Triage"},
@@ -50,7 +50,7 @@ BUG_TRIAGE = {
 
 # Reference-3: Pipeline (LTR, 3 lanes; full shape set + UML markers + dashed + back-edge)
 PIPELINE = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "swimlane",
     "direction": "LR",
     "meta": {"title": "Pipeline"},

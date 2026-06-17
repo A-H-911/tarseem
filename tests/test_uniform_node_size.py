@@ -7,7 +7,7 @@ from tarseem.model import compile_spec
 
 def _spec(uniform: object) -> dict:
     spec: dict = {
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "flowchart",
         "nodes": [
             {"id": "a", "label": {"text": "Hi"}},
