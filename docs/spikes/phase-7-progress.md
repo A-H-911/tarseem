@@ -16,7 +16,7 @@ same `tarseem.types` entry-point group third parties use (ADR-008).
 | 2 | **incident-flow plugin + clone tutorial** — external "incident-flow" family built from flowchart via the docs (plugin exercise #1, F9 benchmark); `docs/extending/clone-a-type.md` + installable `examples/plugins/incident-flow/` | ✅ done (PR2) | `docs/extending/clone-a-type.md`, `examples/plugins/incident-flow/` |
 | 3 | **Agent surface** — single `generate(spec) -> artifacts + report`; JSON error contract `{code,path,message,hint}`; published schema bundle for LLM tool-use; SVG-default + raster-subprocess guard for the Chromium pool | ✅ done (PR3) | `agent.py`, `schema/__init__.py`, `cli/__init__.py` |
 | 4 | **Reference slash-command / skill integration** (F11) | ✅ done (PR4) | `integrations/claude-skill/SKILL.md` |
-| 4b | **Plugin exercise #2** — a family stressing a *different* extension point (custom renderer/layouter) than the cosmetic incident-flow clone (second freeze gate) | ⏳ next | — |
+| 4b | **Plugin exercise #2** — `timeline`: external family with a custom `layouter_factory` (pure-Python single-axis layout, RTL-aware), stressing the *layout* extension point (second freeze gate) | ✅ done | `examples/plugins/timeline/` |
 | 5 | **Schema v1.0 freeze proposal + `migrate` command** — diff shipped schema vs `05-schema-strategy.md`; list breaking decisions; build `engine migrate`; freeze only after the two plugin exercises pass (F12) | ⏳ (PR5, gated) | — |
 
 ## PR1 — Plugin registry + entry-point dogfood (2026-06-17)
@@ -110,6 +110,28 @@ Completes the **F11** deliverable list (… + reference slash-command/skill inte
   asserting every `tarseem <sub>` the skill names is a real CLI subcommand (and that `schema` +
   `generate` are referenced); the prescribed flow rendered end-to-end through the real CLI; and the
   documented self-repair loop (invalid → coded error with path+hint → corrected → `ok`). ruff clean.
+
+## Exercise #2 — timeline external plugin: custom layouter (2026-06-17)
+
+**Second freeze-gate plugin exercise (F9), stressing a different axis than incident-flow.** With
+both exercises passing, the v1.0 freeze (PR5) is now unblocked (R-26/R-29: two real plugins).
+
+- `examples/plugins/timeline/` — its own distribution (`tarseem-timeline`) registering `timeline`
+  on `tarseem.types`. It supplies a custom **`layouter_factory`** (`TimelineLayout`): a pure-Python
+  single-axis layouter that consumes the measured `LogicalGraph` and returns a `PositionedDiagram`
+  — replacing ELK entirely, the same contract swimlane/sequence satisfy, but from outside the core.
+  Rendering inherited (generic renderer).
+- **RTL-aware (invariant 4 holds for external layout):** `direction:"RL"` mirrors events
+  right-to-left (geometry only); verified the first event lands rightmost.
+- **Verified:** installed → discovered via entry points → LTR places events with strictly
+  increasing x on a shared centre line → RTL mirrors → renders → works through `generate()` with
+  `provenance.layoutEngine == "timeline"`.
+- **CI** now installs both example plugins. **F9 guard** `test_engine_core_never_names_the_timeline_type`
+  asserts `src/tarseem` never contains the string `timeline`. Tests:
+  `tests/test_external_plugin_timeline.py` (5).
+- **Two extension points now proven externally:** incident-flow (compile/`default_shape`) +
+  timeline (layout/`layouter_factory`). The remaining declared plugin field not yet exercised by an
+  external is `svg_renderer` (the built-in er/class/sequence use it); noted for PR5's audit.
 
 ## Resume checklist
 

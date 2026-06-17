@@ -1,0 +1,20 @@
+# Second example third-party plugin (freeze gate, exercise #2). Unlike incident-flow (which only
+# changes a default), this supplies a CUSTOM layouter — proving the plugin API handles layout, not
+# just cosmetics, with zero edits to src/tarseem (F9).
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tarseem-timeline"
+version = "0.1.0"
+description = "Example external Tarseem diagram type: timeline (custom single-axis layouter)."
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = ["tarseem"]
+
+[project.entry-points."tarseem.types"]
+timeline = "tarseem_timeline:PLUGIN"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tarseem_timeline"]
