@@ -34,6 +34,9 @@ jobs:
       - name: Install package + dev tooling
         run: python -m pip install -e ".[dev]"
 
+      - name: Install example external plugin (F9 proof — incident-flow)
+        run: python -m pip install -e examples/plugins/incident-flow --no-deps
+
       - name: Install Playwright Chromium (rendering + E2E)
         run: python -m playwright install --with-deps chromium
 

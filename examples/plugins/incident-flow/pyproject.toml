@@ -1,0 +1,21 @@
+# Example THIRD-PARTY Tarseem diagram-type plugin. It lives outside src/tarseem/ and is its
+# own distribution — installing it must add a new diagram type with zero edits to the engine
+# (acceptance criterion F9). Built by following docs/extending/clone-a-type.md.
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tarseem-incident-flow"
+version = "0.1.0"
+description = "Example external Tarseem diagram type: incident-flow (a flowchart clone)."
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = ["tarseem"]
+
+# The whole point: a new family registers through the same entry-point group the built-ins use.
+[project.entry-points."tarseem.types"]
+incident-flow = "tarseem_incident_flow:PLUGIN"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tarseem_incident_flow"]

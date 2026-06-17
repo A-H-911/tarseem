@@ -35,14 +35,15 @@ def test_all_builtins_registered_via_entry_points():
 
 
 def test_registry_exposes_all_builtins():
-    assert set(all_plugins()) == BUILTINS
+    # subset, not equality: external plugins (e.g. the incident-flow example) may also be installed.
+    assert BUILTINS <= set(all_plugins())
 
 
 def test_public_alias_reexports_contract():
     from tarseem.plugins import DiagramTypePlugin as Alias, all_plugins as alias_all
 
     assert Alias is DiagramTypePlugin
-    assert set(alias_all()) == BUILTINS
+    assert BUILTINS <= set(alias_all())
 
 
 # ---- per-family descriptors --------------------------------------------------
