@@ -20,21 +20,14 @@ from tarseem import Engine
 from tarseem.export.metadata import as_text
 from tarseem.export.pdf import _append_provenance
 from tarseem.export.png import _png_with_text
+
+# Availability via the shared pool: driver-only probe, no browser cold-launch at collection.
+from tarseem.render.browser import chromium_executable
 from tarseem.report import FEATURES, faithful_svg_render_report
 
-
-def _chromium_ok() -> bool:
-    try:
-        from playwright.sync_api import sync_playwright
-
-        with sync_playwright() as p:
-            p.chromium.launch().close()
-        return True
-    except Exception:  # noqa: BLE001 - any failure means the render layer can't run here
-        return False
-
-
-requires_chromium = pytest.mark.skipif(not _chromium_ok(), reason="Chromium unavailable")
+requires_chromium = pytest.mark.skipif(
+    chromium_executable() is None, reason="Chromium unavailable"
+)
 
 
 def _spec(name: str) -> dict:

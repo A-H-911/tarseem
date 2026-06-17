@@ -62,7 +62,9 @@ def _cairo_font_face() -> str:
 def render_to_png(
     drawio_path: Path, out_png: Path, viewer_js: Path, inject_font: bool = True
 ) -> Path:
-    from playwright.sync_api import sync_playwright
+    # Reuse the shared process-wide Chromium (tarseem.render.browser) so a batch run launches one
+    # browser, not one per file. We manage our own page; the pool owns the browser.
+    from tarseem.render.browser import shared_browser
 
     cfg = {
         "xml": _diagram_xml(drawio_path.read_text(encoding="utf-8")),
@@ -73,24 +75,22 @@ def render_to_png(
         "toolbar": None,
     }
     out_png.parent.mkdir(parents=True, exist_ok=True)
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        try:
-            page = browser.new_page(device_scale_factor=2)
-            page.set_content("<!doctype html><meta charset='utf-8'><body style='margin:0'></body>")
-            if inject_font:  # show draw.io WITH Cairo; set False to test a file's embedded font
-                page.add_style_tag(content=_cairo_font_face())
-            page.add_script_tag(path=str(viewer_js))
-            page.evaluate(_RENDER_JS, cfg)
-            page.wait_for_selector(".mxgraph svg", timeout=15000)
-            page.evaluate("document.fonts.load('700 11px Cairo').then(() => document.fonts.ready)")
-            page.wait_for_timeout(400)
-            element = page.query_selector(".mxgraph")
-            if element is None:
-                raise RuntimeError("viewer produced no .mxgraph container")
-            element.screenshot(path=str(out_png))
-        finally:
-            browser.close()
+    page = shared_browser().new_page(device_scale_factor=2)
+    try:
+        page.set_content("<!doctype html><meta charset='utf-8'><body style='margin:0'></body>")
+        if inject_font:  # show draw.io WITH Cairo; set False to test a file's embedded font
+            page.add_style_tag(content=_cairo_font_face())
+        page.add_script_tag(path=str(viewer_js))
+        page.evaluate(_RENDER_JS, cfg)
+        page.wait_for_selector(".mxgraph svg", timeout=15000)
+        page.evaluate("document.fonts.load('700 11px Cairo').then(() => document.fonts.ready)")
+        page.wait_for_timeout(400)
+        element = page.query_selector(".mxgraph")
+        if element is None:
+            raise RuntimeError("viewer produced no .mxgraph container")
+        element.screenshot(path=str(out_png))
+    finally:
+        page.close()
     return out_png
 
 

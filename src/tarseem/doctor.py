@@ -99,23 +99,20 @@ def check_elkjs(bundle: Path | None = None) -> CheckResult:
 
 def check_playwright_chromium() -> CheckResult:
     try:
-        from playwright.sync_api import sync_playwright
+        import playwright.sync_api  # noqa: F401 - import-only check for an actionable hint
     except ImportError:
         return CheckResult(
             "playwright", False, "playwright not importable",
             hint="pip install playwright",
         )
-    try:
-        with sync_playwright() as p:
-            exe = Path(p.chromium.executable_path)
-    except Exception as exc:  # noqa: BLE001 - report any launch/driver error as actionable
+    # Probe via the shared pool (the one sync_playwright() per process), so doctor never opens a
+    # second concurrent instance — which would fail once a render has started the pool.
+    from tarseem.render.browser import chromium_executable
+
+    exe = chromium_executable()
+    if exe is None:
         return CheckResult(
-            "playwright", False, f"chromium not available: {exc}",
-            hint="run: playwright install chromium",
-        )
-    if not exe.exists():
-        return CheckResult(
-            "playwright", False, f"chromium executable missing at {exe}",
+            "playwright", False, "chromium not available",
             hint="run: playwright install chromium",
         )
     return CheckResult("playwright", True, f"Chromium at {exe.name}")
