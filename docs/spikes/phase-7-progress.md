@@ -156,12 +156,21 @@ Lands **F12** and the Phase-7 exit audit. Owner decisions (2026-06-17): **ratify
 
 ## Phase 7 outcome (F1–F12)
 
-See `docs/phase-7-acceptance-audit.md`. **10/12 fully met.** Phase-7 scope (F9 extensibility, F11
-agent-readiness, F12 freeze) complete. Honest gaps, neither a Phase-7 deliverable:
-- **F1 partial (10/11):** no `activity` family — now addable as a plugin (the v1.0 extension model).
-- **F10:** doc set present but not re-audited line-by-line vs `10-documentation-plan.md`.
+See `docs/phase-7-acceptance-audit.md`. **12/12 met** after closing the two gaps below — **v1.0 is
+taggable.** Phase-7 scope (F9 extensibility, F11 agent-readiness, F12 freeze) complete.
 
-v1.0 tag is gated on closing those two; flagged for the owner.
+## Post-freeze — closed the two v1.0 gaps (2026-06-17)
+
+- **F1 (now 11/11):** added the **activity** family — the 11th built-in (`families/activity.py`,
+  registered as a `tarseem.types` entry point like the rest). ELK + generic renderer (mechanically
+  like `state`): actions = rounded boxes, `initial`/`final` pseudostates, `diamond` decisions.
+  `examples/activity-order-approval.json` (auto-in-gallery), `tests/test_family_activity.py`, win32
+  visual baseline added (only that PNG — no churn to the other 19); linux/darwin via `baselines.yml`.
+  Listed in `docs/guide/families.md`.
+- **F10 (re-audited):** mapped `10-documentation-plan.md` → reality (table in the audit doc). All
+  required *content* present; added the two items F10 names — `docs/guide/limitations.md` and
+  `docs/guide/troubleshooting.md` (incl. the error-code catalog). Deferred (tooling, not content):
+  the mkdocs site structure + the auto-generated per-object schema reference.
 
 ## Resume checklist
 

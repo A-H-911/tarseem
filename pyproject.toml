@@ -51,6 +51,7 @@ deployment = "tarseem.families.deployment:PLUGIN"
 er = "tarseem.families.er:PLUGIN"
 class = "tarseem.families.class_:PLUGIN"
 mindmap = "tarseem.families.mindmap:PLUGIN"
+activity = "tarseem.families.activity:PLUGIN"
 
 [project.urls]
 Homepage = "https://github.com/AnasHammo/tarseem"

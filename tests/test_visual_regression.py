@@ -33,7 +33,8 @@ BASELINE_SAMPLES = ["sequence-login", "swimlane-bug-triage", "swimlane-pipeline"
 ELK_BASELINE_SAMPLES = ["arabic-flowchart", "arabic-architecture", "arabic-mixed",
                         "state-order-lifecycle", "deployment-web-stack", "er-shop",
                         "class-shop", "class-shapes",
-                        "mindmap-roadmap", "mindmap-skills-radial", "mindmap-arabic"]
+                        "mindmap-roadmap", "mindmap-skills-radial", "mindmap-arabic",
+                        "activity-order-approval"]
 
 
 # ---- compare_png unit tests (OS-independent) --------------------------------

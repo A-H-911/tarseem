@@ -53,6 +53,7 @@ ELK_SAMPLES = [
     "mindmap-roadmap",         # Phase 6: mindmap — ELK mrtree (deep tree, default)
     "mindmap-skills-radial",   # Phase 6: mindmap — ELK radial (balanced, opt-in)
     "mindmap-arabic",          # Phase 6: mindmap — RTL/Arabic (root mirrored to the right)
+    "activity-order-approval", # Phase 7: UML activity family (initial/final/decision control flow)
 ]
 
 ROOT = Path(__file__).resolve().parent.parent
