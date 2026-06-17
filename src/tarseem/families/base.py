@@ -5,12 +5,12 @@ pipeline stage how to treat a ``diagramType``. Built-ins and third-party types u
 **same** contract and the same ``tarseem.types`` entry-point registry (``families/__init__``);
 nothing in the core pipeline hard-codes a family name — every stage looks the family up.
 
-The descriptor is intentionally declarative (data, not subclassing): a clone of an existing
-family — the F9 benchmark "build incident-flow from flowchart in <1 day" — is a few lines:
+The descriptor is intentionally declarative (data, not subclassing): cloning an existing family
+— the F9 benchmark, in well under a day — is a few lines:
 
     from tarseem.families.base import DiagramTypePlugin
 
-    PLUGIN = DiagramTypePlugin(type_id="incident-flow", default_shape="roundrect")
+    PLUGIN = DiagramTypePlugin(type_id="my-flow", default_shape="roundrect")
     # ELK layout + generic renderer inherited from the defaults; no core edits.
 
 Fields a family may override (all optional except ``type_id``):

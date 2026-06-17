@@ -13,7 +13,7 @@ same `tarseem.types` entry-point group third parties use (ADR-008).
 | # | Sub-stage | Status | Where |
 |---|---|---|---|
 | 1 | **Plugin registry + dogfood** — `DiagramTypePlugin` contract; `tarseem.types` entry-point registry; 10 built-ins converted to plugins + declared as entry points; 6 hardcoded dispatch sites → registry lookups; public alias `tarseem.plugins`; ADR-008 | ✅ done (PR1) | `families/`, `plugins/__init__.py`, `pyproject.toml`, `docs/adr/ADR-008-*.md` |
-| 2 | **incident-flow plugin + clone tutorial** — build an external "incident-flow" family from flowchart using ONLY the docs (plugin exercise #1, F9 benchmark "<1 day"); `docs/extending/clone-a-type.md` | ⏳ next (PR2) | — |
+| 2 | **incident-flow plugin + clone tutorial** — external "incident-flow" family built from flowchart via the docs (plugin exercise #1, F9 benchmark); `docs/extending/clone-a-type.md` + installable `examples/plugins/incident-flow/` | ✅ done (PR2) | `docs/extending/clone-a-type.md`, `examples/plugins/incident-flow/` |
 | 3 | **Agent surface** — single `generate(spec) -> artifacts + report`; JSON error contract `{code,path,message,hint}` (already in `errors.Issue`); published schema bundle for LLM tool-use; SVG-default + subprocess guard for the Chromium pool | ⏳ (PR3) | — |
 | 4 | **Reference slash-command / skill integration** (F11) | ⏳ (PR4) | — |
 | 5 | **Schema v1.0 freeze proposal + `migrate` command** — diff shipped schema vs `05-schema-strategy.md`; list breaking decisions; build `engine migrate`; freeze only after the two plugin exercises pass (F12) | ⏳ (PR5, gated) | — |
@@ -44,6 +44,31 @@ through the identical `tarseem.types` entry-point mechanism (ADR-008).
 - **Known internal coupling (documented in ADR-008, not blocking F9):** the ELK adapter still
   picks `mrtree`/`radial` for mindmaps by `diagram_type` internally; `EDGE_WIDTH_DEFAULT` stays a
   shared styling constant; `schema_extension` is declared but not yet enforced (lands with PR5).
+
+## PR2 — incident-flow external plugin + clone-a-type tutorial (2026-06-17)
+
+**Plugin exercise #1 (F9), the first of the two the v1.0 freeze is gated on.** Proves a third
+party adds a diagram type with zero engine edits.
+
+- **Tutorial** `docs/extending/clone-a-type.md`: the `DiagramTypePlugin` contract table, the
+  5-line clone, entry-point packaging, the editable-reinstall gotcha, and a `grep` to prove the
+  core is untouched.
+- **Worked external package** `examples/plugins/incident-flow/` — its **own distribution**
+  (`tarseem-incident-flow`, separate `pyproject.toml`, depends on `tarseem`), registering
+  `incident-flow` on the `tarseem.types` group. Lives *under* `examples/` but in a subdirectory,
+  so the gallery/baseline machinery (which globs `examples/*.json` non-recursively) never sees it.
+  The only customisation is `default_shape="stadium"`; ELK layout + the generic renderer are
+  inherited.
+- **Verified end-to-end:** installed editable → discovered via entry points → renders through the
+  full pipeline (shapeless `detect` node became a stadium = the plugin's default drove compile;
+  explicit `diamond` on `triage` preserved) → exports svg + drawio with a CapabilityReport.
+- **CI** installs the example plugin (`pip install -e examples/plugins/incident-flow --no-deps`)
+  so the F9 tests run on the matrix; `--cov=tarseem` does not measure the external package.
+- **F9 guard test** `test_engine_core_never_names_the_external_type`: greps `src/tarseem/**.py`
+  for the literal `incident-flow` and asserts none — caught two core docstrings naming the example
+  (now neutralised to a generic `my-flow` placeholder).
+- **PR1 tests relaxed:** `all_plugins()` assertions moved from `== BUILTINS` to `BUILTINS <= …`
+  (external plugins may now be installed). Tests: `tests/test_external_plugin_incident_flow.py` (4).
 
 ## Resume checklist
 

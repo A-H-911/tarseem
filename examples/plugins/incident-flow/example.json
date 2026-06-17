@@ -1,0 +1,22 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "incident-flow",
+  "direction": "TB",
+  "meta": { "title": "Incident Response" },
+  "nodes": [
+    { "id": "detect", "label": { "text": "Detect" } },
+    { "id": "triage", "shape": "diamond", "label": { "text": "Sev 1?" } },
+    { "id": "page", "label": { "text": "Page on-call" } },
+    { "id": "mitigate", "label": { "text": "Mitigate" } },
+    { "id": "resolve", "label": { "text": "Resolve" } },
+    { "id": "postmortem", "shape": "document", "label": { "text": "Postmortem" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "detect", "target": "triage" },
+    { "id": "e2", "source": "triage", "target": "page", "label": { "text": "yes" } },
+    { "id": "e3", "source": "triage", "target": "mitigate", "label": { "text": "no" } },
+    { "id": "e4", "source": "page", "target": "mitigate" },
+    { "id": "e5", "source": "mitigate", "target": "resolve" },
+    { "id": "e6", "source": "resolve", "target": "postmortem" }
+  ]
+}

@@ -4,13 +4,13 @@ Third parties extend Tarseem with new diagram types without touching the core. D
 :class:`DiagramTypePlugin` and expose it via the ``tarseem.types`` entry-point group — the
 identical mechanism the built-in families use (``tarseem.families``):
 
-    # mypackage/incident_flow.py
+    # mypackage/my_flow.py
     from tarseem.plugins import DiagramTypePlugin
-    PLUGIN = DiagramTypePlugin(type_id="incident-flow", default_shape="roundrect")
+    PLUGIN = DiagramTypePlugin(type_id="my-flow", default_shape="roundrect")
 
     # pyproject.toml
     [project.entry-points."tarseem.types"]
-    incident-flow = "mypackage.incident_flow:PLUGIN"
+    my-flow = "mypackage.my_flow:PLUGIN"
 
 The registry (:func:`get_plugin`, :func:`all_plugins`) is shared with the core pipeline, so
 a registered type flows through compile → layout → render → export with no core edits.
