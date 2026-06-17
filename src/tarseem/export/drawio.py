@@ -27,6 +27,7 @@ from pathlib import Path
 from lxml import etree
 
 from tarseem.export.result import WriteResult
+from tarseem.families import get_plugin
 from tarseem.geometry import (
     BADGE_R as _BADGE_R,
     CHROME_RADIUS as _CHROME_RADIUS,
@@ -260,7 +261,7 @@ def to_drawio_xml(diagram: PositionedDiagram, meta: dict[str, str] | None = None
     # nodes/edges sit on top. ADR-007: explicit rects, not native swimlane cells.
     if diagram.lanes:
         _emit_swimlane_chrome(root, diagram)
-    elif diagram.diagram_type == "sequence":
+    elif get_plugin(diagram.diagram_type).export_chrome == "sequence":
         _emit_sequence_chrome(root, diagram)
 
     rtl = diagram.direction == "RL"

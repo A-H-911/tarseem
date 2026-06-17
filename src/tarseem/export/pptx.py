@@ -31,6 +31,7 @@ from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
 from tarseem.export.result import WriteResult
+from tarseem.families import get_plugin
 from tarseem.geometry import (
     BADGE_R as _BADGE_R,
     CLASS_BORDER as _CLASS_BORDER,
@@ -229,7 +230,8 @@ class _Builder:
     def __init__(self, diagram: PositionedDiagram):
         self.d = diagram
         # swimlane/sequence bake absolute coords; generic + ER translate by 24px (matches the SVG).
-        self.m = 0.0 if (diagram.lanes or diagram.diagram_type == "sequence") else 24.0
+        seq = get_plugin(diagram.diagram_type).export_chrome == "sequence"
+        self.m = 0.0 if (diagram.lanes or seq) else 24.0
         self.prs = Presentation()
         self.prs.slide_width = Emu(int(round((diagram.width + 2 * self.m) * EMU_PER_PX)))
         self.prs.slide_height = Emu(int(round((diagram.height + 2 * self.m) * EMU_PER_PX)))
@@ -528,7 +530,7 @@ def _build(diagram: PositionedDiagram) -> _Prs:
     b = _Builder(diagram)
     if diagram.lanes:
         _emit_swimlane_chrome(b, diagram)
-    elif diagram.diagram_type == "sequence":
+    elif get_plugin(diagram.diagram_type).export_chrome == "sequence":
         _emit_sequence_chrome(b, diagram)
     badge_side = resolve_badge_side(diagram.direction == "RL", diagram.theme)
     default_w = _EDGE_WIDTH_DEFAULT.get(diagram.diagram_type, 1.0)

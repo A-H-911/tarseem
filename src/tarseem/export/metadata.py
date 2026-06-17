@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from tarseem.families import get_plugin
+
 if TYPE_CHECKING:
     from tarseem.engine import RenderResult
 
@@ -26,13 +28,8 @@ def provenance(result: RenderResult) -> dict[str, str]:
     spec + pinned engine versions; no wall-clock, no environment-specific data."""
     diagram = result.diagram
     versions = result.versions
-    layout_engine = "lanegrid" if diagram.lanes or diagram.orientation == "vertical" else "elk"
-    if diagram.diagram_type == "sequence":
-        layout_engine = "sequence"
-    elif diagram.diagram_type in ("swimlane",):
-        layout_engine = "lanegrid"
-    elif "elkjs" in versions:
-        layout_engine = "elk"
+    # The family's plugin is the single source of the layout-stage label (elk/lanegrid/sequence).
+    layout_engine = get_plugin(diagram.diagram_type).layout_engine_name
     meta: dict[str, str] = {
         "generator": _GENERATOR,
         "tarseemVersion": str(versions.get("tarseem", "")),

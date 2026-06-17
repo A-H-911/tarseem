@@ -7,6 +7,7 @@ never position (ADR-001). Per-label ``direction``/``xml:lang`` keep RTL first-cl
 """
 from __future__ import annotations
 
+from tarseem.families import get_plugin
 from tarseem.geometry import (
     DEFAULT_EDGE as _DEFAULT_EDGE,
     DEFAULT_FILL as _DEFAULT_FILL,
@@ -19,7 +20,7 @@ from tarseem.model.ir import Label, PositionedDiagram, PositionedNode
 from tarseem.render.fonts import FONT_FAMILY, subset_woff2_datauri
 from tarseem.render.text import label_attrs as _resolve_label_attrs, resolve_edge_corners
 
-__all__ = ["render_svg"]
+__all__ = ["render_svg", "render_generic_svg"]
 
 _MARGIN = 24.0
 _CYL_CAP = 6.0  # cylinder label drop (px) so text centres on the body, below the top ellipse cap
@@ -202,28 +203,24 @@ def _collect_chars(diagram: PositionedDiagram) -> frozenset[str]:
 
 
 def render_svg(diagram: PositionedDiagram) -> str:
-    # swimlanes carry band chrome and absolute coords -> dedicated writer
+    """Dispatch to the family's renderer via the registry; the generic graph renderer is the
+    default for any family that declares none (flowchart/architecture/dependency/state/
+    deployment/mindmap and external ELK clones).
+
+    Swimlanes keep a structural fast-path: detected by ``diagram.lanes`` (band chrome + absolute
+    coords), not by ``diagramType`` — so a laneless graph never reaches the swimlane writer."""
     if diagram.lanes:
         from tarseem.render.swimlane import render_swimlane_svg
 
         return render_swimlane_svg(diagram)
-    # sequence diagrams have lifeline stems + activation bars -> dedicated writer
-    if diagram.diagram_type == "sequence":
-        from tarseem.render.sequence import render_sequence_svg
+    renderer = get_plugin(diagram.diagram_type).svg_renderer
+    return renderer(diagram) if renderer is not None else render_generic_svg(diagram)
 
-        return render_sequence_svg(diagram)
-    # ER entities are attribute tables -> dedicated writer
-    if diagram.diagram_type == "er":
-        from tarseem.render.er import render_er_svg
 
-        return render_er_svg(diagram)
-
-    # UML class boxes are name/attribute/method compartments -> dedicated writer
-    if diagram.diagram_type == "class":
-        from tarseem.render.class_ import render_class_svg
-
-        return render_class_svg(diagram)
-
+def render_generic_svg(diagram: PositionedDiagram) -> str:
+    """The default node + edge graph renderer: embedded font subset, routed edge polylines,
+    shapes, and labels. Dedicated families (swimlane/sequence/er/class) override via their
+    plugin's ``svg_renderer``."""
     dx, dy = _MARGIN, _MARGIN
     width = diagram.width + 2 * _MARGIN
     height = diagram.height + 2 * _MARGIN
