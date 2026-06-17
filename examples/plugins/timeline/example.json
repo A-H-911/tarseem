@@ -1,0 +1,17 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "timeline",
+  "direction": "LR",
+  "meta": { "title": "Release Timeline" },
+  "nodes": [
+    { "id": "kickoff", "label": { "text": "Kickoff" } },
+    { "id": "alpha", "label": { "text": "Alpha" } },
+    { "id": "beta", "label": { "text": "Beta" } },
+    { "id": "ga", "label": { "text": "GA" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "kickoff", "target": "alpha" },
+    { "id": "e2", "source": "alpha", "target": "beta" },
+    { "id": "e3", "source": "beta", "target": "ga" }
+  ]
+}
