@@ -241,13 +241,13 @@ SPECS["showcase-auth-monochrome"] = {
 
 def main() -> None:
     OUT.mkdir(exist_ok=True)
-    eng = Engine()
-    for name, spec in SPECS.items():
-        res = eng.render(spec)
-        res.export(["png", "svg"], OUT, name)
-        r = res.report
-        print(f"{name:38} {res.diagram.width:6.0f}x{res.diagram.height:<5.0f} "
-              f"crossings={r.crossings} overlaps={r.overlaps}")
+    with Engine() as eng:  # reuse one ELK Node session across the batch
+        for name, spec in SPECS.items():
+            res = eng.render(spec)
+            res.export(["png", "svg"], OUT, name)
+            r = res.report
+            print(f"{name:38} {res.diagram.width:6.0f}x{res.diagram.height:<5.0f} "
+                  f"crossings={r.crossings} overlaps={r.overlaps}")
 
 
 if __name__ == "__main__":

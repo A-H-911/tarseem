@@ -75,9 +75,10 @@ def _page_size(svg: str) -> tuple[int, int]:
 def _render_pdf(svg: str) -> bytes:
     """Chromium-print ``svg`` to deterministic, single-page, vector PDF bytes (dates pinned).
 
-    Imports Playwright lazily so importing the package never requires a browser (mirrors png.py).
-    Shared by ``svg_to_pdf`` (bare primitive) and ``write_pdf`` (which then appends provenance)."""
-    from playwright.sync_api import sync_playwright
+    Rasterizes on the shared process-wide Chromium (``render.browser``) — one browser reused
+    across calls (mirrors png.py); Playwright is imported lazily inside the pool so importing the
+    package needs no browser. Shared by ``svg_to_pdf`` + ``write_pdf``."""
+    from tarseem.render.browser import raster_page
 
     width, height = _page_size(svg)
     # display:block kills the inline-<svg> line-box descender that would otherwise spill a 2nd page.
@@ -87,22 +88,17 @@ def _render_pdf(svg: str) -> bytes:
         f"<body>{svg}</body>"
     )
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        try:
-            page = browser.new_page()
-            page.set_content(html, wait_until="load")
-            page.evaluate("document.fonts.ready")
-            page.wait_for_timeout(200)
-            raw = page.pdf(
-                width=f"{width}px",
-                height=f"{height}px",
-                # margin=0 so the page is exactly the SVG box (no default print margins)
-                margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
-                print_background=True,
-            )
-        finally:
-            browser.close()
+    with raster_page() as page:
+        page.set_content(html, wait_until="load")
+        page.evaluate("document.fonts.ready")
+        page.wait_for_timeout(200)
+        raw = page.pdf(
+            width=f"{width}px",
+            height=f"{height}px",
+            # margin=0 so the page is exactly the SVG box (no default print margins)
+            margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
+            print_background=True,
+        )
     return _normalize_pdf_dates(raw)
 
 

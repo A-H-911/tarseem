@@ -29,27 +29,24 @@ __all__ = ["svg_to_png", "write_png"]
 def svg_to_png(svg: str, out_path: str | Path, scale: int = 2) -> Path:
     """Render ``svg`` to a PNG at ``out_path``. Returns the written path.
 
-    Imports Playwright lazily so importing the package never requires a browser.
+    Rasterizes on the shared process-wide Chromium (``render.browser``): the browser is launched
+    once and reused across calls, so a gallery/baseline run pays one cold start, not one per spec.
+    Playwright is imported lazily (inside the pool) so importing the package needs no browser.
     """
-    from playwright.sync_api import sync_playwright
+    from tarseem.render.browser import raster_page
 
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     html = f"<!doctype html><meta charset='utf-8'><body style='margin:0'>{svg}</body>"
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        try:
-            page = browser.new_page(device_scale_factor=scale)
-            page.set_content(html, wait_until="load")
-            page.evaluate("document.fonts.ready")
-            page.wait_for_timeout(200)
-            element = page.query_selector("svg")
-            if element is None:
-                raise RuntimeError("no <svg> element found to rasterize")
-            element.screenshot(path=str(out))
-        finally:
-            browser.close()
+    with raster_page(device_scale_factor=scale) as page:
+        page.set_content(html, wait_until="load")
+        page.evaluate("document.fonts.ready")
+        page.wait_for_timeout(200)
+        element = page.query_selector("svg")
+        if element is None:
+            raise RuntimeError("no <svg> element found to rasterize")
+        element.screenshot(path=str(out))
     return out
 
 

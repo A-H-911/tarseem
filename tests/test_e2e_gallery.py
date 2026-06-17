@@ -40,15 +40,13 @@ def gallery(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def browser():
-    from playwright.sync_api import sync_playwright
+    # Use the shared process-wide pool (the one sync_playwright() per process); opening a second
+    # sync_playwright() here would conflict once a render test has started the pool.
+    from tarseem.render.browser import chromium_executable, shared_browser
 
-    try:
-        with sync_playwright() as p:
-            b = p.chromium.launch()
-            yield b
-            b.close()
-    except Exception as exc:  # noqa: BLE001 - chromium not installed -> skip the E2E layer
-        pytest.skip(f"Chromium unavailable for E2E: {exc}")
+    if chromium_executable() is None:
+        pytest.skip("Chromium unavailable for E2E")
+    yield shared_browser()  # do NOT close — the pool owns the browser (closed at atexit)
 
 
 def _console_errors(page) -> list[str]:

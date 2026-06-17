@@ -20,21 +20,13 @@ from tarseem import Engine
 from tarseem.export import svg_to_pdf
 from tarseem.export.pdf import _normalize_pdf_dates
 
+# Availability via the shared pool: starts only the Playwright driver (no browser) and never opens
+# a second sync_playwright(), so collecting this module no longer cold-launches a browser.
+from tarseem.render.browser import chromium_executable
 
-def _chromium_ok() -> bool:
-    """Probe once: True iff a Playwright Chromium can launch (covers playwright-not-installed)."""
-    try:
-        from playwright.sync_api import sync_playwright
-
-        with sync_playwright() as p:
-            browser = p.chromium.launch()
-            browser.close()
-        return True
-    except Exception:  # noqa: BLE001 - any failure means the render layer can't run here
-        return False
-
-
-requires_chromium = pytest.mark.skipif(not _chromium_ok(), reason="Chromium unavailable")
+requires_chromium = pytest.mark.skipif(
+    chromium_executable() is None, reason="Chromium unavailable"
+)
 
 
 def _svg(name: str) -> str:
