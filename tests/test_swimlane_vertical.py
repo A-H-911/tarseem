@@ -17,7 +17,7 @@ from tarseem.render import render_svg
 
 # 3 lanes (columns), 4 steps; flow commit -> build -> test -> deploy runs top->bottom.
 RELEASE_FLOW = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "swimlane",
     "direction": "TB",
     "meta": {"title": "Release Flow"},

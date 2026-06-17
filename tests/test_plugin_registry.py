@@ -84,7 +84,7 @@ def test_compile_reads_default_shape_from_registry(monkeypatch):
     monkeypatch.setattr("tarseem.families._registry", {**all_plugins(), "custom-doc": custom})
 
     spec = {
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "custom-doc",
         "nodes": [{"id": "n1", "label": {"text": "X"}}],  # no explicit shape
         "edges": [],
@@ -99,7 +99,7 @@ def test_unregistered_type_still_renders_as_generic_graph():
     from tarseem import Engine
 
     spec = {
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "incident-flow",  # not registered until PR2
         "meta": {"title": "Probe"},
         "nodes": [

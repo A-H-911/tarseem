@@ -51,7 +51,7 @@ def test_skill_prescribed_flow_renders_an_artifact(tmp_path, capsys):
 
     spec = tmp_path / "s.json"
     spec.write_text(json.dumps({
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "swimlane",
         "lanes": [{"id": "s", "label": {"text": "Sales"}},
                   {"id": "w", "label": {"text": "Warehouse"}}],
@@ -79,7 +79,7 @@ def test_skill_self_repair_loop_uses_path_and_hint():
     err = first["errors"][0]
     assert err["path"].startswith("/") and err["hint"]  # actionable for an agent
 
-    fixed = {**broken, "specVersion": "0.1",
+    fixed = {**broken, "specVersion": "1.0",
              "nodes": [{"id": "n1", "lane": "s", "label": {"text": "Place order"}}]}
     second = generate(fixed)
     assert second["ok"] is True

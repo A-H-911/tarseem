@@ -11,7 +11,7 @@ from tarseem.validation import validate
 
 def minimal_flowchart() -> dict:
     return {
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "flowchart",
         "nodes": [
             {"id": "a", "label": {"text": "Start"}},
@@ -31,7 +31,7 @@ def test_minimal_valid_spec_accepted():
 def test_five_line_spec_renders_decently_is_valid():
     # defaults philosophy (05 §5): a tiny spec must validate
     spec = {
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "flowchart",
         "nodes": [{"id": "n1", "label": {"text": "Hi"}}],
     }

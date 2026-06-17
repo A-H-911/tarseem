@@ -124,9 +124,9 @@ def test_theme_swaps_palette_and_title_not_geometry():
 
 
 def test_compile_resolves_theme_by_ref_or_name():
-    g_ref = compile_spec({"specVersion": "0.1", "diagramType": "flowchart",
+    g_ref = compile_spec({"specVersion": "1.0", "diagramType": "flowchart",
                           "theme": {"ref": "monochrome"}, "nodes": []})
-    g_name = compile_spec({"specVersion": "0.1", "diagramType": "flowchart",
+    g_name = compile_spec({"specVersion": "1.0", "diagramType": "flowchart",
                            "theme": {"name": "monochrome"}, "nodes": []})
     assert g_ref.theme["name"] == g_name.theme["name"] == "monochrome"
 

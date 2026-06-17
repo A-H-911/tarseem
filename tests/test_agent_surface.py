@@ -14,7 +14,7 @@ requires_node = pytest.mark.skipif(
 )
 
 SWIMLANE = {  # lane-grid layouter -> no Node, no Chromium
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "swimlane",
     "direction": "LR",
     "meta": {"title": "Tiny"},
@@ -23,7 +23,7 @@ SWIMLANE = {  # lane-grid layouter -> no Node, no Chromium
     "edges": [],
 }
 FLOWCHART = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "flowchart",
     "meta": {"title": "F"},
     "nodes": [{"id": "a", "label": {"text": "A"}}, {"id": "b", "label": {"text": "B"}}],

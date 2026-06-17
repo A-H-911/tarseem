@@ -17,7 +17,7 @@ requires_node = pytest.mark.skipif(
 )
 
 SWIMLANE = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "swimlane",
     "direction": "LR",
     "meta": {"title": "Tiny"},

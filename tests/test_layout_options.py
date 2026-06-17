@@ -15,7 +15,7 @@ from tarseem.render import render_svg
 from tarseem.validation import validate
 
 BASE = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "swimlane",
     "direction": "LR",
     "meta": {"title": "Opts"},

@@ -1,8 +1,11 @@
 """Core JSON Schema (2020-12) for the Tarseem diagram spec (05 §1-3).
 
 Small, stable universal vocabulary: meta/theme/direction/styles/lanes/phases/
-nodes/groups/edges/layout/export. Profiles ($ref composition) extend this in
-later phases; this is the pre-1.0 (0.x) core used by the MVP families.
+nodes/groups/edges/layout/export. Frozen at **v1.0** (ADR-009): the schema that
+shipped is ratified as-built — flat ``diagramType``, open ``meta``, and the keys
+added across Phases 2-6 are official. ``specVersion`` must be ``1.x`` (0.x specs
+are migrated with ``tarseem migrate``). Per-family profiles are enforced via each
+plugin's ``schema_extension`` (e.g. a sequence spec may not carry ``lanes``).
 """
 from __future__ import annotations
 
@@ -72,7 +75,6 @@ _NODE = {
     "required": ["id"],
     "properties": {
         "id": {"type": "string"},
-        "kind": {"type": "string"},
         "shape": {"type": "string"},
         "lane": {"type": "string"},
         "phase": {"type": "string"},
@@ -218,12 +220,15 @@ _GROUP = {
 
 CORE_SCHEMA: dict = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://tarseem.dev/schemas/diagram/0.x/core.json",
+    "$id": "https://tarseem.dev/schemas/diagram/1.0/core.json",
     "title": "Tarseem diagram core",
     "type": "object",
     "required": ["specVersion", "diagramType"],
     "properties": {
-        "specVersion": {"type": "string", "pattern": r"^\d+\.\d+$"},
+        # v1.0 frozen: the engine reads the current MAJOR only (1.x). 0.x specs are rejected;
+        # `tarseem migrate` upgrades them. A clearer E_VERSION (with the migrate hint) is raised
+        # for 0.x in validate() before this generic pattern check fires.
+        "specVersion": {"type": "string", "pattern": r"^1\.\d+$"},
         "diagramType": {"type": "string"},
         "meta": {"type": "object"},
         "theme": {

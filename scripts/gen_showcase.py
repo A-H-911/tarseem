@@ -25,7 +25,7 @@ SPECS: dict[str, dict] = {}
 
 # 1. Corporate-themed release pipeline swimlane — phases + markers + decision + back-edge
 SPECS["showcase-release-corporate"] = {
-    "specVersion": "0.1", "diagramType": "swimlane", "direction": "LR",
+    "specVersion": "1.0", "diagramType": "swimlane", "direction": "LR",
     "meta": {"title": "Release Pipeline"},
     "theme": {"ref": "corporate"},
     "layout": {"markers": True},
@@ -62,7 +62,7 @@ SPECS["showcase-release-corporate"] = {
 
 # 2. Monochrome incident-response swimlane
 SPECS["showcase-incident-monochrome"] = {
-    "specVersion": "0.1", "diagramType": "swimlane", "direction": "LR",
+    "specVersion": "1.0", "diagramType": "swimlane", "direction": "LR",
     "meta": {"title": "Incident Response"},
     "theme": {"ref": "monochrome"},
     "lanes": [
@@ -90,7 +90,7 @@ SPECS["showcase-incident-monochrome"] = {
 
 # 3. Complex flowchart — full shape set + back-edge loop (default theme)
 SPECS["showcase-order-flow"] = {
-    "specVersion": "0.1", "diagramType": "flowchart", "direction": "TB",
+    "specVersion": "1.0", "diagramType": "flowchart", "direction": "TB",
     "meta": {"title": "Order processing"},
     "nodes": [
         {"id": "start", "shape": "stadium", "label": L("New order")},
@@ -120,7 +120,7 @@ SPECS["showcase-order-flow"] = {
 
 # 4. Corporate microservice architecture (LR)
 SPECS["showcase-architecture-corporate"] = {
-    "specVersion": "0.1", "diagramType": "architecture", "direction": "LR",
+    "specVersion": "1.0", "diagramType": "architecture", "direction": "LR",
     "meta": {"title": "Microservices"},
     "theme": {"ref": "corporate"},
     "nodes": [
@@ -144,7 +144,7 @@ SPECS["showcase-architecture-corporate"] = {
 
 # 5. Complex sequence — multiple participants, self-message, returns
 SPECS["showcase-checkout-sequence"] = {
-    "specVersion": "0.1", "diagramType": "sequence",
+    "specVersion": "1.0", "diagramType": "sequence",
     "meta": {"title": "Checkout"},
     "nodes": [
         {"id": "user", "label": L("User")},
@@ -168,7 +168,7 @@ SPECS["showcase-checkout-sequence"] = {
 
 # 6. RTL Arabic swimlane under the corporate theme (theme + mirroring combined)
 SPECS["showcase-arabic-corporate-rtl"] = {
-    "specVersion": "0.1", "diagramType": "swimlane", "direction": "RL",
+    "specVersion": "1.0", "diagramType": "swimlane", "direction": "RL",
     "meta": {"title": "طلب إجازة"},
     "theme": {"ref": "corporate"},
     "lanes": [
@@ -193,7 +193,7 @@ SPECS["showcase-arabic-corporate-rtl"] = {
 
 # 7. Dependency graph — wider fan-in/out (default theme)
 SPECS["showcase-dependency"] = {
-    "specVersion": "0.1", "diagramType": "dependency", "direction": "TB",
+    "specVersion": "1.0", "diagramType": "dependency", "direction": "TB",
     "meta": {"title": "Build dependencies"},
     "nodes": [
         {"id": "app", "shape": "roundrect", "label": L("app")},
@@ -217,7 +217,7 @@ SPECS["showcase-dependency"] = {
 
 # 8. Monochrome auth flowchart (LR)
 SPECS["showcase-auth-monochrome"] = {
-    "specVersion": "0.1", "diagramType": "flowchart", "direction": "LR",
+    "specVersion": "1.0", "diagramType": "flowchart", "direction": "LR",
     "meta": {"title": "Authentication"},
     "theme": {"ref": "monochrome"},
     "nodes": [

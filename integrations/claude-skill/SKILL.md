@@ -54,7 +54,7 @@ Request "swimlane: Sales places an order, Warehouse ships it." First spec omits 
     "hint": "add specVersion, e.g. \"0.1\"" } ] }
 ```
 
-Add `"specVersion": "0.1"`, flesh out nodes/edges, re-run → `{ "ok": true, "svg": "<svg …>", … }`.
+Add `"specVersion": "1.0"`, flesh out nodes/edges, re-run → `{ "ok": true, "svg": "<svg …>", … }`.
 
 ## Tips
 

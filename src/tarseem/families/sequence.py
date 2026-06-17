@@ -16,4 +16,7 @@ PLUGIN = DiagramTypePlugin(
     svg_renderer=render_sequence_svg,
     export_chrome="sequence",
     layout_engine_name="sequence",
+    # Profile (v1.0, 05 §1 anti-generic guard): a sequence is not lane/phase-based. maxItems:0
+    # (rather than a boolean `false`) makes the error point precisely at /lanes or /phases.
+    schema_extension={"properties": {"lanes": {"maxItems": 0}, "phases": {"maxItems": 0}}},
 )

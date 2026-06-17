@@ -28,7 +28,7 @@ _W, _H = 90, 44
 
 def _fixed_spec() -> dict:
     return {
-        "specVersion": "0.1", "diagramType": "flowchart", "direction": "TB",
+        "specVersion": "1.0", "diagramType": "flowchart", "direction": "TB",
         "layout": {"respectManualPositions": True, "router": "libavoid"},
         "nodes": [{"id": k, "label": {"text": k.upper()}, "position": {"x": x, "y": y}}
                   for k, (x, y) in _POS.items()],

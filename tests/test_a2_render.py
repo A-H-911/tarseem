@@ -25,7 +25,7 @@ requires_node = pytest.mark.skipif(
 )
 
 FLOWCHART = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "flowchart",
     "direction": "TB",
     "nodes": [
@@ -43,7 +43,7 @@ FLOWCHART = {
 }
 
 ARCHITECTURE = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "architecture",
     "direction": "LR",
     "nodes": [
@@ -60,7 +60,7 @@ ARCHITECTURE = {
 }
 
 DEPENDENCY = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "dependency",
     "direction": "LR",
     "nodes": [
@@ -96,7 +96,7 @@ def test_compile_builds_logical_ir():
 
 def test_compile_resolves_styles_onto_nodes():
     spec = {
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "flowchart",
         "styles": {"hot": {"fill": "#FDECEC"}},
         "nodes": [{"id": "n", "styleRefs": ["hot"], "label": {"text": "x"}}],
@@ -124,7 +124,7 @@ def test_measure_widens_longer_labels():
     # A label long enough to exceed the minimum-width floor must measure wider than
     # a short one — proving box size tracks shaped advance, not a constant.
     spec = {
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "flowchart",
         "nodes": [
             {"id": "short", "label": {"text": "Hi"}},

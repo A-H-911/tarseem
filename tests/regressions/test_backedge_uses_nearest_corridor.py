@@ -15,7 +15,7 @@ from tarseem.model import compile_spec
 # intervening c (same lane as b). e sits in the bottom lane, far to the right, so the GLOBAL
 # bottom corridor is well below d -- the detour must not dive down to it.
 SPEC = {
-    "specVersion": "0.1", "diagramType": "swimlane", "direction": "LR",
+    "specVersion": "1.0", "diagramType": "swimlane", "direction": "LR",
     "meta": {"title": "Detour"},
     "lanes": [{"id": "l0", "label": {"text": "L0"}}, {"id": "l1", "label": {"text": "L1"}},
               {"id": "l2", "label": {"text": "L2"}}, {"id": "l3", "label": {"text": "L3"}}],

@@ -19,7 +19,7 @@ from tarseem.render import render_svg
 
 # Login flow: 4 participants, sync calls + dashed returns, one self-message (sign JWT).
 LOGIN = {
-    "specVersion": "0.1",
+    "specVersion": "1.0",
     "diagramType": "sequence",
     "meta": {"title": "Login"},
     "nodes": [

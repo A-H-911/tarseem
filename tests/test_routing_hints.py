@@ -25,7 +25,7 @@ requires_node = pytest.mark.skipif(
 
 def _spec(**over: object) -> dict:
     base: dict = {
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "flowchart",
         "direction": "TB",
         "nodes": [
@@ -163,7 +163,7 @@ def test_respect_manual_positions_preserves_seeded_arrangement():
     from tarseem.engine import Engine
 
     spec = {
-        "specVersion": "0.1",
+        "specVersion": "1.0",
         "diagramType": "flowchart",
         "direction": "TB",
         "layout": {"respectManualPositions": True},

@@ -15,4 +15,6 @@ PLUGIN = DiagramTypePlugin(
     layouter_factory=LaneGridLayout,
     svg_renderer=render_swimlane_svg,
     layout_engine_name="lanegrid",
+    # Profile (v1.0): a swimlane is defined by its lanes — require at least one (E_PROFILE).
+    schema_extension={"required": ["lanes"]},
 )

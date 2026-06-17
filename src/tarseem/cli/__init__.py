@@ -15,7 +15,8 @@ from tarseem.errors import SpecValidationError
 from tarseem.validation import validate
 
 SUBCOMMANDS = (
-    "validate", "render", "export", "generate", "schema", "doctor", "examples", "gallery"
+    "validate", "render", "export", "generate", "schema", "migrate", "doctor", "examples",
+    "gallery",
 )
 
 
@@ -79,6 +80,19 @@ def _cmd_schema(args: argparse.Namespace) -> int:
     text = json.dumps(schema_bundle(), ensure_ascii=False, indent=2)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
+        print(f"wrote {args.out}")
+    else:
+        print(text)
+    return 0
+
+
+def _cmd_migrate(args: argparse.Namespace) -> int:
+    """Upgrade a spec to the current schema version (v1.0): bump specVersion, drop dropped keys."""
+    from tarseem.migrate import migrate_spec
+
+    text = json.dumps(migrate_spec(_load(args.spec)), ensure_ascii=False, indent=2)
+    if args.out:
+        Path(args.out).write_text(text + "\n", encoding="utf-8")
         print(f"wrote {args.out}")
     else:
         print(text)
@@ -161,6 +175,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_sch = sub.add_parser("schema", help="emit the JSON-Schema bundle (IDE / LLM tool-use)")
     p_sch.add_argument("-o", "--out", help="output .json path (default: stdout)")
     p_sch.set_defaults(func=_cmd_schema)
+
+    p_mig = sub.add_parser("migrate", help="upgrade a spec to the current schema version (1.0)")
+    p_mig.add_argument("spec")
+    p_mig.add_argument("-o", "--out", help="output .json path (default: stdout)")
+    p_mig.set_defaults(func=_cmd_migrate)
 
     p_doc = sub.add_parser("doctor", help="verify Node/elkjs/Playwright/fonts")
     p_doc.add_argument("--json", action="store_true", help="emit a machine-readable report")
