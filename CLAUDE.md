@@ -5,7 +5,7 @@ Schema-driven Python diagram engine: validated JSON specs → architecture-grade
 ## Project state
 
 - Design mission **complete and approved** (all decisions D1–D12 resolved 2026-06-11). The plan in `docs/plan/` is the contract — read `docs/plan/README.md` first, then `04-architecture.md`, `11-phased-plan.md`, `12-acceptance-criteria.md`, `13-open-decisions.md`.
-- **Current phase: Phase 0 spikes** (4 timeboxed validations, defined in `docs/plan/11-phased-plan.md`). No engine scaffolding until spikes pass + Phase 1 baseline is tagged.
+- **Current phase: Phase 7 — Extensibility & Agent Readiness** (planned fresh; see `docs/plan/11-phased-plan.md`). Phases 0–6 are **complete**: spikes passed, baseline tagged, MVP shipped (declared at Phase 3 exit), and Export & Editability landed — SVG/PNG/PDF/draw.io/PPTX writers across the flowchart, architecture/C4, dependency, swimlane, sequence, ER, state, deployment, class, and mindmap families. (Mermaid/PlantUML source writers and searchable-Arabic PDF are explicitly deferred.) Per-phase progress in `docs/spikes/`.
 - Kickoff instructions: `docs/prompts/initial-prompt.md`.
 
 ## Architecture invariants (violations require a new ADR in docs/adr/)

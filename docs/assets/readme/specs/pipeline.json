@@ -1,0 +1,35 @@
+{
+  "specVersion": "0.1",
+  "diagramType": "flowchart",
+  "direction": "LR",
+  "meta": { "title": "Tarseem — one positioned IR, many writers" },
+  "styles": {
+    "stage": { "fill": "#EEF2FF", "border": { "color": "#4F46E5" } },
+    "hub": { "fill": "#4F46E5", "border": { "color": "#3730A3" } },
+    "writer": { "fill": "#ECFDF5", "border": { "color": "#059669" } },
+    "input": { "fill": "#FFF7ED", "border": { "color": "#EA580C" } }
+  },
+  "nodes": [
+    { "id": "spec", "shape": "stadium", "styleRefs": ["input"], "label": { "text": "JSON spec" } },
+    { "id": "validate", "shape": "roundrect", "styleRefs": ["stage"], "label": { "text": "Validate" } },
+    { "id": "ir", "shape": "roundrect", "styleRefs": ["stage"], "label": { "text": "Logical IR" } },
+    { "id": "measure", "shape": "roundrect", "styleRefs": ["stage"], "label": { "text": "Measure text\n(uharfbuzz)" } },
+    { "id": "layout", "shape": "roundrect", "styleRefs": ["stage"], "label": { "text": "Layout\n(ELK)" } },
+    { "id": "posir", "shape": "roundrect", "styleRefs": ["hub"], "label": { "text": "Positioned IR" } },
+    { "id": "svg", "shape": "roundrect", "styleRefs": ["writer"], "label": { "text": "SVG" } },
+    { "id": "png", "shape": "roundrect", "styleRefs": ["writer"], "label": { "text": "PNG / PDF" } },
+    { "id": "drawio", "shape": "roundrect", "styleRefs": ["writer"], "label": { "text": "draw.io" } },
+    { "id": "pptx", "shape": "roundrect", "styleRefs": ["writer"], "label": { "text": "PPTX" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "spec", "target": "validate" },
+    { "id": "e2", "source": "validate", "target": "ir" },
+    { "id": "e3", "source": "ir", "target": "measure" },
+    { "id": "e4", "source": "measure", "target": "layout" },
+    { "id": "e5", "source": "layout", "target": "posir" },
+    { "id": "w1", "source": "posir", "target": "svg" },
+    { "id": "w2", "source": "posir", "target": "png" },
+    { "id": "w3", "source": "posir", "target": "drawio" },
+    { "id": "w4", "source": "posir", "target": "pptx" }
+  ]
+}

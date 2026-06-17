@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="470" height="160" viewBox="0 0 470 160" fill="none" role="img" aria-label="Tarseem ترسيم">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="160" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EF4444"/>
+      <stop offset="1" stop-color="#B91C1C"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#FFFFFF" flood-opacity="0.95"/>
+    </filter>
+  </defs>
+
+  <!-- mark: three nodes fanning into one hub = "many writers, one IR" -->
+  <rect x="0" y="0" width="160" height="160" rx="36" fill="url(#tile)"/>
+  <g stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.95" fill="none">
+    <path d="M68 47 H86 V80 H98"/>
+    <path d="M68 113 H86 V80 H98"/>
+  </g>
+  <g fill="rgba(255,255,255,0.16)" stroke="#FFFFFF" stroke-width="3">
+    <rect x="24" y="34" width="44" height="26" rx="8"/>
+    <rect x="24" y="100" width="44" height="26" rx="8"/>
+  </g>
+  <circle cx="116" cy="80" r="18" fill="#FFFFFF"/>
+
+  <!-- wordmark (colors tuned for dark backgrounds) -->
+  <text x="188" y="82" font-family="Cairo, 'Segoe UI', system-ui, sans-serif" font-size="58" font-weight="700" letter-spacing="-1" fill="#F8FAFC">Tarseem</text>
+  <text x="190" y="126" font-family="Cairo, 'Segoe UI', system-ui, sans-serif" font-size="32" font-weight="600" fill="#F87171" stroke="#FFFFFF" stroke-width="3" paint-order="stroke" stroke-linejoin="round" filter="url(#glow)" direction="rtl">ترسيم</text>
+</svg>
