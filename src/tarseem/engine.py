@@ -140,10 +140,33 @@ class RenderResult:
 
 
 class Engine:
-    """Public entry point. Stateless; safe to construct per render or reuse."""
+    """Public entry point. Safe to construct per render or reuse.
+
+    Plain ``Engine().render(spec)`` spawns a fresh ELK Node subprocess per graph-family render
+    (back-compat). For a batch — gallery, baseline regen — use it as a context manager:
+
+        with Engine() as engine:
+            for spec in specs:
+                engine.render(spec)   # one ELK Node session reused across all renders
+
+    The shared ELK layouter is opened lazily on the first graph-family render in the session and
+    closed on ``__exit__`` (so a session of only swimlanes/sequences never spawns Node).
+    """
 
     def __init__(self, node: str = "node") -> None:
         self._node = node
+        self._session = False
+        self._elk: ElkLayout | None = None
+
+    def __enter__(self) -> Engine:
+        self._session = True
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        self._session = False
+        elk, self._elk = self._elk, None
+        if elk is not None:
+            elk.__exit__(None, None, None)
 
     def render(self, spec: dict) -> RenderResult:
         result = validate(spec)
@@ -159,6 +182,13 @@ class Engine:
             diagram = LaneGridLayout().layout(graph)
         elif graph.diagram_type in _SEQUENCE_TYPES:
             diagram = SequenceLayout().layout(graph)
+        elif self._session:
+            # Batch session: open one ELK Node subprocess on first graph render, reuse it after.
+            if self._elk is None:
+                self._elk = ElkLayout(node=self._node)
+                self._elk.__enter__()
+            diagram = self._elk.layout(graph)
+            versions["elkjs"] = self._elk.capabilities()["elkjs_version"]
         else:
             with ElkLayout(node=self._node) as elk:
                 diagram = elk.layout(graph)

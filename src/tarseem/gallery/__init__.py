@@ -59,47 +59,49 @@ def build_gallery(
     samples: list[GallerySample] = []
     cards: list[str] = []
 
-    for path in sorted(paths, key=lambda p: p.stem):
-        name = path.stem
-        try:
-            spec = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            samples.append(
-                GallerySample(name, name, "?", ok=False, error=f"unreadable spec: {exc}")
-            )
-            cards.append(index_card(name, name, "?", "", [], ok=False))
-            continue
-
-        family = str(spec.get("diagramType", "?"))
-        title = str((spec.get("meta") or {}).get("title") or name)
-        spec_json = json.dumps(spec, indent=2, ensure_ascii=False)
-
-        try:
-            res = engine.render(spec)
-            svg = res.to_svg(provenance=True)
-            report = res.report
-        except Exception as exc:  # noqa: BLE001 - record any render failure, never drop it
-            samples.append(GallerySample(name, title, family, ok=False, error=str(exc)))
-            cards.append(index_card(name, title, family, "", [], ok=False))
-            _write(out_dir / f"{name}.html", page(
-                title, detail_body(name, title, family, "", spec_json, {}, [], error=str(exc))))
-            continue
-
-        _write(samples_dir / f"{name}.svg", svg)
-        downloads = [("SVG", f"samples/{name}.svg")]
-        if with_png:
+    # One ELK Node session reused across the whole corpus (instead of one spawn per spec).
+    with engine:
+        for path in sorted(paths, key=lambda p: p.stem):
+            name = path.stem
             try:
-                res.export(["png"], samples_dir, name)
-                downloads.append(("PNG", f"samples/{name}.png"))
-            except Exception:  # noqa: BLE001 - PNG is best-effort (Chromium optional here)
-                pass
+                spec = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                samples.append(
+                    GallerySample(name, name, "?", ok=False, error=f"unreadable spec: {exc}")
+                )
+                cards.append(index_card(name, name, "?", "", [], ok=False))
+                continue
 
-        metrics = _metrics_view(report)
-        tags = [f"{metrics['node_count']} nodes", f"{metrics['crossings']} crossings"]
-        cards.append(index_card(name, title, family, svg, tags, ok=True))
-        _write(out_dir / f"{name}.html", page(
-            title, detail_body(name, title, family, svg, spec_json, metrics, downloads, None)))
-        samples.append(GallerySample(name, title, family, ok=True, report=report))
+            family = str(spec.get("diagramType", "?"))
+            title = str((spec.get("meta") or {}).get("title") or name)
+            spec_json = json.dumps(spec, indent=2, ensure_ascii=False)
+
+            try:
+                res = engine.render(spec)
+                svg = res.to_svg(provenance=True)
+                report = res.report
+            except Exception as exc:  # noqa: BLE001 - record any render failure, never drop it
+                samples.append(GallerySample(name, title, family, ok=False, error=str(exc)))
+                cards.append(index_card(name, title, family, "", [], ok=False))
+                _write(out_dir / f"{name}.html", page(
+                    title, detail_body(name, title, family, "", spec_json, {}, [], error=str(exc))))
+                continue
+
+            _write(samples_dir / f"{name}.svg", svg)
+            downloads = [("SVG", f"samples/{name}.svg")]
+            if with_png:
+                try:
+                    res.export(["png"], samples_dir, name)
+                    downloads.append(("PNG", f"samples/{name}.png"))
+                except Exception:  # noqa: BLE001 - PNG is best-effort (Chromium optional here)
+                    pass
+
+            metrics = _metrics_view(report)
+            tags = [f"{metrics['node_count']} nodes", f"{metrics['crossings']} crossings"]
+            cards.append(index_card(name, title, family, svg, tags, ok=True))
+            _write(out_dir / f"{name}.html", page(
+                title, detail_body(name, title, family, svg, spec_json, metrics, downloads, None)))
+            samples.append(GallerySample(name, title, family, ok=True, report=report))
 
     _write(out_dir / "index.html", page("Tarseem Gallery", _index_html(cards)))
     return GalleryResult(out_dir=out_dir, samples=tuple(samples))

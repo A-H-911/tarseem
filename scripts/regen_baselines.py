@@ -77,15 +77,15 @@ def _render_samples(names: list[str], out_dir: Path, engine: Engine) -> list[Pat
 def regen() -> list[Path]:
     out_dir = baseline_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
-    engine = Engine()
-    written = _render_samples(BASELINE_SAMPLES, out_dir, engine)
-    # ELK families only when Node + the vendored bundle are present
     from tarseem.layout.elk import elk_available
 
-    if shutil.which("node") and elk_available():
-        written += _render_samples(ELK_SAMPLES, out_dir, engine)
-    else:
-        print("skipping ELK Arabic baselines (Node/elkjs unavailable)")
+    with Engine() as engine:  # reuse one ELK Node session across the batch
+        written = _render_samples(BASELINE_SAMPLES, out_dir, engine)
+        # ELK families only when Node + the vendored bundle are present
+        if shutil.which("node") and elk_available():
+            written += _render_samples(ELK_SAMPLES, out_dir, engine)
+        else:
+            print("skipping ELK Arabic baselines (Node/elkjs unavailable)")
     return written
 
 
