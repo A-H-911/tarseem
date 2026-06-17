@@ -13,8 +13,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image
-
 __all__ = ["DiffResult", "compare_png"]
 
 _DIFF_COLOR = (255, 0, 128)  # magenta highlight for changed pixels
@@ -62,7 +60,14 @@ def compare_png(
     ``tolerance`` is the max per-channel absolute difference (0..255) still counted as
     equal — a small value absorbs sub-pixel anti-aliasing jitter. If ``diff_out`` is given
     and the images are the same size, a diff image (changed pixels highlighted) is written.
-    """
+
+    Vectorized with NumPy (was a per-pixel Python loop — seconds per image on a full render).
+    Semantics are identical: a pixel is *changed* iff ANY channel's absolute difference exceeds
+    ``tolerance``; the diff image is the baseline with changed pixels painted magenta. NumPy + PIL
+    are imported lazily — this module is test-only tooling (``pillow``/``numpy`` are dev extras)."""
+    import numpy as np
+    from PIL import Image
+
     base = Image.open(baseline).convert("RGB")
     cur = Image.open(current).convert("RGB")
     if base.size != cur.size:
@@ -73,26 +78,16 @@ def compare_png(
         )
 
     w, h = base.size
-    braw = base.tobytes()  # raw RGB bytes, row-major (version-stable, fast)
-    craw = cur.tobytes()
-    out = bytearray(braw) if diff_out else None
-    dr, dg, db = _DIFF_COLOR
+    b = np.asarray(base, dtype=np.int16)  # (h, w, 3)
+    c = np.asarray(cur, dtype=np.int16)
+    changed = np.any(np.abs(b - c) > tolerance, axis=2)  # (h, w) bool — same > rule per channel
+    diff_count = int(changed.sum())
 
-    diff_count = 0
-    for i in range(0, len(braw), 3):
-        changed = (
-            abs(braw[i] - craw[i]) > tolerance
-            or abs(braw[i + 1] - craw[i + 1]) > tolerance
-            or abs(braw[i + 2] - craw[i + 2]) > tolerance
-        )
-        if changed:
-            diff_count += 1
-            if out is not None:
-                out[i], out[i + 1], out[i + 2] = dr, dg, db
-
-    if out is not None and diff_out is not None:
+    if diff_out is not None:
+        out = np.array(base)  # uint8 copy of the baseline; paint changed pixels magenta
+        out[changed] = _DIFF_COLOR
         Path(diff_out).parent.mkdir(parents=True, exist_ok=True)
-        Image.frombytes("RGB", (w, h), bytes(out)).save(diff_out)
+        Image.fromarray(out, "RGB").save(diff_out)
 
     return DiffResult(
         width=w, height=h, diff_pixels=diff_count, total_pixels=w * h, size_mismatch=False
