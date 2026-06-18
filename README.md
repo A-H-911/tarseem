@@ -35,8 +35,9 @@ come out of the *same* geometry.
 - 📐 **One positioned IR, many writers.** `spec → validate → IR → measure → layout → positioned IR → writers`. No writer computes its own layout, so every format agrees pixel-for-pixel.
 - ✍️ **Editable exports, not screenshots.** The `.drawio` and `.pptx` writers emit real shapes you can open and edit — with an honest **capability report** of anything a format can't carry (invariant: *never silent drops*).
 - 🔁 **Deterministic by design.** Pinned elkjs + Chromium; the same spec produces byte-identical output, and every artifact embeds its spec hash + engine versions.
-- 🧩 **Many diagram families.** Flowchart, architecture / C4, dependency, swimlane, sequence, ER, state, deployment, UML class, and mindmap — all through one schema and one engine.
-- 🔌 **Extensible.** Diagram types are plugins registered via entry points; the built-ins use the exact same mechanism.
+- 🧩 **Eleven diagram families.** Flowchart, architecture / C4, dependency, swimlane, sequence, ER, state, deployment, UML class, mindmap, and activity — all through one schema and one engine.
+- 🤖 **Agent-ready.** A pure `generate(spec) → JSON` function that never raises on bad input (coded, path-precise errors to self-repair against), a published JSON-Schema bundle for LLM tool-use, and a ready-to-use [reference skill](integrations/claude-skill/SKILL.md).
+- 🔌 **Extensible.** Diagram types are entry-point plugins (ADR-008); the eleven built-ins register through the *same* public mechanism third-party families use.
 
 ## How it works
 
@@ -47,7 +48,7 @@ come out of the *same* geometry.
 
 ## Quick start
 
-> Tarseem is pre-release (`0.0.0`) and not yet published to PyPI — install from source.
+> **Tarseem v1.0.0** — schema frozen at v1.0 (Apache-2.0). Install from source (Python ≥ 3.10):
 
 ```bash
 git clone https://github.com/A-H-911/tarseem.git
@@ -91,6 +92,38 @@ tarseem export  hello.json -f png,pdf,drawio,pptx  # every other format
 <div align="center">
 <img src="docs/assets/readme/flowchart.png" alt="Rendered flowchart with start node, decision diamond, and yes/no branches" width="360">
 </div>
+
+## Use it from an agent or LLM
+
+Tarseem has a first-class **agent surface**: one pure function that renders a spec to JSON and
+**never raises on a bad spec** — invalid input comes back as coded, path-precise errors an agent can
+self-repair against. Full guide: **[`docs/guide/agents.md`](docs/guide/agents.md)**.
+
+```python
+from tarseem import generate, schema_bundle
+
+out = generate(spec)                 # default: inline SVG, no files, no browser
+if out["ok"]:
+    svg, metrics = out["svg"], out["report"]
+else:
+    for e in out["errors"]:          # {code, path, message, hint} — path is a JSON Pointer
+        print(e["code"], e["path"], "->", e["hint"])
+
+tool_schema = schema_bundle()        # JSON-Schema (2020-12) for LLM tool-use / editor $schema
+```
+
+- **SVG by default, Chromium-free.** PNG/PDF/draw.io/PPTX need an `out_dir`; raster runs in a
+  subprocess, so `generate` is safe to call from inside an async agent / MCP event loop.
+- **CLI faces** for shell and agent harnesses:
+  ```bash
+  tarseem generate spec.json -f svg,png -o build/   # JSON {artifacts, report} on stdout (exit 1 if !ok)
+  tarseem schema   -o tarseem.schema.json           # emit the JSON-Schema bundle
+  tarseem migrate  old.json -o new.json             # upgrade a spec to schema v1.0
+  ```
+- **Reference skill** — **[`integrations/claude-skill/SKILL.md`](integrations/claude-skill/SKILL.md)**
+  is ready to drop into an agent's skills directory: discover the schema, author a spec, `generate`,
+  then self-repair against the error contract. New plugin families appear in `schema_bundle()`
+  automatically — no change to the agent surface.
 
 ## Gallery
 
@@ -142,6 +175,9 @@ Every writer returns a **capability report** declaring what it carried and what 
 tarseem validate <spec>                 # validate; coded errors to stdout
 tarseem render   <spec> -o out.svg      # render to canonical SVG
 tarseem export   <spec> -f svg,png,pdf,drawio,pptx -o out/
+tarseem generate <spec> -f svg,png -o out/   # agent surface: render -> JSON {artifacts, report}
+tarseem schema   -o tarseem.schema.json # emit the JSON-Schema bundle (IDE / LLM tool-use)
+tarseem migrate  <spec> -o new.json     # upgrade a spec to the current schema version (1.0)
 tarseem doctor                          # verify Node / elkjs / Chromium / fonts
 tarseem examples                        # list bundled example specs
 tarseem gallery                         # build the static HTML gallery from examples/
@@ -160,11 +196,26 @@ Tarseem holds a small set of non-negotiable invariants (changing one requires an
 7. **Determinism** — pinned engines; same spec ⇒ identical output.
 8. **Diagram types are plugins** registered via entry points.
 
-Full design lives in [`docs/plan/`](docs/plan/) (the approved contract) and [`docs/adr/`](docs/adr/) (decisions ADR-001…007).
+Full design lives in [`docs/plan/`](docs/plan/) (the approved contract) and [`docs/adr/`](docs/adr/) (decisions ADR-001…009).
+
+## Documentation
+
+| Guide | What |
+|---|---|
+| [Quick start](docs/guide/quickstart.md) | First spec → diagram |
+| [Diagram families](docs/guide/families.md) | All 11 families and their spec shapes |
+| [Arabic / RTL](docs/guide/rtl-arabic.md) | Shaping, geometry mirroring, fonts |
+| [Exports](docs/guide/exports.md) · [PowerPoint](docs/guide/powerpoint.md) | Formats + editable-export fidelity |
+| [Agent & tool integration](docs/guide/agents.md) | `generate`, the schema bundle, the reference skill |
+| [Extending — clone a type](docs/extending/clone-a-type.md) | Add a diagram type as a plugin |
+| [Limitations](docs/guide/limitations.md) · [Troubleshooting](docs/guide/troubleshooting.md) | Known ceilings + error-code catalog |
+| [Architecture decisions](docs/adr/) | ADR-001…009 |
+
+Want to contribute? See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ## Project status
 
-MVP is shipped; the engine is feature-broad and under active development toward a 1.0 freeze.
+**v1.0.0 — released (schema frozen at v1.0).** Phases 0–7 complete; full acceptance F1–F12 met (see [`docs/phase-7-acceptance-audit.md`](docs/phase-7-acceptance-audit.md)).
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -175,9 +226,9 @@ MVP is shipped; the engine is feature-broad and under active development toward 
 | 4 | Styling, themes & Arabic / RTL | ✅ done |
 | 5 | Advanced layout, routing & remaining families | ✅ done |
 | 6 | Export & editability (draw.io, PPTX, PDF; class, mindmap) | ✅ done |
-| 7 | **Extensibility & agent readiness** (plugin API, agent surface, 1.0 freeze) | 🔜 next |
+| 7 | Extensibility & agent readiness (entry-point plugins, agent surface, schema v1 freeze) | ✅ done |
 
-> Deferred to a future feature: Mermaid / PlantUML source writers, and a searchable-Arabic PDF text layer.
+> Deferred: Mermaid / PlantUML source writers, a searchable-Arabic PDF text layer, and the mkdocs-material site + auto-generated per-object schema reference (presentation/tooling, not engine capability).
 
 ## Development
 
