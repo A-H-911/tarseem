@@ -54,7 +54,7 @@ mindmap = "tarseem.families.mindmap:PLUGIN"
 activity = "tarseem.families.activity:PLUGIN"
 
 [project.urls]
-Homepage = "https://github.com/AnasHammo/tarseem"
+Homepage = "https://github.com/A-H-911/tarseem"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tarseem"]
