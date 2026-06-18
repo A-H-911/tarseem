@@ -10,7 +10,6 @@
     { "id": "decide", "shape": "diamond", "label": { "text": "Over $1k?" } },
     { "id": "manager", "label": { "text": "Manager Review" } },
     { "id": "auto", "label": { "text": "Auto-Approve" } },
-    { "id": "merge", "shape": "diamond", "label": { "text": "" } },
     { "id": "provision", "label": { "text": "Provision" } },
     { "id": "end", "shape": "final", "label": { "text": "" } }
   ],
@@ -20,9 +19,8 @@
     { "id": "e3", "source": "validate", "target": "decide" },
     { "id": "e4", "source": "decide", "target": "manager", "label": { "text": "yes" } },
     { "id": "e5", "source": "decide", "target": "auto", "label": { "text": "no" } },
-    { "id": "e6", "source": "manager", "target": "merge" },
-    { "id": "e7", "source": "auto", "target": "merge" },
-    { "id": "e8", "source": "merge", "target": "provision" },
-    { "id": "e9", "source": "provision", "target": "end" }
+    { "id": "e6", "source": "manager", "target": "provision" },
+    { "id": "e7", "source": "auto", "target": "provision" },
+    { "id": "e8", "source": "provision", "target": "end" }
   ]
 }
