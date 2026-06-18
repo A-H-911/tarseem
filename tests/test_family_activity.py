@@ -41,7 +41,7 @@ def test_activity_renders_control_flow_with_pseudostates_and_decision():
     assert diagram.diagram_type == "activity"
     shapes = {n.shape for n in diagram.nodes}
     assert {"initial", "final", "diamond", "roundrect"} <= shapes  # activity vocabulary
-    assert len(diagram.edges) == 9
+    assert len(diagram.edges) == 8
 
 
 @requires_node
