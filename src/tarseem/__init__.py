@@ -14,7 +14,7 @@ Agent surface (F11) — one call, JSON in / JSON out, never raises for a bad spe
 """
 from __future__ import annotations
 
-__version__ = "0.0.0"
+__version__ = "1.0.0"
 
 from tarseem.agent import generate  # noqa: E402 - agent surface (imports engine internally)
 from tarseem.engine import Engine, RenderResult  # noqa: E402  (needs __version__ first)

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tarseem"
-version = "0.0.0"
+version = "1.0.0"
 description = "Schema-driven Python diagram engine: validated JSON specs to architecture-grade diagrams."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,7 +12,7 @@ license = { file = "LICENSE" }
 authors = [{ name = "Anas Hammo" }]
 keywords = ["diagrams", "svg", "elk", "swimlane", "arabic", "rtl", "drawio", "pptx"]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 5 - Production/Stable",
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.12",
