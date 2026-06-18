@@ -65,6 +65,7 @@ landing); no `examples/` golden changed, no baseline regen.
   internally (`layout/elk/__init__.py`). This is an ELK-internal detail, not family routing, and
   does **not** block an external clone (which reuses ELK-layered + the generic renderer). Exposing
   custom ELK options through the plugin is a future extension, not required for F9.
+  Tracked as **TD-001** in `docs/backlog.md`.
 - `EDGE_WIDTH_DEFAULT` (a per-family styling table in `geometry.py`) is left as a shared constant;
   it is styling data, not dispatch. May migrate onto the plugin later.
 - `schema_extension` is part of the contract but not yet enforced by validation (the core accepts
