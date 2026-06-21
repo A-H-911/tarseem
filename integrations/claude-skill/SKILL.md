@@ -7,8 +7,9 @@ description: Generate architecture-grade diagrams (flowchart, swimlane/process, 
 
 A reference integration of the Tarseem **agent surface** (`tarseem generate` / `tarseem schema`).
 It turns a diagram request into a validated JSON spec, renders it, and reads back a machine
-contract you can self-repair against. Tarseem must be installed (`pip install -e .` from its repo,
-or `pip install tarseem`); verify with `tarseem doctor`.
+contract you can self-repair against. Tarseem must be installed and on PATH — recommended:
+`pipx install -e <path-to-tarseem-repo>` (works from any session); or `pip install -e .` inside an
+activated venv. Verify with `tarseem doctor` (it must pass before you render).
 
 ## Workflow
 
@@ -17,7 +18,7 @@ or `pip install tarseem`); verify with `tarseem doctor`.
    installed plugins). Pick the family that fits the request.
 
 2. **Author a spec** (JSON) against that schema. Essentials:
-   - `specVersion` (e.g. `"0.1"`) and `diagramType` are required.
+   - `specVersion` (must be `"1.0"` — the schema is frozen at v1) and `diagramType` are required.
    - **Labels are objects, never bare strings:** `{"text": "Place order"}`; add `"lang": "ar"`
      for Arabic. Set top-level `"direction": "RL"` for right-to-left/Arabic layouts.
    - `nodes` have `id` + `label` (+ optional `shape`); `edges` have `source` + `target`
@@ -51,7 +52,7 @@ Request "swimlane: Sales places an order, Warehouse ships it." First spec omits 
 ```json
 { "ok": false, "errors": [
   { "code": "E_SCHEMA", "path": "/", "message": "'specVersion' is a required property",
-    "hint": "add specVersion, e.g. \"0.1\"" } ] }
+    "hint": "add specVersion, e.g. \"1.0\"" } ] }
 ```
 
 Add `"specVersion": "1.0"`, flesh out nodes/edges, re-run → `{ "ok": true, "svg": "<svg …>", … }`.
